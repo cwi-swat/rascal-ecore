@@ -15,11 +15,8 @@ void smokeTest() {
   Foo x = load(#Foo, |file:///|);
   println("x = <x>");
   assert x == foo();
-  x2 = patch(x, |file:///|);
-  assert x2 == x; 
 }
 
-// for now, value :-(
 @javaClass{lang.ecore.IO}
-java value load(type[&T<:node] meta, loc src);
+java &T<:node load(type[&T<:node] meta, loc src);
 
