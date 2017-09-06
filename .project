@@ -3,6 +3,7 @@
 	<name>rascal-ecore</name>
 	<comment></comment>
 	<projects>
+		<project>rascal-mt</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

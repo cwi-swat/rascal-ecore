@@ -23,7 +23,6 @@ void smokeTest() {
   //assert x == foo();
 }
 
-@reflect
 @javaClass{lang.ecore.IO}
 java &T<:node load(type[&T<:node] meta, loc src);
 

@@ -10,17 +10,14 @@ import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EObject;
-import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
-import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
 
-import activitydiagram.ActivitydiagramPackage;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
@@ -53,16 +50,21 @@ public class IO {
 		this.tf = TypeFactory.getInstance();
 	}
 	
-	public IValue load(IValue reifiedType, ISourceLocation loc, IEvaluatorContext ctx) {
-		
+	public IValue load(IValue reifiedType, ISourceLocation loc) {
 		TypeStore ts = new TypeStore();
 		Type rt = tr.valueToType((IConstructor)reifiedType, ts);
 		
-		//FIXME: use @loc
-		Resource model = loadEMF("platform:/resource/org.modelexecution.operationalsemantics.ad.test/model/xmi/test1.xmi");
-		EObject root = model.getContents().get(0);
+		EObject root = loadModel(loc.getURI().toString());
 		
 		return visit(root, rt, ts);
+	}
+
+	public EObject loadModel(String uri) {
+		ResourceSet rs = new ResourceSetImpl();
+		rs.getResourceFactoryRegistry().getExtensionToFactoryMap()
+			.put("*", new XMIResourceFactoryImpl());
+		Resource res = rs.getResource(URI.createURI(uri), true);
+		return res.getContents().get(0);
 	}
 	
 	/**
@@ -332,23 +334,6 @@ public class IO {
 		//FIXME: manage enum
 		
 		return null;
-	}
-	
-	/**
-	 * Load an EMF model
-	 */
-	private Resource loadEMF(String modelUri) {
-		
-		ResourceSet rs = new ResourceSetImpl();
-		rs.getResourceFactoryRegistry().getExtensionToFactoryMap().put("*", new XMIResourceFactoryImpl());
-		
-		//FIXME: to be removed
-		EPackage.Registry.INSTANCE.put(ActivitydiagramPackage.eNS_URI, ActivitydiagramPackage.eINSTANCE);
-		
-		URI modelURI = URI.createURI(modelUri);
-		Resource model = rs.getResource(modelURI,true);
-		
-		return model;
 	}
 	
 	private String toFirstLowerCase(String s) {
