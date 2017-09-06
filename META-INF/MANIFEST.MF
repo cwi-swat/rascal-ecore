@@ -3,5 +3,8 @@ Bundle-ManifestVersion: 2
 Bundle-Name: rascal_ecore
 Bundle-SymbolicName: rascal_ecore
 Bundle-Version: 1.0.0
-Require-Bundle: rascal_eclipse;bundle-version="0.8.4"
+Require-Bundle: rascal_eclipse;bundle-version="0.8.4",
+ org.eclipse.emf.ecore,
+ org.eclipse.emf.ecore.xmi,
+ org.modelexecution.operationalsemantics.ad
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
