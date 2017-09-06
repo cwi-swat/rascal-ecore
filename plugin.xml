@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension
+         id="rascal-ecore-library"
+         name="rascal-ecore"
+         point="rascal_eclipse.rascalLibrary">
+   </extension>
+
+</plugin>
