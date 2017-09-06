@@ -17,6 +17,7 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.rascalmpl.interpreter.TypeReifier;
+import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.ISourceLocation;
@@ -42,7 +43,7 @@ public class IO {
 	/**
 	 * Store the UID of each referenced EObject 
 	 */
-	Map<EObject,Integer> eObjectToUid = new HashMap<>();
+	Map<EObject, Integer> eObjectToUid = new HashMap<>();
 	
 	public IO(IValueFactory vf) {
 		this.vf = vf;
@@ -52,7 +53,7 @@ public class IO {
 	
 	public IValue load(IValue reifiedType, ISourceLocation loc) {
 		TypeStore ts = new TypeStore();
-		Type rt = tr.valueToType((IConstructor)reifiedType, ts);
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
 		
 		EObject root = loadModel(loc.getURI().toString());
 		
@@ -71,8 +72,7 @@ public class IO {
 	 * Build ADT while visiting EObject content
 	 */
 	private IValue visit(Object obj, Type type, TypeStore ts) {
-		
-		if(obj instanceof EObject) {
+		if (obj instanceof EObject) {
 			EObject eObj = (EObject) obj;
 			EClass eCls = eObj.eClass();
 			Type t = ts.lookupConstructor(type, toFirstLowerCase(eCls.getName())).iterator().next();
@@ -337,8 +337,6 @@ public class IO {
 	}
 	
 	private String toFirstLowerCase(String s) {
-		char c[] = s.toCharArray();
-		c[0] = Character.toLowerCase(c[0]);
-		return new String(c);
+		return s.substring(0, 1).toUpperCase() + s.substring(1);
 	}
 }
