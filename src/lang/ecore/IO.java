@@ -1,30 +1,51 @@
 package lang.ecore;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.eclipse.emf.common.util.BasicEList;
+import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
+import org.eclipse.emf.ecore.EFactory;
 import org.eclipse.emf.ecore.EObject;
+import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.rascalmpl.interpreter.TypeReifier;
 
+import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IDateTime;
+import io.usethesource.vallang.IExternalValue;
+import io.usethesource.vallang.IInteger;
+import io.usethesource.vallang.IList;
+import io.usethesource.vallang.IMap;
+import io.usethesource.vallang.INode;
+import io.usethesource.vallang.IRational;
+import io.usethesource.vallang.IReal;
+import io.usethesource.vallang.ISet;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
+import io.usethesource.vallang.visitors.IValueVisitor;
+import io.usethesource.vallang.visitors.NullVisitor;
 
 /**
  * This class provide a load method to get an ADT from an EMF model
@@ -34,35 +55,240 @@ public class IO {
 	private TypeReifier tr;
 	private TypeFactory tf;
 	
-	/**
-	 * Counter used to make UIDs
-	 */
-	int COUNTER = 0;
-	
-	/**
-	 * Store the UID of each referenced EObject 
-	 */
-	Map<EObject, Integer> eObjectToUid = new HashMap<>();
-	
 	public IO(IValueFactory vf) {
 		this.vf = vf;
 		this.tr = new TypeReifier(vf);
 		this.tf = TypeFactory.getInstance();
+
+		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
+			.put("*", new XMIResourceFactoryImpl());
 	}
-	
-	public IValue load(IValue reifiedType, ISourceLocation loc) {
+
+	public IValue load(IValue reifiedType, ISourceLocation uri) {
 		TypeStore ts = new TypeStore();
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
 		
-		EObject root = loadModel(loc.getURI().toString());
+		EObject root = loadModel(uri.getURI().toString());
 		
 		return visit(root, rt, ts);
 	}
 
+	public void save(INode model, ISourceLocation pkgUri, ISourceLocation uri) {
+		ResourceSet rs = new ResourceSetImpl();
+		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
+		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
+
+		ModelBuilder builder = new ModelBuilder(pkg);
+		EObject root = (EObject) model.accept(builder);
+
+		// FIXME: Actually, when encountering a ref(id(_)) in the tree,
+		// it should be possible to get the type it refers to,
+		// create a placeholder object for it, and later fill the
+		// structural features when encountering the real object.
+		// Thus, getting rid of the second traversal.
+		
+		CrossRefResolver resolver = new CrossRefResolver(builder.getUids());
+		model.accept(resolver);
+		
+		try {
+			res.getContents().add(root);
+			res.save(Collections.EMPTY_MAP);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
+		private EPackage pkg;
+		private Map<IValue, EObject> uids = new HashMap<>();
+
+		public ModelBuilder(EPackage pkg) {
+			this.pkg  = pkg;
+		}
+
+		public Map<IValue, EObject> getUids() {
+			return uids;
+		}
+		
+		@Override
+		public Object visitConstructor(IConstructor o) throws RuntimeException {
+			String clsName = toFirstUpperCase(o.getName());
+			EClass eCls = (EClass) pkg.getEClassifier(clsName);
+			
+			if (eCls != null) { // Create corresponding concept
+				EFactory fact = pkg.getEFactoryInstance();
+				EObject newObj = fact.create(eCls);
+				IWithKeywordParameters<? extends IConstructor> c = o.asWithKeywordParameters();
+				
+				if (c.hasParameter("uid")) {
+					IConstructor cUid = (IConstructor) c.getParameter("uid");
+					ISourceLocation uid = (ISourceLocation) cUid.get(0);
+					uids.put(uid, newObj);
+				}
+				
+				int i = 0;
+				for (IValue v : o.getChildren()) {
+					String fieldName = o.getChildrenTypes().getFieldName(i);
+					EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
+					Object newVal = v.accept(this);
+					newObj.eSet(toSet, newVal);
+					i++;
+				}
+				
+				return newObj;
+			}
+			
+			// Don't handle Ref[T] for now, they'll be resolved later
+			
+			return null;
+		}
+		
+		@Override
+		public Object visitNode(INode o) throws RuntimeException {
+			o.forEach(val -> val.accept(this));
+			return null;
+		}
+		
+		@Override
+		public Object visitList(IList o) throws RuntimeException {
+			EList<Object> l = new BasicEList<>();
+			o.forEach(e ->
+				l.add(e.accept(this))
+			);
+			return l;
+		}
+		
+		@Override
+		public Object visitString(IString o) throws RuntimeException {
+			return o.getValue();
+		}
+
+		@Override
+		public Object visitBoolean(IBool o) throws RuntimeException {
+			return o.getValue();
+		}
+
+		@Override
+		public Object visitDateTime(IDateTime o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitExternal(IExternalValue o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitInteger(IInteger o) throws RuntimeException {
+			return o.intValue();
+		}
+
+		@Override
+		public Object visitListRelation(IList o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitMap(IMap o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitRational(IRational o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitReal(IReal o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitRelation(ISet o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitSet(ISet o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitSourceLocation(ISourceLocation o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public Object visitTuple(ITuple o) throws RuntimeException {
+			throw new UnsupportedOperationException();
+		}
+		
+		private String toFirstUpperCase(String s) {
+			return s.substring(0, 1).toUpperCase() + s.substring(1);
+		}
+	}
+
+	private static class CrossRefResolver extends NullVisitor<Void, RuntimeException> {
+		private Map<IValue, EObject> uids;
+
+		public CrossRefResolver(Map<IValue, EObject> uids) {
+			this.uids = uids;
+		}
+		
+		@Override
+		public Void visitConstructor(IConstructor o) throws RuntimeException {
+			IWithKeywordParameters<? extends IConstructor> c = o.asWithKeywordParameters();
+			
+			if (c.hasParameter("uid")) {
+				IConstructor cUid = (IConstructor) c.getParameter("uid");
+				ISourceLocation uid = (ISourceLocation) cUid.get(0);
+				EObject me = uids.get(uid);
+				
+				int i = 0;
+				for (IValue child : o.getChildren()) {
+					String fieldName = o.getChildrenTypes().getFieldName(i);
+					EStructuralFeature toSet = me.eClass().getEStructuralFeature(fieldName);
+					if (child instanceof IConstructor) {
+						IConstructor childCons = (IConstructor) child;
+						if (isRef(childCons)) {
+							IConstructor id = (IConstructor) childCons.get(0);
+							ISourceLocation refUid = (ISourceLocation) id.get(0);
+							EObject resolved = lookup(refUid);
+							me.eSet(toSet, resolved);
+						}
+					}
+					
+					child.accept(this);
+					i++;
+				}
+			}
+
+			return null;
+		}
+
+		private boolean isRef(IConstructor o) {
+			return "ref".equals(o.getName()) && "Ref".equals(o.getType().getName());
+		}
+
+		private EObject lookup(ISourceLocation uid) {
+			return uids.get(uid);
+		}
+		
+		@Override
+		public Void visitNode(INode o) throws RuntimeException {
+			o.forEach(val -> val.accept(this));
+			return null;
+		}
+		
+		@Override
+		public Void visitList(IList o) throws RuntimeException {
+			o.forEach(e -> e.accept(this));
+			return null;
+		}
+	}
+
 	private EObject loadModel(String uri) {
 		ResourceSet rs = new ResourceSetImpl();
-		rs.getResourceFactoryRegistry().getExtensionToFactoryMap()
-			.put("*", new XMIResourceFactoryImpl());
 		Resource res = rs.getResource(URI.createURI(uri), true);
 		return res.getContents().get(0);
 	}
@@ -106,7 +332,7 @@ public class IO {
 			}
 			
 			Map<String,IValue> keywords = new HashMap<>();
-			keywords.put("uid", getOrCreateId(eObj));
+			keywords.put("uid", getIdFor(eObj));
 			IValue[] arr = new IValue[fields.size()];
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
@@ -221,26 +447,15 @@ public class IO {
 	}
 	
 	/**
-	 * Return id(num)
+	 * Retrieve an unique id for an EObject.
+	 * In our case, its URI.
 	 */
-	private IValue makeId(int num) {
+	private IValue getIdFor(EObject obj) {
 		TypeStore ts = new TypeStore();
 		Type idType = tf.abstractDataType(ts, "Id");
-		Type id_int = tf.constructor(ts, idType, "id", tf.integerType());
-		
-		return vf.constructor(id_int, vf.integer(num));
-	}
-	
-	/**
-	 * Make unique Id for {@link obj}
-	 */
-	private IValue getOrCreateId(EObject obj) {
-		Integer uid = eObjectToUid.get(obj);
-		if (uid == null) {
-			uid = COUNTER++;
-			eObjectToUid.put(obj,uid);
-		}
-		return makeId(uid);
+		Type idCons = tf.constructor(ts, idType, "id", tf.sourceLocationType());
+		return vf.constructor(idCons, vf.sourceLocation(
+			java.net.URI.create(EcoreUtil.getURI(obj).toString())));
 	}
 	
 	/**
@@ -261,7 +476,7 @@ public class IO {
 		Type params = tf.tupleType(new Type[]{idType}, new String[]{"uid"});
 		Type ref_id = tf.constructorFromTuple(ts, refType, "ref", params);
 		
-		return vf.constructor(ref_id, getOrCreateId(eObj));
+		return vf.constructor(ref_id, getIdFor(eObj));
 	}
 	
 	/**
@@ -272,6 +487,7 @@ public class IO {
 			return vf.bool((Boolean) obj);
 		}
 		else if (obj instanceof Byte) { // FIXME: Rascal's byte?
+			return vf.integer((Byte) obj);
 		}
 		else if (obj instanceof Character) { // FIXME: Rascal's char?
 			return vf.string(Character.toString((Character) obj));
@@ -286,10 +502,10 @@ public class IO {
 			return vf.integer((Long) obj);
 		}
 		else if (obj instanceof Short) { // FIXME: Rascal's short?
-			return vf.integer((Short)obj);
+			return vf.integer((Short) obj);
 		}
 		else if (obj instanceof Float) { // FIXME: Rascal's float?
-			return vf.real((Float)obj);
+			return vf.real((Float) obj);
 		}
 		else if (obj instanceof String) {
 			return vf.string((String) obj);
