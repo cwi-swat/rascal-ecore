@@ -1,7 +1,7 @@
 package lang.ecore;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +25,8 @@ import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.rascalmpl.interpreter.TypeReifier;
+import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
+import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
@@ -57,8 +59,6 @@ public class IO {
 	private TypeReifier tr;
 	private TypeFactory tf;
 	
-	int COUNTER = 0;
-
 	public IO(IValueFactory vf) {
 		this.vf = vf;
 		this.tr = new TypeReifier(vf);
@@ -513,13 +513,15 @@ public class IO {
 		TypeStore ts = new TypeStore();
 		Type idType = tf.abstractDataType(ts, "Id");
 		Type idCons = tf.constructor(ts, idType, "id", tf.sourceLocationType());
-		java.net.URI uriId = null;
+		URI eUri = EcoreUtil.getURI(obj);
+		
 		try {
-			uriId = java.net.URI.create(EcoreUtil.getURI(obj).toString());
-		} catch (Exception e) {
-			uriId = java.net.URI.create("http://" + COUNTER++);
+			java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());
+			return vf.constructor(idCons, vf.sourceLocation(uriId));
+		} catch (URISyntaxException e) {
+			throw RuntimeExceptionFactory.malformedURI(eUri.toString(), null, null);
 		}
-		return vf.constructor(idCons, vf.sourceLocation(uriId));
+		
 	}
 	
 	/**
