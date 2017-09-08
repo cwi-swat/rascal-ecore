@@ -2,7 +2,7 @@ module lang::ecore::Ecore
 
 // source: http://download.eclipse.org/modeling/emf/emf/javadoc/2.9.0/org/eclipse/emf/ecore/package-summary.html
 
-// needed because of typereification bug.
+// somehow needed to get Ref[X] instead of Ref[&T]
 extend lang::ecore::Refs;
 
 data EPackage(Id uid = noId())

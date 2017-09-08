@@ -59,6 +59,7 @@ public class IO {
 	private final IValueFactory vf;
 	private final TypeReifier tr;
 	private final TypeFactory tf = TypeFactory.getInstance();
+	private final TypeStore refsTs;
 	private TypeStore ts;
 	private IEvaluatorContext ctx;
 	
@@ -69,26 +70,37 @@ public class IO {
 		
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
 			.put("*", new XMIResourceFactoryImpl());
-	}
-
-	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
-		this.ctx = ctx;
-		this.ts = new TypeStore(); // start afresh
-
 		
-		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
-
-		// Cheat: build Ref here
+  	// Cheat: build Ref/Id here
 		// (until TypeReification issue is resolved with generic ADTs)
 		// data Ref[&T]
 		//	  = ref(Id uid)
 		//	  	  | null()
 		//	  	  ;
+		// data Id = id(int n) | id(loc uri);
 		
-		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
-		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
-		tf.constructor(ts, refType, "null");
+		refsTs = new TypeStore();
+		
+		Type idType = tf.abstractDataType(refsTs, "Id");
+		tf.constructor(refsTs, idType, "id", tf.integerType(), "n");
+		tf.constructor(refsTs, idType, "id", tf.sourceLocationType(), "uri");
+		
+		Type refType = tf.abstractDataType(refsTs, "Ref", tf.parameterType("T"));
+		tf.constructor(refsTs, refType, "ref", idType, "uid");
+		tf.constructor(refsTs, refType, "null");
 
+	}
+
+	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
+		this.ctx = ctx;
+		
+		// FIXME: should not be a field.
+		this.ts = new TypeStore(); // start afresh
+		
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+		this.ts.importStore(refsTs);
+
+		
 		if (!(uri.getScheme().equals("file") || uri.getScheme().equals("http"))) {
 			throw RuntimeExceptionFactory.schemeNotSupported(uri, null, null);
 		}
@@ -503,7 +515,7 @@ public class IO {
 		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
-			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem)).collect(Collectors.toList());
+			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, fieldType)).collect(Collectors.toList());
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
 
@@ -521,7 +533,7 @@ public class IO {
 				}
 			}
 		} else {
-			return makeRefTo((EObject) refValue);
+			return makeRefTo((EObject) refValue, fieldType);
 		}
 
 	}
@@ -547,7 +559,7 @@ public class IO {
 	/**
 	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
-	private IValue makeRefTo(EObject eObj) {
+	private IValue makeRefTo(EObject eObj, Type fieldType) {
 		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
 		if (eObj == null) {
