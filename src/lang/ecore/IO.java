@@ -1,10 +1,12 @@
 package lang.ecore;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.eclipse.emf.common.util.BasicEList;
@@ -55,6 +57,8 @@ public class IO {
 	private TypeReifier tr;
 	private TypeFactory tf;
 	
+	int COUNTER = 0;
+
 	public IO(IValueFactory vf) {
 		this.vf = vf;
 		this.tr = new TypeReifier(vf);
@@ -297,14 +301,17 @@ public class IO {
 	 * Build ADT while visiting EObject content
 	 */
 	private IValue visit(Object obj, Type type, TypeStore ts) {
+		System.out.println("visit("+obj+","+type+")");
 		if (obj instanceof EObject) {
 			EObject eObj = (EObject) obj;
 			EClass eCls = eObj.eClass();
 
 			// FIXME: Assuming that there's a unique constructor with the EClass' name
 			Type t = ts.lookupConstructor(type, toFirstLowerCase(eCls.getName())).iterator().next();
+			Map<String, Type> kws = ts.getKeywordParameters(t);
 			
 			List<IValue> fields = new ArrayList<>();
+			System.out.println("Fields of " + t + " = " + t.getFieldTypes());
 			for (int i = 0; i < t.getArity(); i++) {
 				// Rascal side
 				String fieldName = t.getFieldName(i);
@@ -313,6 +320,8 @@ public class IO {
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				Object featureValue = eObj.eGet(feature);
+				
+				System.out.println("For " + fieldName + ": found " + feature);
 
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
@@ -332,8 +341,60 @@ public class IO {
 			}
 			
 			Map<String,IValue> keywords = new HashMap<>();
+			
+			for (Entry<String, Type> e : kws.entrySet()) {
+				// Rascal side
+				String fieldName = e.getKey();
+				Type fieldType = e.getValue();
+
+				if (fieldName.equals("uid"))
+					continue;
+				
+				// EMF side
+				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
+				
+				System.out.println("Looking for " + fieldName + " in " + eCls.getName());
+				Object featureValue = eObj.eGet(feature);
+				
+				if (!eObj.eIsSet(feature))
+					continue;
+				
+				System.out.println("For kw " + fieldName + ": found " + feature);
+
+				if (feature instanceof EReference) {
+					// Then featureValue is an EObject
+					EReference ref = (EReference) feature;
+					if (ref.isContainment()) {
+//						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
+						IValue x = visitContainmentRef(ref, featureValue, fieldType, ts);
+						if (x != null)
+							keywords.put(fieldName, x);
+					}
+					else {
+//						fields.add(visitReference(ref, featureValue, fieldType));
+						IValue x = visitReference(ref, featureValue, fieldType);
+						if (x != null)
+							keywords.put(fieldName, x);
+					}
+				}
+				else if (feature instanceof EAttribute) {
+					// Then featureValue is a primitive type
+					EAttribute att = (EAttribute) feature;
+//					fields.add();
+					IValue x = visitAttribute(att, featureValue, fieldType, ts);
+					if (x != null)
+						keywords.put(fieldName, x);
+				}
+			}
+			
 			keywords.put("uid", getIdFor(eObj));
 			IValue[] arr = new IValue[fields.size()];
+			for (IValue v : fields) {
+				System.out.println("\tv="+v);
+			}
+//			for (IValue kw : keywords) {
+//				System.out.println(\tkw="+kw");
+//			}
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
 		else {
@@ -346,6 +407,7 @@ public class IO {
 	 * Returns IValue for an EAttribute
 	 */
 	private IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
+		System.out.println("visitAttr("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue)).collect(Collectors.toList());
@@ -366,13 +428,7 @@ public class IO {
 				}
 			}
 		} else {
-			if (!ref.isRequired()) {              // !M && O = Opt[T]
-				Type rt = ts.lookupAbstractDataType("Opt");
-				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(makePrimitive(refValue)));
-				return vf.constructor(t);
-			} else {                              // !M && !O = T
 				return makePrimitive(refValue);
-			}
 		}
 
 		return null;
@@ -382,6 +438,7 @@ public class IO {
 	 * Returns IValue for a containment EReference
 	 */
 	private IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
+		System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			Type elemType = fieldType.getElementType();
@@ -405,6 +462,7 @@ public class IO {
 		} else {
 			if (!ref.isRequired()) {              // !M && O = Opt[T]
 				Type rt = ts.lookupAbstractDataType("Opt");
+				System.out.println("rt="+rt);
 				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(visit(refValue, fieldType, ts)));
 				return vf.constructor(t);
 			} else {                              // !M && !O = T
@@ -420,6 +478,7 @@ public class IO {
 	 * Returns IValue for an EReference
 	 */
 	private IValue visitReference(EReference ref, Object refValue, Type fieldType) {
+		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
 			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem)).collect(Collectors.toList());
@@ -454,8 +513,13 @@ public class IO {
 		TypeStore ts = new TypeStore();
 		Type idType = tf.abstractDataType(ts, "Id");
 		Type idCons = tf.constructor(ts, idType, "id", tf.sourceLocationType());
-		return vf.constructor(idCons, vf.sourceLocation(
-			java.net.URI.create(EcoreUtil.getURI(obj).toString())));
+		java.net.URI uriId = null;
+		try {
+			uriId = java.net.URI.create(EcoreUtil.getURI(obj).toString());
+		} catch (Exception e) {
+			uriId = java.net.URI.create("http://" + COUNTER++);
+		}
+		return vf.constructor(idCons, vf.sourceLocation(uriId));
 	}
 	
 	/**
@@ -511,6 +575,7 @@ public class IO {
 			return vf.string((String) obj);
 		}
 
+		System.out.println("Unhandled " + obj);
 		// FIXME: Enums?
 		// FIXME: Datatypes?
 		
