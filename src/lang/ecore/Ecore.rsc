@@ -17,14 +17,17 @@ data EPackage(Id uid = noId())
 data EAnnotation(Id uid = noId())
   = eAnnotation(
       str source,
-      map[str, str] details, 
+      //map[str, str] details,
+      list[EStringToStringMapEntry] details = [],
       list[EAnnotation] eAnnotations = []); 
+
+data EStringToStringMapEntry
+  = eStringToStringMapEntry(str key, str \value);
 
 data EClassifier(Id uid = noId())
   = eClass(
       str name, 
-      str instanceClassName,
-      Opt[EJavaClass] instanceClass,
+      //str instanceClassName,
       bool abstract,
       bool interface,
       list[Ref[EClassifier]] eSuperTypes = [], 
@@ -34,8 +37,7 @@ data EClassifier(Id uid = noId())
       
   | eDataType(
       str name, 
-      str instanceClassName,
-      Opt[EJavaClass] instanceClass,
+      //str instanceClassName,
       bool serializable = true,
       list[EAnnotation] eAnnotations = [])
       
@@ -66,16 +68,16 @@ data EStructuralFeature(
    bool changeable = true, 
    bool volatile = false,
    bool transient = false,
-   Opt[str] defaultValueLiteral = none(),
+   str defaultValueLiteral = "",
    bool unsettable = false,
    bool derived = false,
-   bool resolveProxies = true,
    Id uid = noId())
   = eReference(
       str name, 
       Ref[EClassifier] eType, 
       bool containment,
       bool container,
+      bool resolveProxies = true,
       Ref[EStructuralFeature] eOpposite = null(),
       list[Ref[EStructuralFeature]] eKeys = [])
       
