@@ -2,7 +2,8 @@ module lang::ecore::Ecore
 
 // source: http://download.eclipse.org/modeling/emf/emf/javadoc/2.9.0/org/eclipse/emf/ecore/package-summary.html
 
-import lang::ecore::Refs;
+// needed because of typereification bug.
+extend lang::ecore::Refs;
 
 data EPackage(Id uid = noId())
   = ePackage(

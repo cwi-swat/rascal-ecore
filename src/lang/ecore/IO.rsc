@@ -8,6 +8,7 @@ import IO;
 // (don't commit to github...)
 
 @javaClass{lang.ecore.IO}
+@reflect{IO}
 java &T<:node load(type[&T<:node] meta, loc uri);
 
 @javaClass{lang.ecore.IO}

@@ -24,6 +24,7 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
+import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIUtil;
@@ -57,21 +58,37 @@ import io.usethesource.vallang.visitors.NullVisitor;
 public class IO {
 	private final IValueFactory vf;
 	private final TypeReifier tr;
-	private final TypeFactory tf;
+	private final TypeFactory tf = TypeFactory.getInstance();
+	private TypeStore ts;
+	private IEvaluatorContext ctx;
+	
 	
 	public IO(IValueFactory vf) {
 		this.vf = vf;
 		this.tr = new TypeReifier(vf);
-		this.tf = TypeFactory.getInstance();
-
+		
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
 			.put("*", new XMIResourceFactoryImpl());
 	}
 
-	public IValue load(IValue reifiedType, ISourceLocation uri) {
-		TypeStore ts = new TypeStore();
-		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
+		this.ctx = ctx;
+		this.ts = new TypeStore(); // start afresh
+
 		
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+
+		// Cheat: build Ref here
+		// (until TypeReification issue is resolved with generic ADTs)
+		// data Ref[&T]
+		//	  = ref(Id uid)
+		//	  	  | null()
+		//	  	  ;
+		
+		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+		tf.constructor(ts, refType, "null");
+
 		if (!(uri.getScheme().equals("file") || uri.getScheme().equals("http"))) {
 			throw RuntimeExceptionFactory.schemeNotSupported(uri, null, null);
 		}
@@ -514,9 +531,8 @@ public class IO {
 	 * In our case, its URI.
 	 */
 	private IValue getIdFor(EObject obj) {
-		TypeStore ts = new TypeStore();
-		Type idType = tf.abstractDataType(ts, "Id");
-		Type idCons = tf.constructor(ts, idType, "id", tf.sourceLocationType());
+		Type idType = ts.lookupAbstractDataType("Id");
+		Type idCons = ts.lookupConstructor(idType, "id", tf.tupleType(tf.sourceLocationType()));
 		URI eUri = EcoreUtil.getURI(obj);
 		
 		try {
@@ -529,24 +545,20 @@ public class IO {
 	}
 	
 	/**
-	 * Return ref(id(Num)) or none() if {@link eObj} is null
+	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
 	private IValue makeRefTo(EObject eObj) {
-		TypeStore ts = new TypeStore();
+		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
 		if (eObj == null) {
-			Type optType = tf.abstractDataType(ts, "Opt");
-			Type none = tf.constructor(ts, optType, "none");
-			return vf.constructor(none, new IValue[0]);
+			Type nullCons = ts.lookupConstructor(genRefType, "null", tf.tupleEmpty());
+			return vf.constructor(nullCons);
 		}
 		
-		Type idType = tf.abstractDataType(ts, "Id");
-		Type refType = tf.abstractDataType(ts, "Ref");
 		
-		Type params = tf.tupleType(new Type[]{idType}, new String[]{"uid"});
-		Type ref_id = tf.constructorFromTuple(ts, refType, "ref", params);
-		
-		return vf.constructor(ref_id, getIdFor(eObj));
+		Type idType = ts.lookupAbstractDataType("Id");
+		Type refCons = ts.lookupConstructor(genRefType,  "ref", tf.tupleType(idType));
+		return vf.constructor(refCons, getIdFor(eObj));
 	}
 	
 	/**
