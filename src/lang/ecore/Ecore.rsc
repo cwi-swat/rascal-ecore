@@ -2,7 +2,7 @@ module lang::ecore::Ecore
 
 // source: http://download.eclipse.org/modeling/emf/emf/javadoc/2.9.0/org/eclipse/emf/ecore/package-summary.html
 
-import rmt::Refs;
+import lang::ecore::Refs;
 
 data EPackage(Id uid = noId())
   = ePackage(
@@ -48,7 +48,6 @@ data EClassifier(Id uid = noId())
       list[EAnnotation] eAnnotations = []);
 
 data EEnumLiteral(Id uid = noId())
-  // todo: name vs literal???
   = eEnumLiteral(
       str name, 
       str literal, 
