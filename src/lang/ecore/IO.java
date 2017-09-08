@@ -59,8 +59,9 @@ public class IO {
 	private final IValueFactory vf;
 	private final TypeReifier tr;
 	private final TypeFactory tf = TypeFactory.getInstance();
-	private final TypeStore refsTs;
 	private TypeStore ts;
+	
+	@SuppressWarnings("unused")
 	private IEvaluatorContext ctx;
 	
 	
@@ -71,23 +72,16 @@ public class IO {
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
 			.put("*", new XMIResourceFactoryImpl());
 		
-  	// Cheat: build Ref/Id here
-		// (until TypeReification issue is resolved with generic ADTs)
-		// data Ref[&T]
-		//	  = ref(Id uid)
-		//	  	  | null()
-		//	  	  ;
-		// data Id = id(int n) | id(loc uri);
+  	
 		
-		refsTs = new TypeStore();
-		
-		Type idType = tf.abstractDataType(refsTs, "Id");
-		tf.constructor(refsTs, idType, "id", tf.integerType(), "n");
-		tf.constructor(refsTs, idType, "id", tf.sourceLocationType(), "uri");
-		
-		Type refType = tf.abstractDataType(refsTs, "Ref", tf.parameterType("T"));
-		tf.constructor(refsTs, refType, "ref", idType, "uid");
-		tf.constructor(refsTs, refType, "null");
+//		Type idType = tf.abstractDataType(refsTs, "Id");
+//		tf.constructor(refsTs, idType, "id", tf.integerType(), "n");
+//		tf.constructor(refsTs, idType, "id", tf.sourceLocationType(), "uri");
+//		
+//		
+//		Type refType = tf.abstractDataType(refsTs, "Ref", tf.parameterType("T"));
+//		tf.constructor(refsTs, refType, "ref", idType, "uid");
+//		tf.constructor(refsTs, refType, "null");
 
 	}
 
@@ -96,10 +90,20 @@ public class IO {
 		
 		// FIXME: should not be a field.
 		this.ts = new TypeStore(); // start afresh
-		
-		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
-		this.ts.importStore(refsTs);
 
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+
+	// Cheat: build Ref  here (assuming Id is in there)
+	// (until TypeReification issue is resolved with generic ADTs)
+	// data Ref[&T]
+	//	  = ref(Id uid)
+	//	  	  | null()
+	//	  	  ;
+		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+		tf.constructor(ts, refType, "null");
+		
+		
 		
 		if (!(uri.getScheme().equals("file") || uri.getScheme().equals("http"))) {
 			throw RuntimeExceptionFactory.schemeNotSupported(uri, null, null);
@@ -334,7 +338,8 @@ public class IO {
 	 * Build ADT while visiting EObject content
 	 */
 	private IValue visit(Object obj, Type type, TypeStore ts) {
-		System.out.println("visit("+obj+","+type+")");
+		//ctx.getStdErr().println("Visiting object " + obj + " (" + type + ")");
+
 		if (obj instanceof EObject) {
 			EObject eObj = (EObject) obj;
 			EClass eCls = eObj.eClass();
@@ -441,7 +446,7 @@ public class IO {
 	 */
 	@SuppressWarnings("unchecked")
 	private IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
-		System.out.println("visitAttr("+ref.getName()+","+refValue+","+fieldType+")");
+		//ctx.getStdErr().println("Visiting attribute " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue)).collect(Collectors.toList());
@@ -458,7 +463,7 @@ public class IO {
 				if (ref.isOrdered()) {            // M & !U & O = list[T]
 					return vf.list(valuesArray);
 				} else {                          // M & !U & !O = map[T, int]
-					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
+					throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
 				}
 			}
 		} else {
@@ -472,6 +477,8 @@ public class IO {
 	 */
 	@SuppressWarnings("unchecked")
 	private IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
+		//ctx.getStdErr().println("Visiting containment ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
+
 		System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
@@ -490,7 +497,7 @@ public class IO {
 				if (ref.isOrdered()) {            // M & !U & O = list[T]
 					return vf.list(values.toArray(valuesArray));
 				} else {                          // M & !U & !O = map[T, int]
-					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
+					throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
 				}
 			}
 		} else {
@@ -512,28 +519,50 @@ public class IO {
 	 */
 	@SuppressWarnings("unchecked")
 	private IValue visitReference(EReference ref, Object refValue, Type fieldType) {
+		//ctx.getStdErr().println("Visiting reference ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
+		
 		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
-			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, fieldType)).collect(Collectors.toList());
+			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem)).collect(Collectors.toList());
+			//ctx.getStdErr().println("The list is: " + valuesToRef);
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
 
+			//for (IValue x: valuesArray) {
+				//ctx.getStdErr().println("The array element is: " + x);
+			//}
+			
 			if (ref.isUnique()) {
+				//ctx.getStdErr().println("Unique!");
 				if (ref.isOrdered()) {            // M & U & O = ?
-					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
+					//ctx.getStdErr().println("Ordered!");
+					// why no value in the exception???
+					//throw RuntimeExceptionFactory.illegalArgument(vf.string("Unique ordered: " + ref.toString()), null, null);
+					return vf.list(valuesArray);
 				} else {                          // M & U & !O = set[Ref[T]]
+					//for (IValue x: valuesArray) {
+						//ctx.getStdErr().println("The set element is: " + x);
+					//}
 					return vf.set(valuesArray);
 				}
 			} else {
+				//ctx.getStdErr().println("Non-Unique!");
 				if (ref.isOrdered()) {            // M & !U & O = list[Ref[T]]
+					//ctx.getStdErr().println("Ordered!");
+					//for (IValue x: valuesArray) {
+						//ctx.getStdErr().println("The list element is: " + x);
+					//}
 					return vf.list(valuesArray);
 				} else {                          // M & !U & !O = Map[Ref[T], int]
-					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
+					//throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
+					return vf.list(valuesArray);
 				}
 			}
 		} else {
-			return makeRefTo((EObject) refValue, fieldType);
+			IValue x = makeRefTo((EObject) refValue);
+			//ctx.getStdErr().println("The ref is: " + x);
+			return x;
 		}
 
 	}
@@ -543,6 +572,8 @@ public class IO {
 	 * In our case, its URI.
 	 */
 	private IValue getIdFor(EObject obj) {
+		//ctx.getStdErr().println("Making id for " + obj);
+		
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type idCons = ts.lookupConstructor(idType, "id", tf.tupleType(tf.sourceLocationType()));
 		URI eUri = EcoreUtil.getURI(obj);
@@ -559,7 +590,8 @@ public class IO {
 	/**
 	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
-	private IValue makeRefTo(EObject eObj, Type fieldType) {
+	private IValue makeRefTo(EObject eObj) {
+		//ctx.getStdErr().println("Making ref to " + eObj);
 		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
 		if (eObj == null) {
@@ -570,13 +602,17 @@ public class IO {
 		
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type refCons = ts.lookupConstructor(genRefType,  "ref", tf.tupleType(idType));
-		return vf.constructor(refCons, getIdFor(eObj));
+		IValue id = getIdFor(eObj);
+		//ctx.getStdErr().println("Id = " + id);
+		return vf.constructor(refCons, id);
 	}
 	
 	/**
 	 * Returns IValue for primitive type
 	 */
 	private IValue makePrimitive(Object obj) {
+		//ctx.getStdErr().println("Making primitive " + obj);
+		
 		if (obj instanceof Boolean) {
 			return vf.bool((Boolean) obj);
 		}
@@ -608,7 +644,7 @@ public class IO {
 		// FIXME: Datatypes?
 		
 		
-		throw RuntimeExceptionFactory.illegalArgument(vf.string(obj.toString()), null, null);
+		throw RuntimeExceptionFactory.illegalArgument(vf.string("Unsupported prim: " + obj.toString()), null, null);
 	}
 	
 	private static String toFirstLowerCase(String s) {
