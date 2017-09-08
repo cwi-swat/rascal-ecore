@@ -55,9 +55,9 @@ import io.usethesource.vallang.visitors.NullVisitor;
  * This class provide a load method to get an ADT from an EMF model
  */
 public class IO {
-	private IValueFactory vf;
-	private TypeReifier tr;
-	private TypeFactory tf;
+	private final IValueFactory vf;
+	private final TypeReifier tr;
+	private final TypeFactory tf;
 	
 	public IO(IValueFactory vf) {
 		this.vf = vf;
@@ -72,6 +72,10 @@ public class IO {
 		TypeStore ts = new TypeStore();
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
 		
+		if (!(uri.getScheme().equals("file") || uri.getScheme().equals("http"))) {
+			throw RuntimeExceptionFactory.schemeNotSupported(uri, null, null);
+		}
+
 		EObject root = loadModel(uri.getURI().toString());
 		
 		return visit(root, rt, ts);
@@ -406,6 +410,7 @@ public class IO {
 	/**
 	 * Returns IValue for an EAttribute
 	 */
+	@SuppressWarnings("unchecked")
 	private IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
 		System.out.println("visitAttr("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
@@ -424,19 +429,19 @@ public class IO {
 				if (ref.isOrdered()) {            // M & !U & O = list[T]
 					return vf.list(valuesArray);
 				} else {                          // M & !U & !O = map[T, int]
-					// TODO: Implement me
+					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
 				}
 			}
 		} else {
 				return makePrimitive(refValue);
 		}
 
-		return null;
 	}
 	
 	/**
 	 * Returns IValue for a containment EReference
 	 */
+	@SuppressWarnings("unchecked")
 	private IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
 		System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
@@ -456,7 +461,7 @@ public class IO {
 				if (ref.isOrdered()) {            // M & !U & O = list[T]
 					return vf.list(values.toArray(valuesArray));
 				} else {                          // M & !U & !O = map[T, int]
-					// TODO: Implement me
+					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
 				}
 			}
 		} else {
@@ -471,12 +476,12 @@ public class IO {
 			}
 		}
 		
-		return null;
 	}
 	
 	/**
 	 * Returns IValue for an EReference
 	 */
+	@SuppressWarnings("unchecked")
 	private IValue visitReference(EReference ref, Object refValue, Type fieldType) {
 		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
@@ -487,7 +492,7 @@ public class IO {
 
 			if (ref.isUnique()) {
 				if (ref.isOrdered()) {            // M & U & O = ?
-					// TODO: Implement me
+					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
 				} else {                          // M & U & !O = set[Ref[T]]
 					return vf.set(valuesArray);
 				}
@@ -495,14 +500,13 @@ public class IO {
 				if (ref.isOrdered()) {            // M & !U & O = list[Ref[T]]
 					return vf.list(valuesArray);
 				} else {                          // M & !U & !O = Map[Ref[T], int]
-					// TODO: Implement me
+					throw RuntimeExceptionFactory.illegalArgument(vf.string(ref.toString()), null, null);
 				}
 			}
 		} else {
 			return makeRefTo((EObject) refValue);
 		}
 
-		return null;
 	}
 	
 	/**
@@ -576,15 +580,14 @@ public class IO {
 		else if (obj instanceof String) {
 			return vf.string((String) obj);
 		}
-
-		System.out.println("Unhandled " + obj);
 		// FIXME: Enums?
 		// FIXME: Datatypes?
 		
-		return null;
+		
+		throw RuntimeExceptionFactory.illegalArgument(vf.string(obj.toString()), null, null);
 	}
 	
-	private String toFirstLowerCase(String s) {
+	private static String toFirstLowerCase(String s) {
 		return s.substring(0, 1).toLowerCase() + s.substring(1);
 	}
 }
