@@ -20,7 +20,10 @@ data Ref[&T]
   when /&T<:node aNode := root, getKeywordParameters(aNode)["uid"] == r.uid;
     
 
-Ref[&T] referTo(type[&T<:node] typ, &T t) = ref(x)
+Ref[&T] referTo(type[&T<:node] typ, &T t) = ref(getId(t));
+
+
+Id getId(&T<:node t) = x
   when Id x := getKeywordParameters(t)["uid"];
 
 data Id 
