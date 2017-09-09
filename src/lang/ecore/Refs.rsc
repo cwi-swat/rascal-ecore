@@ -25,6 +25,8 @@ Ref[&T] referTo(type[&T<:node] typ, &T t) = ref(getId(t));
 
 Id getId(&T<:node t) = x
   when Id x := getKeywordParameters(t)["uid"];
+  
+bool hasId(node t) = t has uid;
 
 data Id 
   = id(int n)

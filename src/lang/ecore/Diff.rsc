@@ -12,17 +12,15 @@ alias Patch
 
 data Edit
   = setValue(str field, value val)
-  
-  // for lists
+  | unset(str field)
   | \insert(str field, int pos, value val)
   | remove(str field, int pos)
-  
   | create(str class) 
   | destroy() 
   ;
   
-map[Id, node] objectMap(node x)
-  = ( getId(n): n | /node n := x, !(n is id), !(n is ref), !(n is null) ); 
+map[Id, node] objectMap(node x) // !(n is id), !(n is ref), !(n is null)
+  = ( getId(n): n | /node n := x,  hasId(n) ); 
 
 
 Patch diff(type[&T<:node] meta, &T old, &T new) {
@@ -48,21 +46,11 @@ Patch init(type[&T<:node] meta, Id id, node new) {
   void initKid(value newKid, str field) {
     if (list[value] l := newKid) {
       for (int i <- [0..size(l)]) {
-        value elt = l[i];
-        if (node r := elt, !(r is ref), !(r is null)) { 
-          edits += [<id, \insert(field, i, ref(getId(r)))>];
-        }
-        else {
-          assert list[value] _ !:= elt;
-          edits += [<id, \insert(field, i, elt)>];
-        }
+        edits += [<id, \insert(field, i, primOrRef(l[i]))>];
       }
     }
-    else if (node r := newKid, !(r is ref), !(r is null)) { 
-      edits += [<id, setValue(field, ref(getId(r)))>];
-    }
     else {
-      edits += [<id, setValue(field, newKid)>];
+      edits += [<id, setValue(field, primOrRef(newKid))>];
     }
   }
   
@@ -81,6 +69,11 @@ Patch init(type[&T<:node] meta, Id id, node new) {
   return edits;
 }
 
+value primOrRef(node n) = ref(getId(n)) when n has uid;
+default value primOrRef(value v) = v;
+
+
+// assumptions: all nodes have a uid, except ref/null
 Patch diff(type[&T<:node] meta, Id id, node old, node new) {
   assert getClass(old) == getClass(new);
   assert old.uid == id;
@@ -100,7 +93,7 @@ Patch diff(type[&T<:node] meta, Id id, node old, node new) {
       ds = getDiff(mx, xs, ys, size(xs), size(ys), refEq);
       for (Diff d <- ds) {
         switch (d) {
-          case add(value v, int pos): edits += [ <id, \insert(field, pos, v)> ];
+          case add(value v, int pos): edits += [ <id, \insert(field, pos, primOrRef(v))> ];
           case remove(_, int pos): edits += [ <id, remove(field, pos)> ];
         }
       }
@@ -109,7 +102,7 @@ Patch diff(type[&T<:node] meta, Id id, node old, node new) {
       ; // todo
     }
     else { // attributes and refs
-      edits += [<id, setValue(field, newKid)>];
+      edits += [<id, setValue(field, primOrRef(newKid))>];
     }  
   }
   
@@ -128,32 +121,55 @@ Patch diff(type[&T<:node] meta, Id id, node old, node new) {
       diffKid(oldKws[field], newKws[field], field);
     }
     else if (field in oldKws) {
-      edits += [<id, setValue(field, null())>];
+      edits += [<id, unset(field)>];
     }
     else if (field in newKws) {
-      edits += [<id, setValue(field, newKws[field])>];
+      edits += [<id, setValue(field, primOrRef(newKws[field]))>];
     }
   }
   
   return edits;
 }
 
+bool isRef(Ref[value] _) = true;
+default bool isRef(node _) = false;
+
+
 bool refEq(null(), null()) = true;
 
 bool refEq(ref(Id x), ref(Id y)) = x == y;
 
-bool refEq(node n, ref(Id x)) = getId(n) == x when !(n is ref), !(n is null);
+bool refEq(node n, ref(Id x)) = getId(n) == x when !isRef(n);
 
-bool refEq(ref(Id x), node n) = getId(n) == x when !(n is ref), !(n is null);
+bool refEq(ref(Id x), node n) = getId(n) == x when !isRef(n);
 
 bool refEq(node n1, node n2) = getId(n1) == getId(n2) 
-  when !(n1 is ref), !(n1 is null), !(n2 is ref), !(n2 is null);
+  when !isRef(n1), !isRef(n2);
    
 bool refEq(list[value] vs1, list[value] vs2)
   = size(vs1) == size(vs2)  
   && ( true | it && refEq(vs1[i], vs2[i]) | i <- [0..size(vs1)] ); 
 
-// TODO: sets
+bool refEq(set[value] s1, set[value] s2) {
+  outer: for (value x <- s1) {
+    for (value y <- s2) {
+      if (refEq(x, y)) {
+        continue outer;
+      }
+    }
+    return false;
+  }
+  outer: for (value x <- s2) {
+    for (value y <- s1) {
+      if (refEq(x, y)) {
+        continue outer;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
 
 default bool refEq(value v1, value v2) = v1 == v2;
 
