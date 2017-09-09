@@ -34,8 +34,8 @@ private str myFSMecore = "\<?xml version=\"1.0\" encoding=\"ASCII\"?\>
   \</eClassifiers\>
 \</ecore:EPackage\>";
 
-void smokeIt() {
-  uri = |project://MyFSMInRascal/model/myFSMAnother.ecore|;
+void smokeIt(str project = "rascal-ecore") {
+  uri = |project://<project>/myFSMAnother.ecore|;
   // start afresh:
   writeFile(uri, myFSMecore);
   fsm = load(#EPackage, uri);
