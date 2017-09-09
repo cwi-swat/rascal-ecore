@@ -7,135 +7,120 @@ import List;
 import IO;
 import Type;
 
-
-// todo: encode the new root.
-
 alias Patch
-  = lrel[Id owner, Edit edit];
+  = tuple[Id root, Edits edits];
+
+alias Edits
+  = lrel[Id obj, Edit edit];
 
 data Edit
-  = setValue(str field, value val)
+  = assign(str field, value val)
   | unset(str field)
-  | \insert(str field, int pos, value val)
-  | remove(str field, int pos)
+  | ins(str field, int pos, value val)
+  | del(str field, int pos)
   | create(str class) 
   | destroy() 
   ;
   
-map[Id, node] objectMap(node x) // !(n is id), !(n is ref), !(n is null)
-  = ( getId(n): n | /node n := x,  hasId(n) ); 
-
+map[Id, node] objectMap(node x) = ( getId(n): n | /node n := x,  hasId(n), !isRef(n) ); 
 
 Patch diff(type[&T<:node] meta, &T old, &T new) {
   m1 = objectMap(old);
   m2 = objectMap(new);
   
-  Patch edits = [];
-  
-  edits += [ <c, create(getClass(m2[c]))> | Id c <- m2, c notin m1 ];
+  edits = [ <c, create(getClass(m2[c]))> | Id c <- m2, c notin m1 ];
   edits += [ *init(meta, c, m2[c]) | Id c <- m2, c notin m1 ];
   edits += [ *diff(meta, x, m1[x], m2[x]) | Id x <- m1, x in m2 ];
   edits += [ <d, destroy()> | Id d <- m1, d notin m2 ];
   
-  return edits;
+  return <getId(new), edits>;
 }
 
-Patch init(type[&T<:node] meta, Id id, node new) {
+Edits init(type[&T<:node] meta, Id id, node new) {
   Symbol s = getType(new);
   str c = getName(new);
   
-  Patch edits = [];
+  Edits edits = [];
   
-  void initKid(value newKid, str field) {
+  Edits initKid(value newKid, str field) {
     if (list[value] l := newKid) {
-      for (int i <- [0..size(l)]) {
-        edits += [<id, \insert(field, i, primOrRef(l[i]))>];
-      }
+      return [ <id, ins(field, i, primOrRef(l[i]))> | int i <- [0..size(l)] ];
     }
     else {
-      edits += [<id, setValue(field, primOrRef(newKid))>];
+      return [<id, assign(field, primOrRef(newKid))>];
     }
   }
   
   ps = getParams(meta, s, c);
   newKids = getChildren(new);
-  for (int i <- [0..size(ps)]) {
-    initKid(newKids[i], ps[i][0]);
-  }
+  edits += [ *initKid(newKids[i], ps[i]) | int i <- [0..size(ps)] ];
   
   kws = getKwParams(meta, s, c);
   newKws = getKeywordParameters(new);
-  for (<str fld, _> <- kws, fld != "uid", fld in newKws) {
-    initKid(newKws[fld], fld);
-  }
-  
+  edits += [ *initKid(newKws[fld], fld) | str fld <- kws, fld != "uid", fld in newKws ];
+
   return edits;
 }
 
-value primOrRef(node n) = ref(getId(n)) when n has uid;
+value primOrRef(node n) = ref(getId(n)) when hasId(n);
 default value primOrRef(value v) = v;
 
 
 // assumptions: all nodes have a uid, except ref/null
-Patch diff(type[&T<:node] meta, Id id, node old, node new) {
+Edits diff(type[&T<:node] meta, Id id, node old, node new) {
   assert getClass(old) == getClass(new);
   assert old.uid == id;
   assert new.uid == id;
   Symbol s = getType(old);
   str c = getName(old);
   
-  Patch edits = [];
+  Edits edits = [];
   
-  void diffKid(value oldKid, value newKid, str field) {
+  Edits diffKid(value oldKid, value newKid, str field) {
     if (refEq(newKid, oldKid)) {
-      return;
+      return [];
     }
 
     if (list[value] xs := oldKid, list[value] ys := newKid) {
       mx = lcsMatrix(xs, ys, refEq);
       ds = getDiff(mx, xs, ys, size(xs), size(ys), refEq);
-      for (Diff d <- ds) {
+      return for (Diff d <- ds) {
         switch (d) {
-          case add(value v, int pos): edits += [ <id, \insert(field, pos, primOrRef(v))> ];
-          case remove(_, int pos): edits += [ <id, remove(field, pos)> ];
+          case add(value v, int pos): append <id, ins(field, pos, primOrRef(v))>;
+          case remove(_, int pos): append <id, del(field, pos)>;
         }
       }
     }
     else if (set[value] l1 := oldKid, set[value] l2 := newKid) {
-      ; // todo
+      return []; // todo
     }
     else { // attributes and refs
-      edits += [<id, setValue(field, primOrRef(newKid))>];
+      return [<id, assign(field, primOrRef(newKid))>];
     }  
   }
   
   ps = getParams(meta, s, c);
   oldKids = getChildren(old);
   newKids = getChildren(new);
-  for (int i <- [0..size(ps)]) {
-    diffKid(oldKids[i], newKids[i], ps[i][0]);
-  }
+  edits += [ *diffKid(oldKids[i], newKids[i], ps[i]) | int i <- [0..size(ps)] ];  
   
   kws = getKwParams(meta, s, c);
   oldKws = getKeywordParameters(old);
   newKws = getKeywordParameters(new);
-  for (<str field, _> <- kws, field != "uid") {
+  for (str field <- kws, field != "uid") {
     if (field in oldKws, field in newKws) {
-      diffKid(oldKws[field], newKws[field], field);
+      edits += diffKid(oldKws[field], newKws[field], field);
     }
     else if (field in oldKws) {
       edits += [<id, unset(field)>];
     }
     else if (field in newKws) {
-      edits += [<id, setValue(field, primOrRef(newKws[field]))>];
+      edits += [<id, assign(field, primOrRef(newKws[field]))>];
     }
   }
   
   return edits;
 }
-
-bool isRef(Ref[value] _) = true;
-default bool isRef(node _) = false;
 
 
 bool refEq(null(), null()) = true;
@@ -180,13 +165,13 @@ default bool refEq(value v1, value v2) = v1 == v2;
 str getClass(node n) = getName(n);
 Symbol getType(node n) = typeOf(n);
 
-lrel[str, Symbol] getParams(type[&T<:node] meta, Symbol s, str class)
-  = [ <fld, typ> | 
+list[str] getParams(type[&T<:node] meta, Symbol s, str class)
+  = [ fld | 
        cons(label(class, s), list[Symbol] ps, list[Symbol] kws, _) <- meta.definitions[s].alternatives,
        label(str fld, Symbol typ) <- ps ];
 
-rel[str, Symbol] getKwParams(type[&T<:node] meta, Symbol s, str class)
-  = { <fld, typ> | 
+set[str] getKwParams(type[&T<:node] meta, Symbol s, str class)
+  = { fld | 
        cons(label(class, s), list[Symbol] ps, list[Symbol] kws, _) <- meta.definitions[s].alternatives,
        label(str fld, Symbol typ) <- kws };
   

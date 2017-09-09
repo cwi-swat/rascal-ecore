@@ -28,6 +28,10 @@ Id getId(&T<:node t) = x
   
 bool hasId(node t) = t has uid;
 
+bool isRef(Ref[value] _) = true;
+default bool isRef(node _) = false;
+
+
 data Id 
   = id(int n)
   | id(loc uri);
