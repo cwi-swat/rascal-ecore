@@ -7,6 +7,9 @@ import List;
 import IO;
 import Type;
 
+
+// todo: encode the new root.
+
 alias Patch
   = lrel[Id owner, Edit edit];
 
@@ -62,8 +65,8 @@ Patch init(type[&T<:node] meta, Id id, node new) {
   
   kws = getKwParams(meta, s, c);
   newKws = getKeywordParameters(new);
-  for (<str field, _> <- kws, field != "uid", field in newKws) {
-    initKid(newKws[field], field);
+  for (<str fld, _> <- kws, fld != "uid", fld in newKws) {
+    initKid(newKws[fld], fld);
   }
   
   return edits;
