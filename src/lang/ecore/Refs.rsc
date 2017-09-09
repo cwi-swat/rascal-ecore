@@ -19,18 +19,18 @@ data Ref[&T]
 &T<:node lookup(node root, type[&T<:node] typ, Ref[&T] r) = aNode
   when /&T<:node aNode := root, getKeywordParameters(aNode)["uid"] == r.uid;
     
-
 Ref[&T] referTo(type[&T<:node] typ, &T t) = ref(getId(t));
-
 
 Id getId(&T<:node t) = x
   when Id x := getKeywordParameters(t)["uid"];
   
 bool hasId(node t) = t has uid;
 
-bool isRef(Ref[value] _) = true;
+bool isRef(Ref[void] _) = true;
+
 default bool isRef(node _) = false;
 
+bool isObj(node n) = !isRef(n) && hasId(n);
 
 data Id 
   = id(int n)

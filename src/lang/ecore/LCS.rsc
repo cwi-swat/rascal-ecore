@@ -15,19 +15,12 @@ data Diff[&T]
 list[Diff[&T]] getDiff(map[int,map[int,int]] c, list[&T] x, list[&T] y, int i, int j,
    bool(&T, &T) equals) {
   if (i > 0, j > 0,  equals(x[i-1], y[j-1])) {
-    //println("============= Returning same(<i-1>, <j-1>)");
-    //println(x[i-1]);
-    //println(y[j-1]);
     return getDiff(c, x, y, i - 1, j - 1, equals) + [same(x[i-1], y[j-1])];
   }
   if (j > 0, (i == 0 || c[i][j-1] >= c[i-1][j])) {
-    //println("+++++++++++++ Returning add(<j-1>)");
-    //println(y[j-1]);
     return getDiff(c, x, y, i, j-1, equals) + [add(y[j-1], j-1)];
   }
   if (i > 0, (j == 0 || c[i][j-1] < c[i-1][j])) {
-    //println("------------- Returning remove(<i-1>)");
-    //println(x[i-1]);
     return getDiff(c, x, y, i-1, j, equals) + [remove(x[i-1], i-1)];
   }
   return [];
