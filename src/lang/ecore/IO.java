@@ -88,17 +88,56 @@ public class IO {
 
 	}
 	
-	@SuppressWarnings("unchecked")
-	public IMap patch(ITuple patch, ISourceLocation uri, IEvaluatorContext ctx) {
+	public IMap patchOnDisk(ITuple patch, ISourceLocation uri, IEvaluatorContext ctx) {
 		this.ctx = ctx;
 		
-		EObject root = loadModel(uri.getURI().toString());
-		EPackage pkg = root.eClass().getEPackage();
-		EFactory fact = pkg.getEFactoryInstance();
-
 		Map<IConstructor, EObject> cache = new HashMap<>();
 		Set<IConstructor> newIds = new HashSet<>();
 
+		EObject root = loadModel(uri);
+
+		EObject newRoot = patch(root, patch, cache, newIds);
+		
+		saveModel(newRoot, uri);
+		
+		return rekeyMap(cache, newIds);
+	}
+	
+	private IMap rekeyMap(Map<IConstructor, EObject> cache, Set<IConstructor> newIds) {
+		IMapWriter w = vf.mapWriter();
+		for (IConstructor newId: newIds) {
+			URI eUri = EcoreUtil.getURI(cache.get(newId));
+			try {
+				java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());
+				w.put((IInteger)newId.get("n"), vf.sourceLocation(uriId));
+			} catch (URISyntaxException e) {
+				throw RuntimeExceptionFactory.malformedURI(eUri.toString(), null, null);
+			}
+		}
+		return w.done();
+	}
+	
+	private void saveModel(EObject model, ISourceLocation uri) {
+		ResourceSet rs = new ResourceSetImpl();
+		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
+		res.getContents().add(model);
+		try {
+			res.save(Collections.EMPTY_MAP);
+		} catch (IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	/*
+	 *  patch object root according to `patch`.
+	 *  fill cache and newIds in the process
+	 *  return the new root
+	 */
+	private static EObject patch(EObject root, ITuple patch, Map<IConstructor, EObject> cache, Set<IConstructor> newIds) {
+		EPackage pkg = root.eClass().getEPackage();
+		EFactory fact = pkg.getEFactoryInstance();
+		
 		for (IValue v: (IList)patch.get(1)) {
 			ITuple idEdit = (ITuple)v;
 			IConstructor id = (IConstructor) idEdit.get(0);
@@ -120,7 +159,6 @@ public class IO {
 				}
 				else if (edit.getName().equals("put")) {
 					Object val = value2obj(edit.get("val"), root, cache);
-					//ctx.getStdErr().println("VAL = " + val);
 					obj.eSet(field, val);
 				}
 				else if (edit.getName().equals("unset")) {
@@ -143,50 +181,31 @@ public class IO {
 			}
 		}
 		
-		EObject newRoot = lookup(root, (IConstructor)patch.get(0), cache);
-		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
-		res.getContents().add(newRoot);
-		try {
-			res.save(Collections.EMPTY_MAP);
-		} catch (IOException e) {
-			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
-		}
-		
-		IMapWriter w = vf.mapWriter();
-		for (IConstructor newId: newIds) {
-			URI eUri = EcoreUtil.getURI(cache.get(newId));
-			try {
-				java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());
-				w.put((IInteger)newId.get("n"), vf.sourceLocation(uriId));
-			} catch (URISyntaxException e) {
-				throw RuntimeExceptionFactory.malformedURI(eUri.toString(), null, null);
-			}
-		}
-		return w.done();
+		return lookup(root, (IConstructor)patch.get(0), cache);
 	}
 
-	private Object value2obj(IValue v, EObject root, Map<IConstructor, EObject> cache) {
+	private static Object value2obj(IValue v, EObject root, Map<IConstructor, EObject> cache) {
 		// todo: should check against actual Id type.
 		Type type = v.getType();
 		if (type.isAbstractData() && ((IConstructor)v).getName().equals("id")) {
 			return lookup(root, (IConstructor)v, cache);
 		}
 		if (type.isInteger()) {
-			// todo: long etc.
 			return ((IInteger)v).intValue();
 		}
 		if (type.isString()) {
 			return ((IString)v).getValue();
 		}
+		if (type.isReal()) {
+			return ((IReal)v).floatValue();
+		}
 		if (type.isBool()) {
 			return ((IBool)v).getValue();
 		}
-		ctx.getStdErr().println("Unsupported: " + v);
 		throw RuntimeExceptionFactory.illegalArgument(v, null, null);
 	}
 	
-	private EObject lookup(EObject root, IConstructor id, Map<IConstructor, EObject> cache) {
+	private static EObject lookup(EObject root, IConstructor id, Map<IConstructor, EObject> cache) {
 		// assert: created things always are in the cache.
 		if (cache.containsKey(id)) {
 			return cache.get(id);
@@ -212,31 +231,26 @@ public class IO {
 
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
 
-	// Cheat: build Ref  here (assuming Id is in there)
-	// (until TypeReification issue is resolved with generic ADTs)
-	// data Ref[&T]
-	//	  = ref(Id uid)
-	//	  	  | null()
-	//	  	  ;
+		// Cheat: build Ref  here (assuming Id is in there)
 		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
 		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
 		tf.constructor(ts, refType, "null");
 		
+		EObject root = loadModel(uri);
 		
-		
+		return obj2value(root, rt, ts);
+	}
+	
+	private static EObject loadModel(ISourceLocation uri) {
 		if (!(uri.getScheme().equals("file") || uri.getScheme().equals("http"))) {
 			throw RuntimeExceptionFactory.schemeNotSupported(uri, null, null);
 		}
-
-		EObject root = loadModel(uri.getURI().toString());
-		
-		return visit(root, rt, ts);
+		ResourceSet rs = new ResourceSetImpl();
+		Resource res = rs.getResource(URI.createURI(uri.getURI().toString()), true);
+		return res.getContents().get(0);
 	}
-	
 
 	public void save(INode model, ISourceLocation pkgUri, ISourceLocation uri) {
-		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
 
 		ModelBuilder builder = new ModelBuilder(pkg);
@@ -251,12 +265,7 @@ public class IO {
 		CrossRefResolver resolver = new CrossRefResolver(builder.getUids());
 		model.accept(resolver);
 		
-		try {
-			res.getContents().add(root);
-			res.save(Collections.EMPTY_MAP);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		saveModel(root, uri);
 	}
 
 	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
@@ -361,7 +370,7 @@ public class IO {
 
 		@Override
 		public Object visitReal(IReal o) throws RuntimeException {
-			throw new UnsupportedOperationException();
+			return o.floatValue();
 		}
 
 		@Override
@@ -384,10 +393,6 @@ public class IO {
 			throw new UnsupportedOperationException();
 		}
 		
-	}
-
-	private static String toFirstUpperCase(String s) {
-		return s.substring(0, 1).toUpperCase() + s.substring(1);
 	}
 
 	private static class CrossRefResolver extends NullVisitor<Void, RuntimeException> {
@@ -449,16 +454,11 @@ public class IO {
 		}
 	}
 
-	private EObject loadModel(String uri) {
-		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.getResource(URI.createURI(uri), true);
-		return res.getContents().get(0);
-	}
 	
 	/**
 	 * Build ADT while visiting EObject content
 	 */
-	private IValue visit(Object obj, Type type, TypeStore ts) {
+	private IValue obj2value(Object obj, Type type, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting object " + obj + " (" + type + ")");
 
 		if (obj instanceof EObject) {
@@ -467,10 +467,8 @@ public class IO {
 
 			// FIXME: Assuming that there's a unique constructor with the EClass' name
 			Type t = ts.lookupConstructor(type, toFirstLowerCase(eCls.getName())).iterator().next();
-			Map<String, Type> kws = ts.getKeywordParameters(t);
 			
 			List<IValue> fields = new ArrayList<>();
-			System.out.println("Fields of " + t + " = " + t.getFieldTypes());
 			for (int i = 0; i < t.getArity(); i++) {
 				// Rascal side
 				String fieldName = t.getFieldName(i);
@@ -497,10 +495,13 @@ public class IO {
 					EAttribute att = (EAttribute) feature;
 					fields.add(visitAttribute(att, featureValue, fieldType, ts));
 				}
+				else {
+					throw RuntimeExceptionFactory.illegalArgument(vf.string(feature.toString()), null, null);
+				}
 			}
 			
 			Map<String,IValue> keywords = new HashMap<>();
-			
+			Map<String, Type> kws = ts.getKeywordParameters(t);
 			for (Entry<String, Type> e : kws.entrySet()) {
 				// Rascal side
 				String fieldName = e.getKey();
@@ -515,8 +516,9 @@ public class IO {
 				System.out.println("Looking for " + fieldName + " in " + eCls.getName());
 				Object featureValue = eObj.eGet(feature);
 				
-				if (!eObj.eIsSet(feature))
+				if (!eObj.eIsSet(feature)) {
 					continue;
+				}
 				
 				System.out.println("For kw " + fieldName + ": found " + feature);
 
@@ -526,14 +528,16 @@ public class IO {
 					if (ref.isContainment()) {
 //						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
 						IValue x = visitContainmentRef(ref, featureValue, fieldType, ts);
-						if (x != null)
+						if (x != null) {
 							keywords.put(fieldName, x);
+						}
 					}
 					else {
 //						fields.add(visitReference(ref, featureValue, fieldType));
 						IValue x = visitReference(ref, featureValue, fieldType);
-						if (x != null)
+						if (x != null) {
 							keywords.put(fieldName, x);
+						}
 					}
 				}
 				else if (feature instanceof EAttribute) {
@@ -541,24 +545,18 @@ public class IO {
 					EAttribute att = (EAttribute) feature;
 //					fields.add();
 					IValue x = visitAttribute(att, featureValue, fieldType, ts);
-					if (x != null)
+					if (x != null) {
 						keywords.put(fieldName, x);
+					}
 				}
 			}
 			
 			keywords.put("uid", getIdFor(eObj));
 			IValue[] arr = new IValue[fields.size()];
-			for (IValue v : fields) {
-				System.out.println("\tv="+v);
-			}
-//			for (IValue kw : keywords) {
-//				System.out.println(\tkw="+kw");
-//			}
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
-		else {
-			return makePrimitive(obj);
-		}
+
+		return makePrimitive(obj);
 	}
 	
 	
@@ -567,7 +565,7 @@ public class IO {
 	 */
 	@SuppressWarnings("unchecked")
 	private IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
-		//ctx.getStdErr().println("Visiting attribute " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
+
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue)).collect(Collectors.toList());
@@ -577,19 +575,18 @@ public class IO {
 			if (ref.isUnique()) {
 				if (ref.isOrdered()) {            // M & U & O = ?
 					return vf.list(valuesArray);
-				} else {                          // M & U & !O = Set[T]
-					return vf.set(valuesArray);
 				}
-			} else {
-				if (ref.isOrdered()) {            // M & !U & O = list[T]
-					return vf.list(valuesArray);
-				} else {                          // M & !U & !O = map[T, int]
-					throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
-				}
-			}
-		} else {
-				return makePrimitive(refValue);
+				return vf.set(valuesArray); // M & U & !O = Set[T]
+			} 
+			
+			if (ref.isOrdered()) {            // M & !U & O = list[T]
+				return vf.list(valuesArray);
+			}                           
+			// M & !U & !O = map[T, int]
+			throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
 		}
+		
+		return makePrimitive(refValue);
 
 	}
 	
@@ -604,7 +601,7 @@ public class IO {
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			Type elemType = fieldType.getElementType();
-			List<IValue> values = refValues.stream().map(elem -> visit(elem, elemType, ts)).collect(Collectors.toList());
+			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, ts)).collect(Collectors.toList());
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 			
@@ -625,10 +622,10 @@ public class IO {
 			if (!ref.isRequired()) {              // !M && O = Opt[T]
 				Type rt = ts.lookupAbstractDataType("Opt");
 				System.out.println("rt="+rt);
-				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(visit(refValue, fieldType, ts)));
+				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(obj2value(refValue, fieldType, ts)));
 				return vf.constructor(t);
 			} else {                              // !M && !O = T
-				Type t = ts.lookupConstructor(fieldType, toFirstLowerCase(fieldType.getName()), tf.tupleType(visit(refValue, fieldType, ts)));
+				Type t = ts.lookupConstructor(fieldType, toFirstLowerCase(fieldType.getName()), tf.tupleType(obj2value(refValue, fieldType, ts)));
 				return vf.constructor(t);
 			}
 		}
@@ -650,10 +647,6 @@ public class IO {
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
 
-			//for (IValue x: valuesArray) {
-				//ctx.getStdErr().println("The array element is: " + x);
-			//}
-			
 			if (ref.isUnique()) {
 				//ctx.getStdErr().println("Unique!");
 				if (ref.isOrdered()) {            // M & U & O = ?
@@ -737,8 +730,6 @@ public class IO {
 	 * Returns IValue for primitive type
 	 */
 	private IValue makePrimitive(Object obj) {
-		//ctx.getStdErr().println("Making primitive " + obj);
-		
 		if (obj instanceof Boolean) {
 			return vf.bool((Boolean) obj);
 		}
@@ -776,4 +767,9 @@ public class IO {
 	private static String toFirstLowerCase(String s) {
 		return s.substring(0, 1).toLowerCase() + s.substring(1);
 	}
+	
+	private static String toFirstUpperCase(String s) {
+		return s.substring(0, 1).toUpperCase() + s.substring(1);
+	}
+
 }

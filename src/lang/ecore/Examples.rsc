@@ -51,19 +51,16 @@ void smokeIt() {
   iprintln(p);
   
   
-  map[int, loc] rekey = patch(p, uri);
+  map[int, loc] rekeyMap = patchOnDisk(p, uri);
   
   println("\n====== Rekey ======");
-  iprintln(rekey);
+  iprintln(rekeyMap);
   
   fsm3 = load(#EPackage, uri);
   println("\n====== FSM 3 (patched) ======");
   iprintln(fsm3);
   
-  fsm2 = visit (fsm2) {
-    case &T<:node n => become(n, id(rekey[i]))
-      when isObj(n), id(int i) := getId(n)
-  };
+  fsm2 = rekey(rekeyMap, fsm2);
 
   println("\n====== FSM 2 (rekeyed) ======");
   iprintln(fsm2);
