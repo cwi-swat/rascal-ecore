@@ -1,12 +1,15 @@
 package lang.ecore;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.emf.common.util.BasicEList;
@@ -36,6 +39,7 @@ import io.usethesource.vallang.IExternalValue;
 import io.usethesource.vallang.IInteger;
 import io.usethesource.vallang.IList;
 import io.usethesource.vallang.IMap;
+import io.usethesource.vallang.IMapWriter;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.IRational;
 import io.usethesource.vallang.IReal;
@@ -64,7 +68,6 @@ public class IO {
 	@SuppressWarnings("unused")
 	private IEvaluatorContext ctx;
 	
-	
 	public IO(IValueFactory vf) {
 		this.vf = vf;
 		this.tr = new TypeReifier(vf);
@@ -84,7 +87,123 @@ public class IO {
 //		tf.constructor(refsTs, refType, "null");
 
 	}
+	
+	@SuppressWarnings("unchecked")
+	public IMap patch(ITuple patch, ISourceLocation uri, IEvaluatorContext ctx) {
+		this.ctx = ctx;
+		
+		EObject root = loadModel(uri.getURI().toString());
+		EPackage pkg = root.eClass().getEPackage();
+		EFactory fact = pkg.getEFactoryInstance();
 
+		Map<IConstructor, EObject> cache = new HashMap<>();
+		Set<IConstructor> newIds = new HashSet<>();
+
+		for (IValue v: (IList)patch.get(1)) {
+			ITuple idEdit = (ITuple)v;
+			IConstructor id = (IConstructor) idEdit.get(0);
+			IConstructor edit = (IConstructor) idEdit.get(1);
+			if (edit.getName().equals("create")) {
+				String clsName = toFirstUpperCase(((IString)edit.get("class")).getValue());
+				EClass eCls = (EClass) pkg.getEClassifier(clsName);
+				EObject obj = fact.create(eCls);
+				cache.put(id, obj);
+				newIds.add(id);
+			}
+			else {
+				EObject obj = lookup(root, id, cache);
+				String fieldName = ((IString)edit.get("field")).getValue();
+				EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
+
+				if (edit.getName().equals("destroy")) {
+					;
+				}
+				else if (edit.getName().equals("put")) {
+					Object val = value2obj(edit.get("val"), root, cache);
+					//ctx.getStdErr().println("VAL = " + val);
+					obj.eSet(field, val);
+				}
+				else if (edit.getName().equals("unset")) {
+					obj.eUnset(field);
+				}
+				else {
+					List<Object> lst = (List<Object>)obj.eGet(field);
+					int pos = ((IInteger)edit.get("pos")).intValue();
+					
+					if (edit.getName().equals("ins")) {
+						lst.add(pos, value2obj(edit.get("val"), root, cache));
+					}
+					else if (edit.getName().equals("del")) {
+						lst.remove(pos);
+					}
+					else {
+						throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+					}
+				}
+			}
+		}
+		
+		EObject newRoot = lookup(root, (IConstructor)patch.get(0), cache);
+		ResourceSet rs = new ResourceSetImpl();
+		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
+		res.getContents().add(newRoot);
+		try {
+			res.save(Collections.EMPTY_MAP);
+		} catch (IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
+		}
+		
+		IMapWriter w = vf.mapWriter();
+		for (IConstructor newId: newIds) {
+			URI eUri = EcoreUtil.getURI(cache.get(newId));
+			try {
+				java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());
+				w.put((IInteger)newId.get("n"), vf.sourceLocation(uriId));
+			} catch (URISyntaxException e) {
+				throw RuntimeExceptionFactory.malformedURI(eUri.toString(), null, null);
+			}
+		}
+		return w.done();
+	}
+
+	private Object value2obj(IValue v, EObject root, Map<IConstructor, EObject> cache) {
+		// todo: should check against actual Id type.
+		Type type = v.getType();
+		if (type.isAbstractData() && ((IConstructor)v).getName().equals("id")) {
+			return lookup(root, (IConstructor)v, cache);
+		}
+		if (type.isInteger()) {
+			// todo: long etc.
+			return ((IInteger)v).intValue();
+		}
+		if (type.isString()) {
+			return ((IString)v).getValue();
+		}
+		if (type.isBool()) {
+			return ((IBool)v).getValue();
+		}
+		ctx.getStdErr().println("Unsupported: " + v);
+		throw RuntimeExceptionFactory.illegalArgument(v, null, null);
+	}
+	
+	private EObject lookup(EObject root, IConstructor id, Map<IConstructor, EObject> cache) {
+		// assert: created things always are in the cache.
+		if (cache.containsKey(id)) {
+			return cache.get(id);
+		}
+		String fragment = ((ISourceLocation)id.get(0)).getFragment();
+		EObject obj = null;
+		if (fragment.equals("/")) { // not sure why it has to be this way.
+			obj = root;
+		}
+		else {
+			// same hre.
+			obj = EcoreUtil.getEObject(root, fragment.substring(2));
+		}
+		cache.put(id, obj);
+		return obj;
+	}
+	
 	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
 		this.ctx = ctx;
 		
@@ -113,6 +232,7 @@ public class IO {
 		
 		return visit(root, rt, ts);
 	}
+	
 
 	public void save(INode model, ISourceLocation pkgUri, ISourceLocation uri) {
 		ResourceSet rs = new ResourceSetImpl();
@@ -264,9 +384,10 @@ public class IO {
 			throw new UnsupportedOperationException();
 		}
 		
-		private String toFirstUpperCase(String s) {
-			return s.substring(0, 1).toUpperCase() + s.substring(1);
-		}
+	}
+
+	private static String toFirstUpperCase(String s) {
+		return s.substring(0, 1).toUpperCase() + s.substring(1);
 	}
 
 	private static class CrossRefResolver extends NullVisitor<Void, RuntimeException> {
@@ -570,6 +691,7 @@ public class IO {
 	/**
 	 * Retrieve an unique id for an EObject.
 	 * In our case, its URI.
+	 * TODO: refactor this to be reusable in patch.
 	 */
 	private IValue getIdFor(EObject obj) {
 		//ctx.getStdErr().println("Making id for " + obj);
@@ -577,6 +699,10 @@ public class IO {
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type idCons = ts.lookupConstructor(idType, "id", tf.tupleType(tf.sourceLocationType()));
 		URI eUri = EcoreUtil.getURI(obj);
+		//ctx.getStdErr().println("EURI: " + eUri);
+		//ctx.getStdErr().println("fragment: " + eUri.fragment());
+		//Object frag = EcoreUtil.getRelativeURIFragmentPath(this.root, obj);
+		//ctx.getStdErr().println("frag: " + frag);
 		
 		try {
 			java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());

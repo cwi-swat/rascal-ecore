@@ -43,6 +43,13 @@ alias Realm = tuple[&T(type[&T<:node], &T) new];
    };
 
 
+&T<:node setId(&T<:node x, Id id) = 
+  setKeywordParameters(x, getKeywordParameters(x) + ("uid": id));
+
+&T<:node become(&T<:node x, Id id) = new
+  when &T new := setId(x, id); 
+
+
 Realm newRealm() {
   int idCount = -1; 
 
@@ -52,7 +59,7 @@ Realm newRealm() {
   }
 
   &T new(type[&T<:node] t, &T x) {
-    return setKeywordParameters(x, ("uid": newId()) + getKeywordParameters(x)); 
+    return setId(x, newId()); 
   }
 
   return <new>;

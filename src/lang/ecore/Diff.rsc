@@ -65,6 +65,7 @@ Edits diff(type[&T<:node] meta, Id id, node old, node new) {
   assert getClass(old) == getClass(new);
   assert old.uid == id;
   assert new.uid == id;
+  
   Symbol s = getType(old);
   str c = getName(old);
   
@@ -115,6 +116,7 @@ Edits diffKid(Id id, value oldKid, value newKid, str field) {
    // attributes and refs
   return [<id, put(field, primOrId(newKid))>];
 }
+
 
 
 // also covers ref/null cases on both sides
