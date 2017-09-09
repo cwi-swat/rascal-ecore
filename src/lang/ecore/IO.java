@@ -63,7 +63,6 @@ public class IO {
 	private final IValueFactory vf;
 	private final TypeReifier tr;
 	private final TypeFactory tf = TypeFactory.getInstance();
-	private TypeStore ts;
 	
 	@SuppressWarnings("unused")
 	private IEvaluatorContext ctx;
@@ -74,18 +73,6 @@ public class IO {
 		
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
 			.put("*", new XMIResourceFactoryImpl());
-		
-  	
-		
-//		Type idType = tf.abstractDataType(refsTs, "Id");
-//		tf.constructor(refsTs, idType, "id", tf.integerType(), "n");
-//		tf.constructor(refsTs, idType, "id", tf.sourceLocationType(), "uri");
-//		
-//		
-//		Type refType = tf.abstractDataType(refsTs, "Ref", tf.parameterType("T"));
-//		tf.constructor(refsTs, refType, "ref", idType, "uid");
-//		tf.constructor(refsTs, refType, "null");
-
 	}
 	
 	public IMap patchOnDisk(ITuple patch, ISourceLocation uri, IEvaluatorContext ctx) {
@@ -131,7 +118,7 @@ public class IO {
 	@SuppressWarnings("unchecked")
 	/*
 	 *  patch object root according to `patch`.
-	 *  fill cache and newIds in the process
+	 *  fill cache (mapping ids to EObjects) and newIds in the process
 	 *  return the new root
 	 */
 	private static EObject patch(EObject root, ITuple patch, Map<IConstructor, EObject> cache, Set<IConstructor> newIds) {
@@ -155,7 +142,7 @@ public class IO {
 				EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
 
 				if (edit.getName().equals("destroy")) {
-					;
+					; // ???
 				}
 				else if (edit.getName().equals("put")) {
 					Object val = value2obj(edit.get("val"), root, cache);
@@ -206,17 +193,18 @@ public class IO {
 	}
 	
 	private static EObject lookup(EObject root, IConstructor id, Map<IConstructor, EObject> cache) {
-		// assert: created things always are in the cache.
 		if (cache.containsKey(id)) {
 			return cache.get(id);
 		}
+		// created things always are in the cache, so we can assume
+		// loc ids in this case.
 		String fragment = ((ISourceLocation)id.get(0)).getFragment();
 		EObject obj = null;
 		if (fragment.equals("/")) { // not sure why it has to be this way.
 			obj = root;
 		}
 		else {
-			// same hre.
+			// same here.
 			obj = EcoreUtil.getEObject(root, fragment.substring(2));
 		}
 		cache.put(id, obj);
@@ -227,7 +215,7 @@ public class IO {
 		this.ctx = ctx;
 		
 		// FIXME: should not be a field.
-		this.ts = new TypeStore(); // start afresh
+		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
 
@@ -487,7 +475,7 @@ public class IO {
 						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
 					}
 					else {
-						fields.add(visitReference(ref, featureValue, fieldType));
+						fields.add(visitReference(ref, featureValue, fieldType, ts));
 					}
 				}
 				else if (feature instanceof EAttribute) {
@@ -534,7 +522,7 @@ public class IO {
 					}
 					else {
 //						fields.add(visitReference(ref, featureValue, fieldType));
-						IValue x = visitReference(ref, featureValue, fieldType);
+						IValue x = visitReference(ref, featureValue, fieldType, ts);
 						if (x != null) {
 							keywords.put(fieldName, x);
 						}
@@ -551,7 +539,7 @@ public class IO {
 				}
 			}
 			
-			keywords.put("uid", getIdFor(eObj));
+			keywords.put("uid", getIdFor(eObj, ts));
 			IValue[] arr = new IValue[fields.size()];
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
@@ -636,13 +624,13 @@ public class IO {
 	 * Returns IValue for an EReference
 	 */
 	@SuppressWarnings("unchecked")
-	private IValue visitReference(EReference ref, Object refValue, Type fieldType) {
+	private IValue visitReference(EReference ref, Object refValue, Type fieldType, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting reference ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 		
 		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
-			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem)).collect(Collectors.toList());
+			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, ts)).collect(Collectors.toList());
 			//ctx.getStdErr().println("The list is: " + valuesToRef);
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
@@ -674,7 +662,7 @@ public class IO {
 				}
 			}
 		} else {
-			IValue x = makeRefTo((EObject) refValue);
+			IValue x = makeRefTo((EObject) refValue, ts);
 			//ctx.getStdErr().println("The ref is: " + x);
 			return x;
 		}
@@ -686,7 +674,7 @@ public class IO {
 	 * In our case, its URI.
 	 * TODO: refactor this to be reusable in patch.
 	 */
-	private IValue getIdFor(EObject obj) {
+	private IValue getIdFor(EObject obj, TypeStore ts) {
 		//ctx.getStdErr().println("Making id for " + obj);
 		
 		Type idType = ts.lookupAbstractDataType("Id");
@@ -709,7 +697,7 @@ public class IO {
 	/**
 	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
-	private IValue makeRefTo(EObject eObj) {
+	private IValue makeRefTo(EObject eObj, TypeStore ts) {
 		//ctx.getStdErr().println("Making ref to " + eObj);
 		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
@@ -721,7 +709,7 @@ public class IO {
 		
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type refCons = ts.lookupConstructor(genRefType,  "ref", tf.tupleType(idType));
-		IValue id = getIdFor(eObj);
+		IValue id = getIdFor(eObj, ts);
 		//ctx.getStdErr().println("Id = " + id);
 		return vf.constructor(refCons, id);
 	}

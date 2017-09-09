@@ -15,6 +15,8 @@ java &T<:node load(type[&T<:node] meta, loc uri);
 @javaClass{lang.ecore.IO}
 java void save(&T<:node model, loc pkg, loc uri);
 
+
+// this is probably slower, but saving is less critical than patch
 void save(type[&T<:node] meta, &T model, loc uri) {
   old = load(meta, uri);
   patch = diff(meta, old, new);
