@@ -12,6 +12,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.eclipse.core.resources.IResource;
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
@@ -30,6 +31,7 @@ import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
+import org.rascalmpl.uri.URIResourceResolver;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.IBool;
@@ -106,7 +108,10 @@ public class IO {
 	
 	private void saveModel(EObject model, ISourceLocation uri) {
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
+		IResource resource = URIResourceResolver.getResource(uri);
+		java.net.URI eclipseURI = resource.getRawLocationURI();
+
+		Resource res = rs.createResource(URI.createURI(eclipseURI.toString()));
 		res.getContents().add(model);
 		try {
 			res.save(Collections.EMPTY_MAP);
@@ -213,7 +218,7 @@ public class IO {
 	
 	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
 		this.ctx = ctx;
-		
+
 		// FIXME: should not be a field.
 		TypeStore ts = new TypeStore(); // start afresh
 
@@ -230,11 +235,11 @@ public class IO {
 	}
 	
 	private static EObject loadModel(ISourceLocation uri) {
-		if (!(uri.getScheme().equals("file") || uri.getScheme().equals("http"))) {
-			throw RuntimeExceptionFactory.schemeNotSupported(uri, null, null);
-		}
+		IResource resource = URIResourceResolver.getResource(uri);
+		java.net.URI eclipseURI = resource.getRawLocationURI();
+
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.getResource(URI.createURI(uri.getURI().toString()), true);
+		Resource res = rs.getResource(URI.createURI(eclipseURI.toString()), true);
 		return res.getContents().get(0);
 	}
 

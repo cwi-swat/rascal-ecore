@@ -34,7 +34,7 @@ java map[int, loc] patchOnDisk(Patch patch, loc uri);
 }
 
 
-&T<:node rekey(map[int, loc] m, &T<:node model) {
+&T<:node rekey(&T<:node model, map[int, loc] m) {
   return visit (model) {
     case &U<:node n => become(n, id(m[i]))
       when isObj(n), id(int i) := getId(n)

@@ -35,7 +35,7 @@ private str myFSMecore = "\<?xml version=\"1.0\" encoding=\"ASCII\"?\>
 \</ecore:EPackage\>";
 
 void smokeIt() {
-  uri = |file:///Users/tvdstorm/Desktop/workspace/MyFSMAnother/model/myFSMAnother.ecore|;
+  uri = |project://MyFSMInRascal/model/myFSMAnother.ecore|;
   // start afresh:
   writeFile(uri, myFSMecore);
   fsm = load(#EPackage, uri);
@@ -60,7 +60,7 @@ void smokeIt() {
   println("\n====== FSM 3 (patched) ======");
   iprintln(fsm3);
   
-  fsm2 = rekey(rekeyMap, fsm2);
+  fsm2 = rekey(fsm2, rekeyMap);
 
   println("\n====== FSM 2 (rekeyed) ======");
   iprintln(fsm2);
