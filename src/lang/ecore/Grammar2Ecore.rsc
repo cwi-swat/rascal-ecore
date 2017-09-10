@@ -38,10 +38,10 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     }
   }
     
-  EStructuralFeature toField(str fld, Symbol s, set[Attr] attrs) {
+  EStructuralFeature toField(str fld, Symbol s, Production p) {
     assert s is lex || s is sort;
     
-    if (\tag("ref"(str spec)) <- attrs, [fld, str class, _] := split(":", spec[1..-1])) {
+    if (<fld, str class, _> <- prodRefs(p)) {
       return r.new(#EStructuralFeature, eReference(fld, referTo(#EClassifier, classMap[class]), false, false));
     }
     
@@ -53,30 +53,33 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     return r.new(#EStructuralFeature, eReference(fld, referTo(#EClassifier, classMap[s.name]), true, false));
   }  
     
-  EStructuralFeature symbol2feature(str fld, Symbol s, set[Attr] attrs) {
+  EStructuralFeature symbol2feature(str fld, Symbol s, Production p) {
     if (s is \iter-star-seps || s is \iter-star) {
-      return toField(fld, s.symbol, attrs)[many=true];
+      return toField(fld, s.symbol, p)[many=true];
     }
+    
     if (s is \iter-seps || s is \iter) {
-      return toField(fld, s.symbol, attrs)[many=true][lowerBound=1];
+      return toField(fld, s.symbol, p)[many=true][lowerBound=1];
     }
+    
     if (s is \opt) {
-      return toField(fld, s.symbol, attrs);
+      return toField(fld, s.symbol, p);
     }
-    return toField(fld, s, attrs);
+    
+    return toField(fld, s, p);
   }  
     
   // then do fields
   for (s:sort(str nt) <- g.definitions) {
     prods = g.definitions[s].alternatives; 
     if (size(prods) == 1, p <- prods, !(p.def is label)) {
-      classMap[nt].eStructuralFeatures += [symbol2feature(fldName, s, p.attributes) 
+      classMap[nt].eStructuralFeatures += [symbol2feature(fldName, s, p) 
         | Production p <- prods, label(str fldName, Symbol s) <- p.symbols ];
     }
     else {
       for (Production p <- prods, label(str cls, _) := p.def) {
-        classMap[capitalize(cls)].eStructuralFeatures += [ symbol2feature(fldName, s, p.attributes) 
-          | label(str fldName, Symbol s) <- p.symbols ];
+        classMap[capitalize(cls)].eStructuralFeatures += 
+          [ symbol2feature(fldName, s, p) | label(str fldName, Symbol s) <- p.symbols ];
       }
     }
   }
@@ -84,4 +87,12 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
   pkg.eClassifiers += [ classMap[k] | k <- classMap ];
   
   return pkg;
+}
+
+rel[str field, str class, str path] prodRefs(Production p) {
+  if (p has attributes) {
+    return { <fld, cls, path> | \tag("ref"(str spec)) <- p.attributes, 
+       [str fld, str cls, str path] := split(":", spec[1..-1]) };
+  }
+  return {};
 }

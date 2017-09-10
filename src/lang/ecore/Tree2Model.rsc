@@ -4,12 +4,11 @@ import ParseTree;
 import Type;
 import List;
 import lang::ecore::Refs;
+import lang::ecore::Grammar2Ecore;
 import IO;
 import String;
 import Node;
 
-//public java &T make(type[&T] typ, str name, list[value] args);
-//public java &T make(type[&T] typ, str name, list[value] args, map[str,value] keywordArgs);
 
 &M<:node tree2model(type[&M<:node] meta, Tree t)  {
   t = (t has top ? t.top : t);
@@ -111,10 +110,12 @@ node deref(type[&M<:node] meta, node obj, list[str] elts) {
   throw "Invalid path element <cur>";
 }
 
+
 value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
   p = t.prod;
   
   if (p.def is lex) {
+    // for now, just strings
     return "<t>";
   }
 
@@ -127,7 +128,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
   args = for (int i <- [0,2..size(t.args)], isAST(t.args[i])) {
     sub = tree2model(meta, r, t.args[i], fix);
     fld = p.symbols[i] is label ? p.symbols[i].name : ""; 
-    if (\tag("ref"(str spec)) <- p.attributes, [fld, _, str path] := split(":", spec[1..-1])) {
+    if (<fld, _, str path> <- prodRefs(p)) {
       // for now, we assume sub is a primitive.
       fixes += [<fld, replaceAll(path, "_", "<sub>")>];
       append null();  
