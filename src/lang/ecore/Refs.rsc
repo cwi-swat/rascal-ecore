@@ -68,3 +68,7 @@ Realm newRealm() {
 Id noId() {
   throw "You should have used new to make things with ids.";
 }
+
+loc noLoc() {
+  throw "No location has been set";
+}

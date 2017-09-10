@@ -62,10 +62,6 @@ void smokeIt(str project = "rascal-ecore") {
   
   fsm2 = rekey(fsm2, rekeyMap);
 
-  println("\n====== FSM 2 (rekeyed) ======");
-  iprintln(fsm2);
-  
-  
   p2 = diff(#EPackage, fsm2, fsm3);
   println("\n====== Diff between fsm2 and fsm3 (should be empty) ======");
   iprintln(p2);
