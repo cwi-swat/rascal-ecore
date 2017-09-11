@@ -159,11 +159,12 @@ public class IO {
 	 * For calling rascal from the EMF side
 	 */
 	
-	//the signature of the function should be
-	// Patch f(&T<:node(type[&T<:node] metaModel));
 	
 	private static Map<String, Evaluator> bundleEvals = new HashMap<>();
-	
+
+	// The signature of the `function` should be
+	// Patch (Loader[&T] load);
+
 	public static CompoundCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
 		if (!(bundleEvals.containsKey(bundleId))) {
 			GlobalEnvironment heap = new GlobalEnvironment();

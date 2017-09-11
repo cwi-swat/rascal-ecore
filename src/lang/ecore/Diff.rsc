@@ -7,7 +7,7 @@ import List;
 import IO;
 import Type;
 
-alias Loader[&T<:node] = (&T<:node)(type[&T<:node]);
+alias Loader[&T] = (&T<:node)(type[&T<:node]);
 
 alias Patch
   = tuple[Id root, Edits edits];
