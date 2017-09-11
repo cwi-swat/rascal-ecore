@@ -45,7 +45,7 @@ import io.usethesource.vallang.type.TypeStore;
 import io.usethesource.vallang.visitors.IValueVisitor;
 import io.usethesource.vallang.visitors.NullVisitor;
 
-public class Convert {
+class Convert {
 
 	private static TypeFactory tf = TypeFactory.getInstance();
 	
@@ -84,6 +84,16 @@ public class Convert {
 					Object newVal = v.accept(this);
 					newObj.eSet(toSet, newVal);
 					i++;
+				}
+				
+				for (Map.Entry<String, IValue> e: c.getParameters().entrySet()) {
+					String fieldName = e.getKey();
+					if (fieldName.equals("src")) {
+						continue;
+					}
+					EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
+					Object newVal = e.getValue().accept(this);
+					newObj.eSet(toSet, newVal);
 				}
 				
 				return newObj;
