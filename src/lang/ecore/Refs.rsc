@@ -58,8 +58,8 @@ Realm newRealm() {
     return id(idCount);
   }
 
-  &T new(type[&T<:node] t, &T x) {
-    return setId(x, newId()); 
+  &T new(type[&T<:node] t, &T x, Id id = newId()) {
+    return setId(x, id); 
   }
 
   return <new>;
