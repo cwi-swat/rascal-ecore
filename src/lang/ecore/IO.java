@@ -147,7 +147,7 @@ public class IO {
 				EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
 
 				if (edit.getName().equals("destroy")) {
-					; // ???
+					EcoreUtil.delete(obj);
 				}
 				else if (edit.getName().equals("put")) {
 					Object val = value2obj(edit.get("val"), root, cache);
