@@ -2,11 +2,10 @@ module lang::ecore::Ecore
 
 // source: http://download.eclipse.org/modeling/emf/emf/javadoc/2.9.0/org/eclipse/emf/ecore/package-summary.html
 
-// somehow needed to get Ref[X] instead of Ref[&T]
 extend lang::ecore::Refs;
 
-data EPackage(Id uid = noId())
-  = ePackage(
+data EPackage(Id uid = noId(), loc pkgURI = |http://www.eclipse.org/emf/2002/Ecore|)
+  = EPackage(
       str name,  // from ENamedElement
       str nsURI, 
       str nsPrefix, 
@@ -16,17 +15,17 @@ data EPackage(Id uid = noId())
 
 
 data EAnnotation(Id uid = noId())
-  = eAnnotation(
+  = EAnnotation(
       str source,
       //map[str, str] details,
       list[EStringToStringMapEntry] details = [],
       list[EAnnotation] eAnnotations = []); 
 
 data EStringToStringMapEntry
-  = eStringToStringMapEntry(str key, str \value);
+  = EStringToStringMapEntry(str key, str \value);
 
 data EClassifier(Id uid = noId())
-  = eClass(
+  = EClass(
       str name, 
       //str instanceClassName,
       bool abstract,
@@ -36,27 +35,27 @@ data EClassifier(Id uid = noId())
       list[EOperation] eOperations = [],
       list[EAnnotation] eAnnotations = [])
       
-  | eDataType(
+  | EDataType(
       str name, 
       //str instanceClassName,
       bool serializable = true,
       list[EAnnotation] eAnnotations = [])
       
-  | eEnum(
+  | EEnum(
       str name, 
       bool serializable = true,
       list[EEnumLiteral] eLiterals = [],
       list[EAnnotation] eAnnotations = []);
 
 data EEnumLiteral(Id uid = noId())
-  = eEnumLiteral(
+  = EEnumLiteral(
       str name, 
       str literal, 
       int \value, 
       list[EAnnotation] eAnnotations = []);
 
 data EJavaClass(Id uid = noId())
-  = eJavaClass(str name);
+  = EJavaClass(str name);
 
 data EStructuralFeature(
    bool ordered = true,
@@ -72,7 +71,7 @@ data EStructuralFeature(
    bool unsettable = false,
    bool derived = false,
    Id uid = noId())
-  = eReference(
+  = EReference(
       str name, 
       Ref[EClassifier] eType, 
       bool containment,
@@ -81,7 +80,7 @@ data EStructuralFeature(
       Ref[EStructuralFeature] eOpposite = null(),
       list[Ref[EStructuralFeature]] eKeys = [])
       
-  | eAttribute(
+  | EAttribute(
       str name,       
       Ref[EClassifier] eType, 
       bool iD = false)
@@ -89,7 +88,7 @@ data EStructuralFeature(
 
 
 data EOperation(Id uid = noId())
-  = eOperation(
+  = EOperation(
       str name,
       Ref[EClassifier] eType,
       bool ordered = true,
@@ -102,7 +101,7 @@ data EOperation(Id uid = noId())
       list[EClassifier] eExceptions = []);
 
 data EParameter(Id uid = noId())
-  = eParameter(
+  = EParameter(
       str name, 
       Ref[EClassifier] eType,
       bool ordered = true,
