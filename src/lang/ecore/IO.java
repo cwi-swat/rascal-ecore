@@ -155,11 +155,17 @@ public class IO {
 	 * For calling rascal from the EMF side
 	 */
 	
-  //the signature of the function should be
+	//the signature of the function should be
 	// Patch f(&T<:node(type[&T<:node] metaModel));
+	
+	private static Map<String, Evaluator> bundleEvals = new HashMap<>();
+	
 	public static CompoundCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
 		// todo: cache the interpreter
-		Evaluator eval = ProjectEvaluatorFactory.getInstance().getBundleEvaluator(Platform.getBundle(bundleId));
+		if (!(bundleEvals.containsKey(bundleId))) {
+			bundleEvals.put(bundleId, ProjectEvaluatorFactory.getInstance().getBundleEvaluator(Platform.getBundle(bundleId)));
+		}
+		Evaluator eval = bundleEvals.get(bundleId);
 		IRascalMonitor mon = new NullRascalMonitor();
 		eval.doImport(mon, module);
 		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, eval) });
