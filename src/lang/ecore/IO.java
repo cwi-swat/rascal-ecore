@@ -1,6 +1,7 @@
 package lang.ecore;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +45,8 @@ import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.env.Environment;
+import org.rascalmpl.interpreter.env.GlobalEnvironment;
+import org.rascalmpl.interpreter.env.ModuleEnvironment;
 import org.rascalmpl.interpreter.result.ICallableValue;
 import org.rascalmpl.interpreter.result.Result;
 import org.rascalmpl.interpreter.result.ResultFactory;
@@ -51,6 +54,7 @@ import org.rascalmpl.interpreter.types.RascalTypeFactory;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.ValueFactoryFactory;
 
 import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IBool;
@@ -161,9 +165,12 @@ public class IO {
 	private static Map<String, Evaluator> bundleEvals = new HashMap<>();
 	
 	public static CompoundCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
-		// todo: cache the interpreter
 		if (!(bundleEvals.containsKey(bundleId))) {
-			bundleEvals.put(bundleId, ProjectEvaluatorFactory.getInstance().getBundleEvaluator(Platform.getBundle(bundleId)));
+			GlobalEnvironment heap = new GlobalEnvironment();
+		    Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), 
+		    		new ModuleEnvironment("$emfbridge$", heap), heap);
+		    ProjectEvaluatorFactory.getInstance().initializeBundleEvaluator(Platform.getBundle(bundleId), eval);
+			bundleEvals.put(bundleId, eval);
 		}
 		Evaluator eval = bundleEvals.get(bundleId);
 		IRascalMonitor mon = new NullRascalMonitor();
@@ -687,7 +694,7 @@ public class IO {
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				Object featureValue = eObj.eGet(feature);
 				
-				System.out.println("For " + fieldName + ": found " + feature);
+				//System.out.println("For " + fieldName + ": found " + feature);
 
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
@@ -723,14 +730,14 @@ public class IO {
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				
-				System.out.println("Looking for " + fieldName + " in " + eCls.getName());
+				//System.out.println("Looking for " + fieldName + " in " + eCls.getName());
 				Object featureValue = eObj.eGet(feature);
 				
 				if (!eObj.eIsSet(feature)) {
 					continue;
 				}
 				
-				System.out.println("For kw " + fieldName + ": found " + feature);
+				//System.out.println("For kw " + fieldName + ": found " + feature);
 
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
@@ -807,7 +814,8 @@ public class IO {
 	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting containment ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 
-		System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
+		//System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
+		
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			Type elemType = fieldType.getElementType();
@@ -831,7 +839,7 @@ public class IO {
 		} else {
 			if (!ref.isRequired()) {              // !M && O = Opt[T]
 				Type rt = ts.lookupAbstractDataType("Opt");
-				System.out.println("rt="+rt);
+				//System.out.println("rt="+rt);
 				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
 				return vf.constructor(t);
 			} else {                              // !M && !O = T
@@ -849,7 +857,7 @@ public class IO {
 	private static IValue visitReference(EReference ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting reference ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 		
-		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
+		//System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
 			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, vf, ts)).collect(Collectors.toList());
