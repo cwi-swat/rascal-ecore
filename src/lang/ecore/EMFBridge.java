@@ -130,13 +130,13 @@ public class EMFBridge {
 		return new CompoundCommand(cmds);
 	}
 	
-	@SuppressWarnings("unchecked")
 	/*
 	 *  patch object root according to `patch`.
 	 *  fill cache (mapping ids to EObjects) and newIds in the process
 	 *  return the new root
 	 *  NB: root may be null, when we're creating from scratch.
 	 */
+	@SuppressWarnings({"unchecked", "unused"})
 	private static EObject patch(EPackage pkg, EObject root, ITuple patch, Map<IConstructor, EObject> cache, Set<IConstructor> newIds) {
 		EFactory fact = pkg.getEFactoryInstance();
 		

@@ -11,7 +11,6 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
-import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
@@ -62,20 +61,7 @@ public class IO {
 	
 	public void save(INode model, ISourceLocation uri, ISourceLocation pkgUri) {
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
-
-		Convert.ModelBuilder builder = new Convert.ModelBuilder(pkg);
-		EObject root = (EObject) model.accept(builder);
-
-		// FIXME: Actually, when encountering a ref(id(_)) in the tree,
-		// it should be possible to get the type it refers to,
-		// create a placeholder object for it, and later fill the
-		// structural features when encountering the real object.
-		// Thus, getting rid of the second traversal.
-		// >>> TVDS: this will not work, since the Reffed type will not be the concrete class.
-		
-		Convert.CrossRefResolver resolver = new Convert.CrossRefResolver(builder.getUids());
-		model.accept(resolver);
-		
+		EObject root = Convert.value2obj(pkg, (IConstructor) model);
 		saveModel(root, uri);
 	}
 

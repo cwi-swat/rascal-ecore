@@ -43,64 +43,103 @@ import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 import io.usethesource.vallang.visitors.IValueVisitor;
-import io.usethesource.vallang.visitors.NullVisitor;
 
 class Convert {
 
 	private static TypeFactory tf = TypeFactory.getInstance();
 	
-	static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
+	public static EObject value2obj(EPackage pkg, IConstructor model) {
+		ModelBuilder builder = new ModelBuilder(pkg);
+		EObject obj = (EObject) model.accept(builder);
+		for (EObject x: builder.fixes.keySet()) {
+			builder.fixes.get(x).apply(x, builder.uids);
+		}
+		return obj;
+	}
+	
+	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
 		private EPackage pkg;
 		private Map<IConstructor, EObject> uids = new HashMap<>();
+		private Map<EObject, Fix> fixes = new HashMap<>();
+		
+		static class Fix {
+			private EStructuralFeature field;
+			private IConstructor id;
 
-		public ModelBuilder(EPackage pkg) {
+			Fix(EStructuralFeature field, IConstructor id) {
+				this.field = field;
+				this.id = id;
+			}
+			
+			void apply(EObject owner, Map<IConstructor, EObject> uids) {
+				owner.eSet(field, uids.get(id));
+			}
+			
+		}
+		
+		
+		private ModelBuilder(EPackage pkg) {
 			this.pkg  = pkg;
 		}
 
-		public Map<IConstructor, EObject> getUids() {
-			return uids;
-		}
-		
 		@Override
 		public Object visitConstructor(IConstructor o) throws RuntimeException {
+			
+			if (isRef(o)) {
+				// in later resolve phase
+				return null;
+			}
+			
 			String clsName = o.getName();
 			EClass eCls = (EClass) pkg.getEClassifier(clsName);
 			
-			if (eCls != null) { // Create corresponding concept
-				EFactory fact = pkg.getEFactoryInstance();
-				EObject newObj = fact.create(eCls);
-				IWithKeywordParameters<? extends IConstructor> c = o.asWithKeywordParameters();
-				
-				if (c.hasParameter("uid")) {
-					IConstructor cUid = (IConstructor) c.getParameter("uid");
-					uids.put(cUid, newObj);
-				}
-				
-				int i = 0;
-				for (IValue v : o.getChildren()) {
-					String fieldName = o.getChildrenTypes().getFieldName(i);
-					EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
-					Object newVal = v.accept(this);
-					newObj.eSet(toSet, newVal);
-					i++;
-				}
-				
-				for (Map.Entry<String, IValue> e: c.getParameters().entrySet()) {
-					String fieldName = e.getKey();
-					if (fieldName.equals("src") || fieldName.equals("uid")) {
-						continue;
-					}
-					EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
-					Object newVal = e.getValue().accept(this);
-					newObj.eSet(toSet, newVal);
-				}
-				
-				return newObj;
+			if (eCls == null) {
+				throw RuntimeExceptionFactory.illegalArgument(null, null);
 			}
 			
-			// Don't handle Ref[T] for now, they'll be resolved later
 			
-			return null;
+			// Create corresponding concept
+			EFactory fact = pkg.getEFactoryInstance();
+			EObject newObj = fact.create(eCls);
+			
+			IWithKeywordParameters<? extends IConstructor> c = o.asWithKeywordParameters();
+			
+			if (c.hasParameter("uid")) {
+				IConstructor cUid = (IConstructor) c.getParameter("uid");
+				uids.put(cUid, newObj);
+			}
+			
+			int i = 0;
+			for (IValue v : o.getChildren()) {
+				String fieldName = o.getChildrenTypes().getFieldName(i);
+				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
+				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
+					fixes.put(newObj, new Fix(toSet, (IConstructor)((IConstructor)v).asWithKeywordParameters().getParameter("uid")));
+				}
+				else {
+					Object newVal = v.accept(this);
+					newObj.eSet(toSet, newVal);
+				}
+				i++;
+			}
+			
+			for (Map.Entry<String, IValue> e: c.getParameters().entrySet()) {
+				String fieldName = e.getKey();
+				if (fieldName.equals("src") || fieldName.equals("uid")) {
+					continue;
+				}
+				IValue v = e.getValue();
+				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
+				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
+					fixes.put(newObj, new Fix(toSet, (IConstructor)((IConstructor)v).asWithKeywordParameters().getParameter("uid")));
+				}
+				else {
+					Object newVal = v.accept(this);
+					newObj.eSet(toSet, newVal);
+				}
+			}
+			
+			return newObj;
 		}
 		
 		@Override
@@ -185,63 +224,10 @@ class Convert {
 		
 	}
 
-	static class CrossRefResolver extends NullVisitor<Void, RuntimeException> {
-		private Map<IValue, EObject> uids;
-
-		public CrossRefResolver(Map<IValue, EObject> uids) {
-			this.uids = uids;
-		}
-		
-		@Override
-		public Void visitConstructor(IConstructor o) throws RuntimeException {
-			IWithKeywordParameters<? extends IConstructor> c = o.asWithKeywordParameters();
-			
-			if (c.hasParameter("uid")) {
-				IConstructor cUid = (IConstructor) c.getParameter("uid");
-				EObject me = uids.get(cUid);
-				
-				int i = 0;
-				for (IValue child : o.getChildren()) {
-					String fieldName = o.getChildrenTypes().getFieldName(i);
-					EStructuralFeature toSet = me.eClass().getEStructuralFeature(fieldName);
-					if (child instanceof IConstructor) {
-						IConstructor childCons = (IConstructor) child;
-						if (isRef(childCons)) {
-							IConstructor id = (IConstructor) childCons.get(0);
-							EObject resolved = lookup(id);
-							me.eSet(toSet, resolved);
-						}
-					}
-					
-					child.accept(this);
-					i++;
-				}
-			}
-
-			return null;
-		}
-
-		private boolean isRef(IConstructor o) {
-			return "ref".equals(o.getName()) && "Ref".equals(o.getType().getName());
-		}
-
-		private EObject lookup(IConstructor uid) {
-			return uids.get(uid);
-		}
-		
-		@Override
-		public Void visitNode(INode o) throws RuntimeException {
-			o.forEach(val -> val.accept(this));
-			return null;
-		}
-		
-		@Override
-		public Void visitList(IList o) throws RuntimeException {
-			o.forEach(e -> e.accept(this));
-			return null;
-		}
+	private static boolean isRef(IConstructor o) {
+		return "ref".equals(o.getName()) && "Ref".equals(o.getType().getName());
 	}
-
+	
 	
 	/**
 	 * Build ADT while visiting EObject content
