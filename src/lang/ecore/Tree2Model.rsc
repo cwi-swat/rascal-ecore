@@ -29,24 +29,20 @@ alias Fix = void(node, lrel[str field, str path]);
 alias FixUps = map[Id, lrel[str field, str path]];
 
 &M<:node fixUp(type[&M<:node] meta, &M model, FixUps fixes) {
-  
-  /*
-   * The stuff with typeOf etc is truly horrible here.
-   * It works now, but I'd like it to be simpler.
-   */
+  // The stuff with typeOf etc is truly horrible here.
+  // It works now, but I'd like it to be simpler.
   
   &T<:node fixup(type[&T<:node] t, &T<:node obj) {
     c = getName(obj);
     kws = getKeywordParameters(obj);
+    alts = meta.definitions[t.symbol].alternatives;
 
     for (<str fld, str path> <- fixes[getId(obj)]) {
-      //println("FIXING: <fld> to <path>");
       kids = getChildren(obj);
-      if (cons(label(c, _), ps:[*_, p:label(fld, rt:adt("Ref", _)), *_], _, _) <- meta.definitions[t.symbol].alternatives) {
+      if (cons(label(c, _), ps:[*_, p:label(fld, rt:adt("Ref", _)), *_], _, _) <- alts) {
         int i = indexOf(ps, p);
         target = deref(meta, model, path);
         obj = make(t, c, kids[0..i] + [referTo(type(rt, meta.definitions), target)] + kids[i+1..], kws);
-        //println("FIXED: <obj>");
       }
       else {
         throw "Cannot find constructor for <obj>";
@@ -71,6 +67,14 @@ value getField(type[&M<:node] meta, node obj, str fld) {
   }
   throw "Could not find constructor field <fld> on <obj>";
 }
+
+/*
+ * Path syntax (to be fixed)
+ * - <empty>
+ * - Path / Id
+ * - Path / Id [ <int> ]
+ * - Path / Id [ Id = <str> ]
+ */  
 
 node deref(type[&M<:node] meta, &M root, str path) 
   = deref(meta, root, split("/", path)[1..]); 
@@ -130,6 +134,9 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
     fld = p.symbols[i] is label ? p.symbols[i].name : ""; 
     if (<fld, _, str path> <- prodRefs(p)) {
       // for now, we assume sub is a primitive.
+      // TODO: _ is too limited, need variable names
+      // this means fix management should be outside this loop
+      // to have all basic args available (then update args with null where need)
       fixes += [<fld, replaceAll(path, "_", "<sub>")>];
       append null();  
     }

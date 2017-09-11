@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IResource;
+import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
@@ -68,6 +69,16 @@ public class IO {
 	
 	@SuppressWarnings("unused")
 	private IEvaluatorContext ctx;
+	
+	
+	public static CompoundCommand runRascal(EObject obj, String module, String function) {
+		// transform obj to IValue
+		// call the rascal function (returning a patch)
+		// transform patch to compoundCommand
+		// return it.
+		return null;
+	}
+	
 	
 	public IO(IValueFactory vf) {
 		this.vf = vf;
