@@ -1,7 +1,6 @@
 package lang.ecore;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.util.BasicEList;
@@ -36,30 +36,21 @@ import org.eclipse.emf.edit.command.DeleteCommand;
 import org.eclipse.emf.edit.command.RemoveCommand;
 import org.eclipse.emf.edit.command.SetCommand;
 import org.eclipse.emf.edit.domain.EditingDomain;
-import org.eclipse.emf.transaction.TransactionalEditingDomain;
-import org.rascalmpl.ast.AbstractAST;
-import org.rascalmpl.ast.KeywordFormal;
 import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.eclipse.nature.ProjectEvaluatorFactory;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.interpreter.TypeReifier;
-import org.rascalmpl.interpreter.control_exceptions.MatchFailed;
 import org.rascalmpl.interpreter.env.Environment;
-import org.rascalmpl.interpreter.env.GlobalEnvironment;
-import org.rascalmpl.interpreter.env.ModuleEnvironment;
-import org.rascalmpl.interpreter.result.AbstractFunction;
 import org.rascalmpl.interpreter.result.ICallableValue;
 import org.rascalmpl.interpreter.result.Result;
 import org.rascalmpl.interpreter.result.ResultFactory;
-import org.rascalmpl.interpreter.types.FunctionType;
 import org.rascalmpl.interpreter.types.RascalTypeFactory;
-import org.rascalmpl.interpreter.types.ReifiedType;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
 import org.rascalmpl.uri.URIUtil;
-import org.rascalmpl.values.ValueFactoryFactory;
 
 import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IBool;
@@ -97,116 +88,82 @@ public class IO {
 	@SuppressWarnings("unused")
 	private IEvaluatorContext ctx;
 	
+	/*
+	 * Public Rascal interface
+	 */
+	
+	public IO(IValueFactory vf) {
+		this.vf = vf;
+		this.tr = new TypeReifier(vf);
+		
+		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
+			.put("*", new XMIResourceFactoryImpl());
+	}
+	
+	public IMap patchOnDisk(ITuple patch, ISourceLocation uri, IEvaluatorContext ctx) {
+		this.ctx = ctx;
+		
+		Map<IConstructor, EObject> cache = new HashMap<>();
+		Set<IConstructor> newIds = new HashSet<>();
+
+		EObject root = loadModel(uri);
+
+		EObject newRoot = patch(root, patch, cache, newIds);
+		
+		saveModel(newRoot, uri);
+		
+		return rekeyMap(cache, newIds);
+	}
 	
 	
-	// the signature of the function should be
+	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
+		this.ctx = ctx;
+
+		TypeStore ts = new TypeStore(); // start afresh
+
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+
+		// Cheat: build Ref  here (assuming Id is in there)
+		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+		tf.constructor(ts, refType, "null");
+		
+		EObject root = loadModel(uri);
+		
+		return obj2value(root, rt, vf, ts);
+	}
+	
+	public void save(INode model, ISourceLocation pkgUri, ISourceLocation uri) {
+		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
+
+		ModelBuilder builder = new ModelBuilder(pkg);
+		EObject root = (EObject) model.accept(builder);
+
+		// FIXME: Actually, when encountering a ref(id(_)) in the tree,
+		// it should be possible to get the type it refers to,
+		// create a placeholder object for it, and later fill the
+		// structural features when encountering the real object.
+		// Thus, getting rid of the second traversal.
+		
+		CrossRefResolver resolver = new CrossRefResolver(builder.getUids());
+		model.accept(resolver);
+		
+		saveModel(root, uri);
+	}
+
+	/*
+	 * For calling rascal from the EMF side
+	 */
+	
+  //the signature of the function should be
 	// Patch f(&T<:node(type[&T<:node] metaModel));
-	public static CompoundCommand runRascal(TransactionalEditingDomain domain, EObject obj, String module, String function) {
-		
-		// todo: cache this?
-		GlobalEnvironment heap = new GlobalEnvironment();
-		final Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), new ModuleEnvironment("EMFBridge", heap), heap);
-
-		
-		IValue closure = new ICallableValue() {
-			
-			@Override
-			public boolean mayHaveKeywordParameters() {
-				return false;
-			}
-			
-			@Override
-			public boolean isEqual(IValue arg0) {
-				return false;
-			}
-			
-			@Override
-			public boolean isAnnotatable() {
-				return false;
-			}
-			
-			@Override
-			public IWithKeywordParameters<? extends IValue> asWithKeywordParameters() {
-				return null;
-			}
-			
-			@Override
-			public IAnnotatable<? extends IValue> asAnnotatable() {
-				return null;
-			}
-			
-			@Override
-			public <T, E extends Throwable> T accept(IValueVisitor<T, E> visit) throws E {
-				return visit.visitExternal(this);
-			}
-			
-			@Override
-			public Type getType() {
-				RascalTypeFactory rtf = RascalTypeFactory.getInstance();
-				Type param = tf.parameterType("T", tf.nodeType());
-				return rtf.functionType(param, tf.tupleType(rtf.reifiedType(param)), tf.tupleEmpty());
-			}
-			
-			@Override
-			public IConstructor encodeAsConstructor() {
-				return null;
-			}
-			
-			@Override
-			public boolean isStatic() {
-				return false;
-			}
-			
-			@Override
-			public boolean hasVarArgs() {
-				return false;
-			}
-			
-			@Override
-			public boolean hasKeywordArguments() {
-				return false;
-			}
-			
-			@Override
-			public IEvaluator<Result<IValue>> getEval() {
-				return eval;
-			}
-			
-			@Override
-			public int getArity() {
-				return 1;
-			}
-			
-			@Override
-			public ICallableValue cloneInto(Environment arg0) {
-				return null;
-			}
-			
-			@Override
-			public Result<IValue> call(IRascalMonitor arg0, Type[] arg1, IValue[] arg2, Map<String, IValue> arg3) {
-				return call(arg1, arg2, arg3);
-			}
-			
-			@Override
-			public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
-				IValue reifiedType = args[0];
-				TypeStore ts = new TypeStore(); // start afresh
-
-				IValueFactory values = getEval().getValueFactory();
-				Type rt = new TypeReifier(values).valueToType((IConstructor) reifiedType, ts);
-
-				// TODO: this duplicates load...
-				Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
-				tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
-				tf.constructor(ts, refType, "null");
-				
-				return ResultFactory.makeResult(rt, obj2value(obj, rt, values, ts), getEval());
-			}
-		};
-		
+	public static CompoundCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
+		// todo: cache the interpreter
+		Evaluator eval = ProjectEvaluatorFactory.getInstance().getBundleEvaluator(Platform.getBundle(bundleId));
 		IRascalMonitor mon = new NullRascalMonitor();
 		eval.doImport(mon, module);
-		ITuple patch = (ITuple) eval.call(function, new IValue[] { closure });
+		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, eval) });
+		
 		return patch(domain, obj, patch);
 	}
 	
@@ -222,6 +179,7 @@ public class IO {
 			IConstructor id = (IConstructor) idEdit.get(0);
 			IConstructor edit = (IConstructor) idEdit.get(1);
 			if (edit.getName().equals("create")) {
+				// TODO: we actually create the new objects during patch, not while doing the commands...
 				String clsName = toFirstUpperCase(((IString)edit.get("class")).getValue());
 				EClass eCls = (EClass) pkg.getEClassifier(clsName);
 				EObject obj = fact.create(eCls);
@@ -261,29 +219,120 @@ public class IO {
 		return new CompoundCommand(cmds);
 	}
 	
-	
-	public IO(IValueFactory vf) {
-		this.vf = vf;
-		this.tr = new TypeReifier(vf);
+	private static class ObtainModelClosure extends Result<ICallableValue> implements ICallableValue{
 		
-		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
-			.put("*", new XMIResourceFactoryImpl());
+		private IEvaluator<Result<IValue>> eval;
+		private EObject model;
+		
+		private static final Type myType;
+		
+		static {
+			RascalTypeFactory rtf = RascalTypeFactory.getInstance();
+			Type param = tf.parameterType("T", tf.nodeType());
+			myType = rtf.functionType(param, tf.tupleType(rtf.reifiedType(param)), tf.tupleEmpty());
+		}
+
+		public ObtainModelClosure(EObject model, IEvaluator<Result<IValue>> eval) {
+			super(myType, null, eval);
+			this.value = this;
+			this.model = model;
+			this.eval = eval;
+		}
+		
+		@Override
+		public boolean mayHaveKeywordParameters() {
+			return false;
+		}
+		
+		@Override
+		public boolean isEqual(IValue arg0) {
+			return false;
+		}
+		
+		@Override
+		public boolean isAnnotatable() {
+			return false;
+		}
+		
+		@Override
+		public IWithKeywordParameters<? extends IValue> asWithKeywordParameters() {
+			return null;
+		}
+		
+		@Override
+		public IAnnotatable<? extends IValue> asAnnotatable() {
+			return null;
+		}
+		
+		@Override
+		public <T, E extends Throwable> T accept(IValueVisitor<T, E> visit) throws E {
+			return visit.visitExternal(this);
+		}
+		
+		@Override
+		public Type getType() {
+			return myType;
+		}
+		
+		@Override
+		public IConstructor encodeAsConstructor() {
+			return null;
+		}
+		
+		@Override
+		public boolean isStatic() {
+			return false;
+		}
+		
+		@Override
+		public boolean hasVarArgs() {
+			return false;
+		}
+		
+		@Override
+		public boolean hasKeywordArguments() {
+			return false;
+		}
+		
+		@Override
+		public IEvaluator<Result<IValue>> getEval() {
+			return eval;
+		}
+		
+		@Override
+		public int getArity() {
+			return 1;
+		}
+		
+		@Override
+		public ICallableValue cloneInto(Environment arg0) {
+			return null;
+		}
+		
+		@Override
+		public Result<IValue> call(IRascalMonitor arg0, Type[] arg1, IValue[] arg2, Map<String, IValue> arg3) {
+			return call(arg1, arg2, arg3);
+		}
+		
+		@Override
+		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
+			IValue reifiedType = args[0];
+			TypeStore ts = new TypeStore(); // start afresh
+
+			IValueFactory values = getEval().getValueFactory();
+			Type rt = new TypeReifier(values).valueToType((IConstructor) reifiedType, ts);
+
+			// TODO: this duplicates load...
+			Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+			tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+			tf.constructor(ts, refType, "null");
+			
+			IValue val = obj2value(model, rt, values, ts);
+			return ResultFactory.makeResult(rt, val, getEval());
+		}
+
 	}
 	
-	public IMap patchOnDisk(ITuple patch, ISourceLocation uri, IEvaluatorContext ctx) {
-		this.ctx = ctx;
-		
-		Map<IConstructor, EObject> cache = new HashMap<>();
-		Set<IConstructor> newIds = new HashSet<>();
-
-		EObject root = loadModel(uri);
-
-		EObject newRoot = patch(root, patch, cache, newIds);
-		
-		saveModel(newRoot, uri);
-		
-		return rekeyMap(cache, newIds);
-	}
 	
 	private IMap rekeyMap(Map<IConstructor, EObject> cache, Set<IConstructor> newIds) {
 		IMapWriter w = vf.mapWriter();
@@ -411,23 +460,6 @@ public class IO {
 		return obj;
 	}
 	
-	public IValue load(IValue reifiedType, ISourceLocation uri, IEvaluatorContext ctx) {
-		this.ctx = ctx;
-
-		// FIXME: should not be a field.
-		TypeStore ts = new TypeStore(); // start afresh
-
-		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
-
-		// Cheat: build Ref  here (assuming Id is in there)
-		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
-		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
-		tf.constructor(ts, refType, "null");
-		
-		EObject root = loadModel(uri);
-		
-		return obj2value(root, rt, vf, ts);
-	}
 	
 	private static EObject loadModel(ISourceLocation uri) {
 		IResource resource = URIResourceResolver.getResource(uri);
@@ -438,23 +470,6 @@ public class IO {
 		return res.getContents().get(0);
 	}
 
-	public void save(INode model, ISourceLocation pkgUri, ISourceLocation uri) {
-		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
-
-		ModelBuilder builder = new ModelBuilder(pkg);
-		EObject root = (EObject) model.accept(builder);
-
-		// FIXME: Actually, when encountering a ref(id(_)) in the tree,
-		// it should be possible to get the type it refers to,
-		// create a placeholder object for it, and later fill the
-		// structural features when encountering the real object.
-		// Thus, getting rid of the second traversal.
-		
-		CrossRefResolver resolver = new CrossRefResolver(builder.getUids());
-		model.accept(resolver);
-		
-		saveModel(root, uri);
-	}
 
 	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
 		private EPackage pkg;
@@ -654,7 +669,7 @@ public class IO {
 			EClass eCls = eObj.eClass();
 
 			// FIXME: Assuming that there's a unique constructor with the EClass' name
-			Type t = ts.lookupConstructor(type, toFirstLowerCase(eCls.getName())).iterator().next();
+			Type t = ts.lookupConstructor(type, eCls.getName()).iterator().next();
 			
 			List<IValue> fields = new ArrayList<>();
 			for (int i = 0; i < t.getArity(); i++) {
@@ -695,8 +710,9 @@ public class IO {
 				String fieldName = e.getKey();
 				Type fieldType = e.getValue();
 
-				if (fieldName.equals("uid"))
+				if (fieldName.equals("uid") || fieldName.equals("src")) {
 					continue;
+				}
 				
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
@@ -744,7 +760,7 @@ public class IO {
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
 
-		return makePrimitive(obj, vf);
+		return makePrimitive(obj, type, vf);
 	}
 	
 	
@@ -756,7 +772,7 @@ public class IO {
 
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
-			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue, vf)).collect(Collectors.toList());
+			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue, fieldType, vf)).collect(Collectors.toList());
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 
@@ -774,7 +790,7 @@ public class IO {
 			throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
 		}
 		
-		return makePrimitive(refValue, vf);
+		return makePrimitive(refValue, fieldType, vf);
 
 	}
 	
@@ -813,7 +829,7 @@ public class IO {
 				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
 				return vf.constructor(t);
 			} else {                              // !M && !O = T
-				Type t = ts.lookupConstructor(fieldType, toFirstLowerCase(fieldType.getName()), tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
+				Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
 				return vf.constructor(t);
 			}
 		}
@@ -917,7 +933,23 @@ public class IO {
 	/**
 	 * Returns IValue for primitive type
 	 */
-	private static IValue makePrimitive(Object obj, IValueFactory vf) {
+	private static IValue makePrimitive(Object obj, Type fieldType, IValueFactory vf) {
+		if (obj == null) {
+			if (fieldType.isBool()) {
+				return vf.bool(false);
+			}
+			if (fieldType.isInteger()) {
+				return vf.integer(0);
+			}
+			if (fieldType.isReal()) {
+				return vf.real(0.0);
+			}
+			if (fieldType.isString()) {
+				return vf.string("");
+			}
+			throw RuntimeExceptionFactory.illegalArgument(vf.string("null"), null, null);
+		}
+		
 		if (obj instanceof Boolean) {
 			return vf.bool((Boolean) obj);
 		}
