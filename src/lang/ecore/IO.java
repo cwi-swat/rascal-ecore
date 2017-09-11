@@ -1,6 +1,7 @@
 package lang.ecore;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IResource;
+import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
@@ -29,12 +31,37 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
+import org.eclipse.emf.edit.command.AddCommand;
+import org.eclipse.emf.edit.command.DeleteCommand;
+import org.eclipse.emf.edit.command.RemoveCommand;
+import org.eclipse.emf.edit.command.SetCommand;
+import org.eclipse.emf.edit.domain.EditingDomain;
+import org.eclipse.emf.transaction.TransactionalEditingDomain;
+import org.rascalmpl.ast.AbstractAST;
+import org.rascalmpl.ast.KeywordFormal;
+import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.interpreter.Evaluator;
+import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
+import org.rascalmpl.interpreter.NullRascalMonitor;
 import org.rascalmpl.interpreter.TypeReifier;
+import org.rascalmpl.interpreter.control_exceptions.MatchFailed;
+import org.rascalmpl.interpreter.env.Environment;
+import org.rascalmpl.interpreter.env.GlobalEnvironment;
+import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.interpreter.result.AbstractFunction;
+import org.rascalmpl.interpreter.result.ICallableValue;
+import org.rascalmpl.interpreter.result.Result;
+import org.rascalmpl.interpreter.result.ResultFactory;
+import org.rascalmpl.interpreter.types.FunctionType;
+import org.rascalmpl.interpreter.types.RascalTypeFactory;
+import org.rascalmpl.interpreter.types.ReifiedType;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
 import org.rascalmpl.uri.URIUtil;
+import org.rascalmpl.values.ValueFactoryFactory;
 
+import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IDateTime;
@@ -65,18 +92,173 @@ import io.usethesource.vallang.visitors.NullVisitor;
 public class IO {
 	private final IValueFactory vf;
 	private final TypeReifier tr;
-	private final TypeFactory tf = TypeFactory.getInstance();
+	private static final TypeFactory tf = TypeFactory.getInstance();
 	
 	@SuppressWarnings("unused")
 	private IEvaluatorContext ctx;
 	
 	
-	public static CompoundCommand runRascal(EObject obj, String module, String function) {
-		// transform obj to IValue
-		// call the rascal function (returning a patch)
-		// transform patch to compoundCommand
-		// return it.
-		return null;
+	
+	// the signature of the function should be
+	// Patch f(&T<:node(type[&T<:node] metaModel));
+	public static CompoundCommand runRascal(TransactionalEditingDomain domain, EObject obj, String module, String function) {
+		
+		// todo: cache this?
+		GlobalEnvironment heap = new GlobalEnvironment();
+		final Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), new ModuleEnvironment("EMFBridge", heap), heap);
+
+		
+		IValue closure = new ICallableValue() {
+			
+			@Override
+			public boolean mayHaveKeywordParameters() {
+				return false;
+			}
+			
+			@Override
+			public boolean isEqual(IValue arg0) {
+				return false;
+			}
+			
+			@Override
+			public boolean isAnnotatable() {
+				return false;
+			}
+			
+			@Override
+			public IWithKeywordParameters<? extends IValue> asWithKeywordParameters() {
+				return null;
+			}
+			
+			@Override
+			public IAnnotatable<? extends IValue> asAnnotatable() {
+				return null;
+			}
+			
+			@Override
+			public <T, E extends Throwable> T accept(IValueVisitor<T, E> visit) throws E {
+				return visit.visitExternal(this);
+			}
+			
+			@Override
+			public Type getType() {
+				RascalTypeFactory rtf = RascalTypeFactory.getInstance();
+				Type param = tf.parameterType("T", tf.nodeType());
+				return rtf.functionType(param, tf.tupleType(rtf.reifiedType(param)), tf.tupleEmpty());
+			}
+			
+			@Override
+			public IConstructor encodeAsConstructor() {
+				return null;
+			}
+			
+			@Override
+			public boolean isStatic() {
+				return false;
+			}
+			
+			@Override
+			public boolean hasVarArgs() {
+				return false;
+			}
+			
+			@Override
+			public boolean hasKeywordArguments() {
+				return false;
+			}
+			
+			@Override
+			public IEvaluator<Result<IValue>> getEval() {
+				return eval;
+			}
+			
+			@Override
+			public int getArity() {
+				return 1;
+			}
+			
+			@Override
+			public ICallableValue cloneInto(Environment arg0) {
+				return null;
+			}
+			
+			@Override
+			public Result<IValue> call(IRascalMonitor arg0, Type[] arg1, IValue[] arg2, Map<String, IValue> arg3) {
+				return call(arg1, arg2, arg3);
+			}
+			
+			@Override
+			public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
+				IValue reifiedType = args[0];
+				TypeStore ts = new TypeStore(); // start afresh
+
+				IValueFactory values = getEval().getValueFactory();
+				Type rt = new TypeReifier(values).valueToType((IConstructor) reifiedType, ts);
+
+				// TODO: this duplicates load...
+				Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+				tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+				tf.constructor(ts, refType, "null");
+				
+				return ResultFactory.makeResult(rt, obj2value(obj, rt, values, ts), getEval());
+			}
+		};
+		
+		IRascalMonitor mon = new NullRascalMonitor();
+		eval.doImport(mon, module);
+		ITuple patch = (ITuple) eval.call(function, new IValue[] { closure });
+		return patch(domain, obj, patch);
+	}
+	
+	@SuppressWarnings("unchecked")
+	private static CompoundCommand patch(EditingDomain domain, EObject root, ITuple patch) {
+		EPackage pkg = root.eClass().getEPackage();
+		EFactory fact = pkg.getEFactoryInstance();
+		List<Command> cmds = new ArrayList<>();
+		Map<IConstructor, EObject> cache = new HashMap<>();
+		
+		for (IValue v: (IList)patch.get(1)) {
+			ITuple idEdit = (ITuple)v;
+			IConstructor id = (IConstructor) idEdit.get(0);
+			IConstructor edit = (IConstructor) idEdit.get(1);
+			if (edit.getName().equals("create")) {
+				String clsName = toFirstUpperCase(((IString)edit.get("class")).getValue());
+				EClass eCls = (EClass) pkg.getEClassifier(clsName);
+				EObject obj = fact.create(eCls);
+				cache.put(id, obj);
+			}
+			else {
+				EObject obj = lookup(root, id, cache);
+				String fieldName = ((IString)edit.get("field")).getValue();
+				EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
+
+				if (edit.getName().equals("destroy")) {
+					cmds.add(DeleteCommand.create(domain, obj));
+				}
+				else if (edit.getName().equals("put")) {
+					Object val = value2obj(edit.get("val"), root, cache);
+					cmds.add(SetCommand.create(domain, obj, field, val));
+				}
+				else if (edit.getName().equals("unset")) {
+					cmds.add(SetCommand.create(domain, obj, field, null));
+				}
+				else {
+					List<Object> lst = (List<Object>)obj.eGet(field);
+					int pos = ((IInteger)edit.get("pos")).intValue();
+					
+					if (edit.getName().equals("ins")) {
+						cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
+					}
+					else if (edit.getName().equals("del")) {
+						cmds.add(RemoveCommand.create(domain, obj, field, lst.get(pos)));
+					}
+					else {
+						throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+					}
+				}
+			}
+		}
+		return new CompoundCommand(cmds);
 	}
 	
 	
@@ -158,6 +340,8 @@ public class IO {
 				EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
 
 				if (edit.getName().equals("destroy")) {
+					// this deletes obj from all containers and references to it
+					// but that's ok, because deletes are always at the end. 
 					EcoreUtil.delete(obj);
 				}
 				else if (edit.getName().equals("put")) {
@@ -242,7 +426,7 @@ public class IO {
 		
 		EObject root = loadModel(uri);
 		
-		return obj2value(root, rt, ts);
+		return obj2value(root, rt, vf, ts);
 	}
 	
 	private static EObject loadModel(ISourceLocation uri) {
@@ -462,7 +646,7 @@ public class IO {
 	/**
 	 * Build ADT while visiting EObject content
 	 */
-	private IValue obj2value(Object obj, Type type, TypeStore ts) {
+	private static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting object " + obj + " (" + type + ")");
 
 		if (obj instanceof EObject) {
@@ -488,16 +672,16 @@ public class IO {
 					// Then featureValue is an EObject
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
-						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
+						fields.add(visitContainmentRef(ref, featureValue, fieldType, vf, ts));
 					}
 					else {
-						fields.add(visitReference(ref, featureValue, fieldType, ts));
+						fields.add(visitReference(ref, featureValue, fieldType, vf, ts));
 					}
 				}
 				else if (feature instanceof EAttribute) {
 					// Then featureValue is a primitive type
 					EAttribute att = (EAttribute) feature;
-					fields.add(visitAttribute(att, featureValue, fieldType, ts));
+					fields.add(visitAttribute(att, featureValue, fieldType, vf, ts));
 				}
 				else {
 					throw RuntimeExceptionFactory.illegalArgument(vf.string(feature.toString()), null, null);
@@ -531,14 +715,14 @@ public class IO {
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
 //						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
-						IValue x = visitContainmentRef(ref, featureValue, fieldType, ts);
+						IValue x = visitContainmentRef(ref, featureValue, fieldType, vf, ts);
 						if (x != null) {
 							keywords.put(fieldName, x);
 						}
 					}
 					else {
 //						fields.add(visitReference(ref, featureValue, fieldType));
-						IValue x = visitReference(ref, featureValue, fieldType, ts);
+						IValue x = visitReference(ref, featureValue, fieldType, vf, ts);
 						if (x != null) {
 							keywords.put(fieldName, x);
 						}
@@ -548,19 +732,19 @@ public class IO {
 					// Then featureValue is a primitive type
 					EAttribute att = (EAttribute) feature;
 //					fields.add();
-					IValue x = visitAttribute(att, featureValue, fieldType, ts);
+					IValue x = visitAttribute(att, featureValue, fieldType, vf, ts);
 					if (x != null) {
 						keywords.put(fieldName, x);
 					}
 				}
 			}
 			
-			keywords.put("uid", getIdFor(eObj, ts));
+			keywords.put("uid", getIdFor(eObj, vf, ts));
 			IValue[] arr = new IValue[fields.size()];
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
 
-		return makePrimitive(obj);
+		return makePrimitive(obj, vf);
 	}
 	
 	
@@ -568,11 +752,11 @@ public class IO {
 	 * Returns IValue for an EAttribute
 	 */
 	@SuppressWarnings("unchecked")
-	private IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
+	private static IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
 
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
-			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue)).collect(Collectors.toList());
+			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue, vf)).collect(Collectors.toList());
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 
@@ -590,7 +774,7 @@ public class IO {
 			throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
 		}
 		
-		return makePrimitive(refValue);
+		return makePrimitive(refValue, vf);
 
 	}
 	
@@ -598,14 +782,14 @@ public class IO {
 	 * Returns IValue for a containment EReference
 	 */
 	@SuppressWarnings("unchecked")
-	private IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, TypeStore ts) {
+	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting containment ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 
 		System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			Type elemType = fieldType.getElementType();
-			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, ts)).collect(Collectors.toList());
+			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, vf, ts)).collect(Collectors.toList());
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 			
@@ -626,10 +810,10 @@ public class IO {
 			if (!ref.isRequired()) {              // !M && O = Opt[T]
 				Type rt = ts.lookupAbstractDataType("Opt");
 				System.out.println("rt="+rt);
-				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(obj2value(refValue, fieldType, ts)));
+				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
 				return vf.constructor(t);
 			} else {                              // !M && !O = T
-				Type t = ts.lookupConstructor(fieldType, toFirstLowerCase(fieldType.getName()), tf.tupleType(obj2value(refValue, fieldType, ts)));
+				Type t = ts.lookupConstructor(fieldType, toFirstLowerCase(fieldType.getName()), tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
 				return vf.constructor(t);
 			}
 		}
@@ -640,13 +824,13 @@ public class IO {
 	 * Returns IValue for an EReference
 	 */
 	@SuppressWarnings("unchecked")
-	private IValue visitReference(EReference ref, Object refValue, Type fieldType, TypeStore ts) {
+	private static IValue visitReference(EReference ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting reference ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 		
 		System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
-			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, ts)).collect(Collectors.toList());
+			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, vf, ts)).collect(Collectors.toList());
 			//ctx.getStdErr().println("The list is: " + valuesToRef);
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
@@ -678,7 +862,7 @@ public class IO {
 				}
 			}
 		} else {
-			IValue x = makeRefTo((EObject) refValue, ts);
+			IValue x = makeRefTo((EObject) refValue, vf, ts);
 			//ctx.getStdErr().println("The ref is: " + x);
 			return x;
 		}
@@ -690,7 +874,7 @@ public class IO {
 	 * In our case, its URI.
 	 * TODO: refactor this to be reusable in patch.
 	 */
-	private IValue getIdFor(EObject obj, TypeStore ts) {
+	private static IValue getIdFor(EObject obj, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Making id for " + obj);
 		
 		Type idType = ts.lookupAbstractDataType("Id");
@@ -713,7 +897,7 @@ public class IO {
 	/**
 	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
-	private IValue makeRefTo(EObject eObj, TypeStore ts) {
+	private static IValue makeRefTo(EObject eObj, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Making ref to " + eObj);
 		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
@@ -725,7 +909,7 @@ public class IO {
 		
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type refCons = ts.lookupConstructor(genRefType,  "ref", tf.tupleType(idType));
-		IValue id = getIdFor(eObj, ts);
+		IValue id = getIdFor(eObj, vf, ts);
 		//ctx.getStdErr().println("Id = " + id);
 		return vf.constructor(refCons, id);
 	}
@@ -733,7 +917,7 @@ public class IO {
 	/**
 	 * Returns IValue for primitive type
 	 */
-	private IValue makePrimitive(Object obj) {
+	private static IValue makePrimitive(Object obj, IValueFactory vf) {
 		if (obj instanceof Boolean) {
 			return vf.bool((Boolean) obj);
 		}

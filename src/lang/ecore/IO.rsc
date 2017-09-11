@@ -16,6 +16,10 @@ java &T<:node load(type[&T<:node] meta, loc uri);
 java void save(&T<:node model, loc pkg, loc uri);
 
 
+Patch runTrafo(&T(type[&T<:node]) f) {
+  &T model = f(#MetaModel);
+}
+
 // this is probably slower, but saving is less critical than patch
 void update(type[&T<:node] meta, &T model, loc uri) {
   // NB: this requires and existing model at uri 
