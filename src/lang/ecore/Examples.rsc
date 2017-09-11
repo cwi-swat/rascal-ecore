@@ -9,10 +9,10 @@ import IO;
 
 EPackage addFinalState(EPackage fsm) {
   r = newRealm();
-  if (/st:eClass("State", _, _) := fsm) {
-    c = r.new(#EClassifier, eClass("FinalState", false, false, eSuperTypes=[referTo(#EClassifier, st)]));
+  if (/st:EClass("State", _, _) := fsm) {
+    c = r.new(#EClassifier, EClass("FinalState", false, false, eSuperTypes=[referTo(#EClassifier, st)]));
     fsm.eClassifiers += [c];
-    c2 = r.new(#EClassifier, eClass("Bla", false, false));
+    c2 = r.new(#EClassifier, EClass("Bla", false, false));
     fsm.eClassifiers = [c2] + fsm.eClassifiers; 
   }
   return fsm;
@@ -51,17 +51,12 @@ void smokeIt(str project = "rascal-ecore") {
   iprintln(p);
   
   
-  map[int, loc] rekeyMap = patchOnDisk(p, uri);
-  
-  println("\n====== Rekey ======");
-  iprintln(rekeyMap);
+  save(fsm2, uri);
   
   fsm3 = load(#EPackage, uri);
-  println("\n====== FSM 3 (patched) ======");
+  println("\n====== FSM 3 (saved) ======");
   iprintln(fsm3);
   
-  fsm2 = rekey(fsm2, rekeyMap);
-
   p2 = diff(#EPackage, fsm2, fsm3);
   println("\n====== Diff between fsm2 and fsm3 (should be empty) ======");
   iprintln(p2);
