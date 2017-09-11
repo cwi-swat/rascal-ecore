@@ -26,6 +26,15 @@ data Edit
   
 map[Id, node] objectMap(node x) = ( getId(n): n | /node n := x, isObj(n) ); 
 
+Patch create(type[&T<:node] meta, &T<:node new) {
+  m = objectMap(new);
+  
+  edits = [ <c, create(getClass(m[c]))> | Id c <- m ];
+  edits += [ *init(meta, c, m[c]) | Id c <- m ];
+  
+  return <getId(new), edits>;
+}
+
 Patch diff(type[&T<:node] meta, &T old, &T new) {
   m1 = objectMap(old);
   m2 = objectMap(new);
