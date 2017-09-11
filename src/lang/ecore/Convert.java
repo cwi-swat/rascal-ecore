@@ -51,13 +51,13 @@ class Convert {
 	
 	static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
 		private EPackage pkg;
-		private Map<IValue, EObject> uids = new HashMap<>();
+		private Map<IConstructor, EObject> uids = new HashMap<>();
 
 		public ModelBuilder(EPackage pkg) {
 			this.pkg  = pkg;
 		}
 
-		public Map<IValue, EObject> getUids() {
+		public Map<IConstructor, EObject> getUids() {
 			return uids;
 		}
 		
@@ -73,8 +73,7 @@ class Convert {
 				
 				if (c.hasParameter("uid")) {
 					IConstructor cUid = (IConstructor) c.getParameter("uid");
-					ISourceLocation uid = (ISourceLocation) cUid.get(0);
-					uids.put(uid, newObj);
+					uids.put(cUid, newObj);
 				}
 				
 				int i = 0;
@@ -88,7 +87,7 @@ class Convert {
 				
 				for (Map.Entry<String, IValue> e: c.getParameters().entrySet()) {
 					String fieldName = e.getKey();
-					if (fieldName.equals("src")) {
+					if (fieldName.equals("src") || fieldName.equals("uid")) {
 						continue;
 					}
 					EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
@@ -199,8 +198,7 @@ class Convert {
 			
 			if (c.hasParameter("uid")) {
 				IConstructor cUid = (IConstructor) c.getParameter("uid");
-				ISourceLocation uid = (ISourceLocation) cUid.get(0);
-				EObject me = uids.get(uid);
+				EObject me = uids.get(cUid);
 				
 				int i = 0;
 				for (IValue child : o.getChildren()) {
@@ -210,8 +208,7 @@ class Convert {
 						IConstructor childCons = (IConstructor) child;
 						if (isRef(childCons)) {
 							IConstructor id = (IConstructor) childCons.get(0);
-							ISourceLocation refUid = (ISourceLocation) id.get(0);
-							EObject resolved = lookup(refUid);
+							EObject resolved = lookup(id);
 							me.eSet(toSet, resolved);
 						}
 					}
@@ -228,7 +225,7 @@ class Convert {
 			return "ref".equals(o.getName()) && "Ref".equals(o.getType().getName());
 		}
 
-		private EObject lookup(ISourceLocation uid) {
+		private EObject lookup(IConstructor uid) {
 			return uids.get(uid);
 		}
 		
