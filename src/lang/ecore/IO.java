@@ -11,6 +11,7 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
+import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
@@ -59,8 +60,7 @@ public class IO {
 		return Convert.obj2value(root, rt, vf, ts);
 	}
 	
-	public void save(INode model, ISourceLocation uri) {
-		ISourceLocation pkgUri = (ISourceLocation) ((IConstructor)model).get("pkgURI");
+	public void save(INode model, ISourceLocation uri, ISourceLocation pkgUri) {
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
 
 		Convert.ModelBuilder builder = new Convert.ModelBuilder(pkg);
@@ -84,12 +84,17 @@ public class IO {
 	 */
 	
 	
+	private static java.net.URI normalizeURI(ISourceLocation loc) {
+		if (loc.getScheme().equals("project")) {
+			IResource resource = URIResourceResolver.getResource(loc);
+			return resource.getRawLocationURI();
+		}
+		return loc.getURI();
+	}
+	
 	private void saveModel(EObject model, ISourceLocation uri) {
 		ResourceSet rs = new ResourceSetImpl();
-		IResource resource = URIResourceResolver.getResource(uri);
-		java.net.URI eclipseURI = resource.getRawLocationURI();
-
-		Resource res = rs.createResource(URI.createURI(eclipseURI.toString()));
+		Resource res = rs.createResource(URI.createURI(normalizeURI(uri).toString()));
 		res.getContents().add(model);
 		try {
 			res.save(Collections.EMPTY_MAP);
@@ -101,11 +106,8 @@ public class IO {
 
 	
 	private static EObject loadModel(ISourceLocation uri) {
-		IResource resource = URIResourceResolver.getResource(uri);
-		java.net.URI eclipseURI = resource.getRawLocationURI();
-
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.getResource(URI.createURI(eclipseURI.toString()), true);
+		Resource res = rs.getResource(URI.createURI(normalizeURI(uri).toString()), true);
 		return res.getContents().get(0);
 	}
 

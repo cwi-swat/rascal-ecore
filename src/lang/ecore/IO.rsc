@@ -3,16 +3,13 @@ module lang::ecore::IO
 import lang::ecore::Diff;
 import lang::ecore::Refs;
 
-// NB: this module requires the rascal jar in the lib directory.
-// It can be downloaded here: 
-// https://update.rascal-mpl.org/console/rascal-shell-unstable.jar
-// (don't commit to github...)
-
 @javaClass{lang.ecore.IO}
 java &T<:node load(type[&T<:node] meta, loc uri);
 
+void save(&T<:node model, loc uri) = save(model, uri, model.pkgURI);
+
 @javaClass{lang.ecore.IO}
-java void save(&T<:node model, loc uri);
+private java void save(&T<:node model, loc uri, loc pkgURI);
 
 
 /*
