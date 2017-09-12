@@ -12,6 +12,7 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.rascalmpl.interpreter.TypeReifier;
+import org.rascalmpl.interpreter.result.ICallableValue;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
 
@@ -43,6 +44,24 @@ public class IO {
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap().put("*", new XMIResourceFactoryImpl());
 	}
 	
+	
+	public ICallableValue editor(IValue reifiedType, ISourceLocation loc) {
+		return null;
+	}
+	
+	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
+		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
+		TypeStore ts = new TypeStore(); // start afresh
+
+		Type rt = tr.valueToType((IConstructor) ecoreType, ts);
+
+		// Cheat: build Ref  here (assuming Id is in there)
+		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+		tf.constructor(ts, refType, "null");
+		
+		return Convert.obj2value(pkg, rt, vf, ts);
+	}
 	
 	public IValue load(IValue reifiedType, ISourceLocation uri) {
 		TypeStore ts = new TypeStore(); // start afresh

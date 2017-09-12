@@ -1,19 +1,31 @@
 module lang::ecore::IO
 
+import lang::ecore::Ecore;
 import lang::ecore::Diff;
 import lang::ecore::Refs;
 
+// TODO: https://stackoverflow.com/questions/9386348/register-ecore-meta-model-programmatically
+
+
 @javaClass{lang.ecore.IO}
 java &T<:node load(type[&T<:node] meta, loc uri);
+
+
+@javaClass{lang.ecore.IO}
+java EPackage load(loc pkgURI, type[EPackage] ecore = #EPackage);
+
 
 void save(&T<:node model, loc uri) = save(model, uri, model.pkgURI);
 
 @javaClass{lang.ecore.IO}
 private java void save(&T<:node model, loc uri, loc pkgURI);
 
+@javaClass{lang.ecore.IO}
+java void(Patch(&T<:node)) editor(type[&T<:node] meta, loc uri);
+
 
 /*
- * do = doIt(#Machine, |file:///doors|);
+ * do = editor(#Machine, |file:///doors|);
  * do((Machine m) { return trafo(m); });
  * whenever you call do, it will load the model from the editor
  * provide it to the closure, and update it with diff/patch

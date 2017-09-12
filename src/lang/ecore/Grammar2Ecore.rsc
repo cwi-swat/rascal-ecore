@@ -31,6 +31,7 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
       super = r.new(#EClassifier, eClass(nt, true, false));
       classMap[nt] = super;
       for (Production p <- prods, label(str cls, _) := p.def) {
+        // todo: invent names if there are no prod labels
         class = r.new(#EClassifier, eClass(capitalize(cls), false, false));
         class.eSuperTypes += [referTo(#EClassifier, class)];
         classMap[capitalize(cls)] = class;

@@ -232,7 +232,7 @@ class Convert {
 	/**
 	 * Build ADT while visiting EObject content
 	 */
-	static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts) {
+	public static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts) {
 		//ctx.getStdErr().println("Visiting object " + obj + " (" + type + ")");
 
 		if (obj instanceof EObject) {

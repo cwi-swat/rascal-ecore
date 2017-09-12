@@ -7,6 +7,7 @@ import List;
 import IO;
 import Type;
 
+// todo: move elsewhere
 alias Loader[&T] = (&T<:node)(type[&T<:node]);
 
 alias Patch

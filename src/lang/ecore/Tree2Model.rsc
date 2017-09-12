@@ -147,6 +147,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
   
   a = p.def is label ? p.def.symbol.name : p.def.name;
   tt = type(adt(a, []), meta.definitions);
+  // TODO: only set src if it's declared in the constructor type (or ADT)
   obj = r.new(tt, make(tt, capitalize(p.def.name), args, ("src": t@\loc)));
   fix(obj, fixes);
   
