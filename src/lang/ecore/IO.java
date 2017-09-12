@@ -54,12 +54,7 @@ public class IO {
 		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) ecoreType, ts);
-
-		// Cheat: build Ref  here (assuming Id is in there)
-		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
-		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
-		tf.constructor(ts, refType, "null");
-		
+		Convert.declareRefType(ts);
 		return Convert.obj2value(pkg, rt, vf, ts);
 	}
 	
@@ -67,12 +62,7 @@ public class IO {
 		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
-
-		// Cheat: build Ref  here (assuming Id is in there)
-		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
-		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
-		tf.constructor(ts, refType, "null");
-		
+		Convert.declareRefType(ts);
 		EObject root = loadModel(uri);
 		
 		return Convert.obj2value(root, rt, vf, ts);

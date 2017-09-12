@@ -57,6 +57,13 @@ class Convert {
 		return obj;
 	}
 	
+	public static void declareRefType(TypeStore ts) {
+		// Cheat: build Ref  here (assuming Id is in there)
+		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
+		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
+		tf.constructor(ts, refType, "null");
+	}
+	
 	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
 		private EPackage pkg;
 		private Map<IConstructor, EObject> uids = new HashMap<>();

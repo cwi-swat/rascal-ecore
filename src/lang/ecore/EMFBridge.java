@@ -332,10 +332,7 @@ public class EMFBridge {
 			IValueFactory values = getEval().getValueFactory();
 			Type rt = new TypeReifier(values).valueToType((IConstructor) reifiedType, ts);
 
-			// TODO: this duplicates load...
-			Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
-			tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
-			tf.constructor(ts, refType, "null");
+			Convert.declareRefType(ts);
 			
 			IValue val = Convert.obj2value(model, rt, values, ts);
 			return ResultFactory.makeResult(rt, val, getEval());
