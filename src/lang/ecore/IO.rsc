@@ -34,7 +34,8 @@ ed(Patch(MetaModel m1) {
 ```
 }
 @javaClass{lang.ecore.IO}
-java void(Patch(&T<:node)) editor(type[&T<:node] meta, loc uri);
+@reflect
+java void(Patch(&T<:node)) editor(type[&T<:node] meta, loc uri, type[Patch] pt = #Patch);
 
 
 

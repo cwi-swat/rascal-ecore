@@ -2,6 +2,8 @@ package lang.ecore;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Map;
+import java.util.function.Supplier;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.emf.common.util.URI;
@@ -11,19 +13,28 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
+import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.interpreter.IEvaluator;
+import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
+import org.rascalmpl.interpreter.env.Environment;
 import org.rascalmpl.interpreter.result.ICallableValue;
+import org.rascalmpl.interpreter.result.Result;
+import org.rascalmpl.interpreter.types.RascalTypeFactory;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIResourceResolver;
 
+import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
+import io.usethesource.vallang.visitors.IValueVisitor;
 
 /**
  * This class provide a load method to get an ADT from an EMF model
@@ -31,7 +42,6 @@ import io.usethesource.vallang.type.TypeStore;
 public class IO {
 	private final IValueFactory vf;
 	private final TypeReifier tr;
-	private static final TypeFactory tf = TypeFactory.getInstance();
 	
 	/*
 	 * Public Rascal interface
@@ -45,8 +55,14 @@ public class IO {
 	}
 	
 	
-	public ICallableValue editor(IValue reifiedType, ISourceLocation loc) {
-		return null;
+	public ICallableValue editor(IValue reifiedType, ISourceLocation loc, IValue reifiedPatchType, IEvaluatorContext ctx) {
+		TypeStore ts = new TypeStore();
+		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
+		Type patchType = tr.valueToType((IConstructor) reifiedPatchType, ts); 
+		return new EditorClosure(() -> {
+			// obtain the model from the editor and return it.
+			return null;
+		}, modelType, patchType, ts, ctx.getEvaluator()); 
 	}
 	
 	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
@@ -107,6 +123,116 @@ public class IO {
 	}
 
 
-	
+	private static class EditorClosure extends Result<ICallableValue> implements ICallableValue{
+		
+		private IEvaluator<Result<IValue>> eval;
+		private Supplier<EObject> model;
+		private Type myType;
+		private Type modelType;
+		private TypeStore ts;
+		
+		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
+		private static final TypeFactory tf = TypeFactory.getInstance();
+		
+		static Type myType(Type patchType) {
+			// type = void(Patch(&T<:node));
+			Type param = tf.parameterType("T", tf.nodeType());
+			Type myType = rtf.functionType(tf.voidType(), rtf.functionType(patchType, tf.tupleType(param) , tf.tupleEmpty()), tf.tupleEmpty());
+			return myType;
+		}
+		
+		public EditorClosure(Supplier<EObject> model, Type modelType, Type patchType, TypeStore ts, IEvaluator<Result<IValue>> eval) {
+			super(myType(patchType), null, eval);
+			this.value = this;
+			this.model = model;
+			this.modelType = modelType;
+			this.ts = ts;
+			this.eval = eval;
+			this.myType = myType(patchType);
+		}
+		
+		@Override
+		public boolean mayHaveKeywordParameters() {
+			return false;
+		}
+		
+		@Override
+		public boolean isEqual(IValue arg0) {
+			return false;
+		}
+		
+		@Override
+		public boolean isAnnotatable() {
+			return false;
+		}
+		
+		@Override
+		public IWithKeywordParameters<? extends IValue> asWithKeywordParameters() {
+			return null;
+		}
+		
+		@Override
+		public IAnnotatable<? extends IValue> asAnnotatable() {
+			return null;
+		}
+		
+		@Override
+		public <T, E extends Throwable> T accept(IValueVisitor<T, E> visit) throws E {
+			return visit.visitExternal(this);
+		}
+		
+		@Override
+		public Type getType() {
+			return myType;
+		}
+		
+		@Override
+		public IConstructor encodeAsConstructor() {
+			return null;
+		}
+		
+		@Override
+		public boolean isStatic() {
+			return false;
+		}
+		
+		@Override
+		public boolean hasVarArgs() {
+			return false;
+		}
+		
+		@Override
+		public boolean hasKeywordArguments() {
+			return false;
+		}
+		
+		@Override
+		public IEvaluator<Result<IValue>> getEval() {
+			return eval;
+		}
+		
+		@Override
+		public int getArity() {
+			return 1;
+		}
+		
+		@Override
+		public ICallableValue cloneInto(Environment arg0) {
+			return null;
+		}
+		
+		@Override
+		public Result<IValue> call(IRascalMonitor arg0, Type[] arg1, IValue[] arg2, Map<String, IValue> arg3) {
+			return call(arg1, arg2, arg3);
+		}
+		
+		@Override
+		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
+			ICallableValue argClosure = (ICallableValue)args[0];
+			IValue modelValue = Convert.obj2value(model.get(), modelType, eval.getValueFactory(), ts);
+			return argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap());
+		}
+
+	}
 
 }
