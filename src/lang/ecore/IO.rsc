@@ -62,6 +62,16 @@ void(&T<:node) reconciler(type[&T<:node] meta, loc uri) {
   };
 }
 
+void((&T<:node)(&T<:node)) transformer(type[&T<:node] meta, loc uri) {
+  void(Patch(&T<:node)) ed = editor(meta, uri);
+  return void((&T<:node)(&T<:node) trafo) {
+    ed(Patch(&T<:node current) {
+      &T<:node new = trafo(current);
+      return diff(meta, current, new);
+    });
+  };
+}
+
 
 
 
