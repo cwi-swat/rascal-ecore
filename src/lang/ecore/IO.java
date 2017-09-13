@@ -1,11 +1,19 @@
 package lang.ecore;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import org.eclipse.core.filesystem.EFS;
+import org.eclipse.core.filesystem.IFileStore;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
@@ -15,6 +23,18 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.eclipse.emf.edit.domain.EditingDomain;
+import org.eclipse.emf.edit.domain.IEditingDomainProvider;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorDescriptor;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IWorkbench;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
+import org.eclipse.ui.PartInitException;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.ide.IDE;
+import org.eclipse.ui.part.FileEditorInput;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
@@ -24,7 +44,10 @@ import org.rascalmpl.interpreter.result.ICallableValue;
 import org.rascalmpl.interpreter.result.Result;
 import org.rascalmpl.interpreter.types.RascalTypeFactory;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
+import org.rascalmpl.uri.URIEditorInput;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIResourceResolver;
+import org.rascalmpl.uri.URIStorage;
 
 import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IConstructor;
@@ -57,15 +80,88 @@ public class IO {
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap().put("*", new XMIResourceFactoryImpl());
 	}
 	
+	public IEditorPart getEditorFor(ISourceLocation loc, IEvaluatorContext ctx) throws PartInitException, IOException {
+		IEditorDescriptor desc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(loc.getPath());
+		final List<IEditorPart> l = new ArrayList<>();
+		if (desc != null) {
+			URIResolverRegistry reg = URIResolverRegistry.getInstance();
+			final ISourceLocation theLoc = reg.logicalToPhysical(loc);
+			
+			IWorkbench wb = PlatformUI.getWorkbench();
+			IWorkbenchWindow win = wb.getActiveWorkbenchWindow();
+			
+			if (win == null && wb.getWorkbenchWindowCount() != 0) {
+				win = wb.getWorkbenchWindows()[0];
+			}
+			
+			IWorkbenchPage page = win.getActivePage();
+			
+			Display.getDefault().syncExec(new Runnable() {
+               public void run() {
+				try {
+					IEditorPart editor = page.openEditor(getEditorInput(theLoc.getURI()), desc.getId());
+					l.add(editor);
+				} catch (PartInitException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+               }
+            });
+			
+		} else {
+			IFileStore fileStore = EFS.getLocalFileSystem().getStore(loc.getURI());
+			IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+			l.add(IDE.openEditorOnFileStore(page, fileStore));
+		}
+		
+		return l.get(0);
+	}
+	
+	private IEditorInput getEditorInput(java.net.URI uri) {
+		String scheme = uri.getScheme();
+
+		if (scheme.equals("project")) {
+			IProject project = ResourcesPlugin.getWorkspace().getRoot().getProject(uri.getAuthority());
+
+			if (project != null) {
+				return new FileEditorInput(project.getFile(uri.getPath()));
+			}
+		} 
+		else if (scheme.equals("file")) {
+			IWorkspaceRoot root = ResourcesPlugin.getWorkspace().getRoot();
+			IFile[] cs = root.findFilesForLocationURI(uri);
+
+			if (cs != null && cs.length > 0) {
+				return new FileEditorInput(cs[0]);
+			}
+		}
+
+		URIStorage storage = new URIStorage(vf.sourceLocation(uri));
+		return new URIEditorInput(storage);
+	}
+	
 	
 	public ICallableValue editor(IValue reifiedType, ISourceLocation loc, IValue reifiedPatchType, IEvaluatorContext ctx) {
 		TypeStore ts = new TypeStore();
 		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
 		Type patchType = tr.valueToType((IConstructor) reifiedPatchType, ts); 
-		return new EditorClosure(() -> {
-			// obtain the model from the editor and return it.
-			return null;
-		}, /* editing domain */ null, modelType, patchType, ts, ctx.getEvaluator()); 
+		
+		try {
+			IEditorPart editor = getEditorFor(loc, ctx);
+			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
+			EditingDomain domain = prov.getEditingDomain();
+
+			return new EditorClosure(() -> {
+				// obtain the model from the editor and return it.
+				Resource res = domain.getResourceSet().getResource(
+						URI.createURI(normalizeURI(loc).toString()), true);
+				return res.getContents().get(0);
+			}, domain, modelType, patchType, ts, ctx.getEvaluator());
+		} catch (PartInitException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
 	}
 	
 	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
@@ -193,7 +289,9 @@ public class IO {
 		
 		@Override
 		public IConstructor encodeAsConstructor() {
-			return null;
+			Type edit = ts.lookupAbstractDataType("Edit");
+			Type consType = ts.lookupConstructor(edit, "create", tf.tupleEmpty());
+			return eval.getValueFactory().constructor(consType);
 		}
 		
 		@Override
