@@ -124,8 +124,6 @@ lrel[str, Tree] labeledAstArgs(Tree t, Production p)
 str substBindings(str path, lrel[str, value] env) 
   = ( path | replaceAll(it, "$<x>", "<v>") | <str x, value v> <- env );
 
-// TODO: don't use locs, but build XMI compatible paths somehow. 
-// for now we assume that all elements are labeled. 
 value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi) {
   p = t.prod;
   
@@ -136,16 +134,14 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   largs = labeledAstArgs(t, p);
 
   if (p is regular) {
-    return [ tree2model(meta, r, a, fix, uri, xmi + ".<i>") 
-      | int i <- [0..size(largs)], <_, Tree a> := largs[i] ];
+    return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>") | int i <- [0..size(largs)] ];
   }
 
-  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>", uri=uri)> 
+  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>")> 
      | int i <- [0..size(largs)], <str fld, Tree a> := largs[i] ];
 
 
   lrel[str, str] fixes = [];
-  
   env = for (<str fld, value v> <- env) {
     if (<fld, _, str path> <- prodRefs(p)) {
       fixes += [<fld, substBindings(path, env)>];
@@ -156,15 +152,15 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
     }      
   }  
   
-  a = p.def is label ? p.def.symbol.name : p.def.name;
-  tt = type(adt(a, []), meta.definitions);
+  adtName = p.def is label ? p.def.symbol.name : p.def.name;
+  tt = type(adt(adtName, []), meta.definitions);
   
   
   args = [];  
   kws = (); 
   
   for (<str fld, value v> <- env) {
-    if (getFieldIndex(meta, adt(a, []), p.def.name, fld) != -1) {
+    if (getFieldIndex(meta, adt(adtName, []), p.def.name, fld) != -1) {
       args += [v];
     }
     else { // assume it's a keyword param.

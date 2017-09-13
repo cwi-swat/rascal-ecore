@@ -17,11 +17,14 @@ java &T<:node load(type[&T<:node] meta, loc uri);
 java EPackage load(loc pkgURI, type[EPackage] ecore = #EPackage);
 
 
+// bug in Java brdige (model.pkgURI is not correctly evaled; throws).
 @doc{Save a model to resource `uri`}
-void save(&T<:node model, loc uri) = save(model, uri, model.pkgURI);
+void save(&T<:node model, loc uri) = _save(model, uri, model.pkgURI);
+
+void _save(&T<:node model, loc uri, loc pkgURI) = save(model, uri, pkgURI);
 
 @javaClass{lang.ecore.IO}
-private java void save(&T<:node model, loc uri, loc pkgURI);
+java void save(&T<:node model, loc uri, loc pkgURI);
 
 @doc{Obtain and "editor" function to dynamically patch model editor contents of type `meta`.
 Basic operation:

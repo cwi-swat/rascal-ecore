@@ -126,7 +126,7 @@ class Convert {
 				String fieldName = o.getChildrenTypes().getFieldName(i);
 				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
 				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
-					fixes.put(newObj, new Fix(toSet, (IConstructor)((IConstructor)v).asWithKeywordParameters().getParameter("uid")));
+					fixes.put(newObj, new Fix(toSet, (IConstructor)((IConstructor)v).get("uid")));
 				}
 				else {
 					Object newVal = v.accept(this);
