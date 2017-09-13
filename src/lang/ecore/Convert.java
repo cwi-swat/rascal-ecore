@@ -244,7 +244,7 @@ class Convert {
 	/**
 	 * Build ADT while visiting EObject content
 	 */
-	public static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts) {
+	public static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts, ISourceLocation src) {
 		//ctx.getStdErr().println("Visiting object " + obj + " (" + type + ")");
 
 		if (obj instanceof EObject) {
@@ -270,10 +270,10 @@ class Convert {
 					// Then featureValue is an EObject
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
-						fields.add(visitContainmentRef(ref, featureValue, fieldType, vf, ts));
+						fields.add(visitContainmentRef(ref, featureValue, fieldType, vf, ts, src));
 					}
 					else {
-						fields.add(visitReference(ref, featureValue, fieldType, vf, ts));
+						fields.add(visitReference(ref, featureValue, fieldType, vf, ts, src));
 					}
 				}
 				else if (feature instanceof EAttribute) {
@@ -314,14 +314,14 @@ class Convert {
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
 //						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
-						IValue x = visitContainmentRef(ref, featureValue, fieldType, vf, ts);
+						IValue x = visitContainmentRef(ref, featureValue, fieldType, vf, ts, src);
 						if (x != null) {
 							keywords.put(fieldName, x);
 						}
 					}
 					else {
 //						fields.add(visitReference(ref, featureValue, fieldType));
-						IValue x = visitReference(ref, featureValue, fieldType, vf, ts);
+						IValue x = visitReference(ref, featureValue, fieldType, vf, ts, src);
 						if (x != null) {
 							keywords.put(fieldName, x);
 						}
@@ -338,7 +338,7 @@ class Convert {
 				}
 			}
 			
-			keywords.put("uid", getIdFor(eObj, vf, ts));
+			keywords.put("uid", getIdFor(eObj, vf, ts, src));
 			IValue[] arr = new IValue[fields.size()];
 			return vf.constructor(t, fields.toArray(arr), keywords);
 		}
@@ -381,7 +381,7 @@ class Convert {
 	 * Returns IValue for a containment EReference
 	 */
 	@SuppressWarnings("unchecked")
-	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
+	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
 		//ctx.getStdErr().println("Visiting containment ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 
 		//System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
@@ -389,7 +389,7 @@ class Convert {
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			Type elemType = fieldType.getElementType();
-			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, vf, ts)).collect(Collectors.toList());
+			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, vf, ts, src)).collect(Collectors.toList());
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 			
@@ -407,7 +407,7 @@ class Convert {
 				}
 			}
 		} else {
-			Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
+			Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(obj2value(refValue, fieldType, vf, ts, src)));
 			return vf.constructor(t);
 		}
 		
@@ -417,13 +417,13 @@ class Convert {
 	 * Returns IValue for an EReference
 	 */
 	@SuppressWarnings("unchecked")
-	private static IValue visitReference(EReference ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
+	private static IValue visitReference(EReference ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
 		//ctx.getStdErr().println("Visiting reference ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
 		
 		//System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
-			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, vf, ts)).collect(Collectors.toList());
+			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, vf, ts, src)).collect(Collectors.toList());
 			//ctx.getStdErr().println("The list is: " + valuesToRef);
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
@@ -455,7 +455,7 @@ class Convert {
 				}
 			}
 		} else {
-			IValue x = makeRefTo((EObject) refValue, vf, ts);
+			IValue x = makeRefTo((EObject) refValue, vf, ts, src);
 			//ctx.getStdErr().println("The ref is: " + x);
 			return x;
 		}
@@ -467,7 +467,7 @@ class Convert {
 	 * In our case, its URI.
 	 * TODO: refactor this to be reusable in patch.
 	 */
-	private static IValue getIdFor(EObject obj, IValueFactory vf, TypeStore ts) {
+	private static IValue getIdFor(EObject obj, IValueFactory vf, TypeStore ts, ISourceLocation src) {
 		//ctx.getStdErr().println("Making id for " + obj);
 		
 		Type idType = ts.lookupAbstractDataType("Id");
@@ -475,7 +475,7 @@ class Convert {
 		URI eUri = EcoreUtil.getURI(obj);
 		
 		try {
-			java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());
+			java.net.URI uriId = URIUtil.create(src.getScheme(), src.getAuthority(), src.getPath(), src.getQuery(), eUri.fragment());
 			return vf.constructor(idCons, vf.sourceLocation(uriId));
 		} catch (URISyntaxException e) {
 			throw RuntimeExceptionFactory.malformedURI(eUri.toString(), null, null);
@@ -486,7 +486,7 @@ class Convert {
 	/**
 	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
-	private static IValue makeRefTo(EObject eObj, IValueFactory vf, TypeStore ts) {
+	private static IValue makeRefTo(EObject eObj, IValueFactory vf, TypeStore ts, ISourceLocation src) {
 		//ctx.getStdErr().println("Making ref to " + eObj);
 		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
@@ -498,7 +498,7 @@ class Convert {
 		
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type refCons = ts.lookupConstructor(genRefType,  "ref", tf.tupleType(idType));
-		IValue id = getIdFor(eObj, vf, ts);
+		IValue id = getIdFor(eObj, vf, ts, src);
 		//ctx.getStdErr().println("Id = " + id);
 		return vf.constructor(refCons, id);
 	}

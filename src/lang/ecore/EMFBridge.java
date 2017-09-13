@@ -73,7 +73,8 @@ public class EMFBridge {
 		Evaluator eval = bundleEvals.get(bundleId);
 		IRascalMonitor mon = new NullRascalMonitor();
 		eval.doImport(mon, module);
-		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, eval) });
+		ISourceLocation src = eval.getValueFactory().sourceLocation(EcoreUtil.getURI(obj).toString());
+		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, src, eval) });
 		
 		return patch(domain, obj, patch);
 	}
@@ -229,10 +230,12 @@ public class EMFBridge {
 	}
 	
 	
+	// TODO: make instanceof AbstractFunction
 	private static class ObtainModelClosure extends Result<ICallableValue> implements ICallableValue{
 		
 		private IEvaluator<Result<IValue>> eval;
 		private EObject model;
+		private ISourceLocation src;
 		
 		private static final Type myType;
 		
@@ -242,10 +245,11 @@ public class EMFBridge {
 			myType = rtf.functionType(param, tf.tupleType(rtf.reifiedType(param)), tf.tupleEmpty());
 		}
 
-		public ObtainModelClosure(EObject model, IEvaluator<Result<IValue>> eval) {
+		public ObtainModelClosure(EObject model, ISourceLocation src, IEvaluator<Result<IValue>> eval) {
 			super(myType, null, eval);
 			this.value = this;
 			this.model = model;
+			this.src = src;
 			this.eval = eval;
 		}
 		
@@ -334,7 +338,7 @@ public class EMFBridge {
 
 			Convert.declareRefType(ts);
 			
-			IValue val = Convert.obj2value(model, rt, values, ts);
+			IValue val = Convert.obj2value(model, rt, values, ts, src);
 			return ResultFactory.makeResult(rt, val, getEval());
 		}
 

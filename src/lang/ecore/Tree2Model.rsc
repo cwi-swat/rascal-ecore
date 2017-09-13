@@ -10,7 +10,7 @@ import String;
 import Node;
 
 
-&M<:node tree2model(type[&M<:node] meta, Tree t)  {
+&M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc)  {
   t = (t has top ? t.top : t);
   
   FixUps fixUps = ();
@@ -19,7 +19,7 @@ import Node;
     fixUps[getId(obj)] = fixes;
   }
   
-  model = tree2model(meta, newRealm(), t, fix);
+  model = tree2model(meta, newRealm(), t, fix, uri, "/");
   model = fixUp(meta, model, fixUps);  
   
   return typeCast(meta, model);
@@ -125,18 +125,24 @@ str substBindings(str path, lrel[str, value] env)
   = ( path | replaceAll(it, "$<x>", "<v>") | <str x, value v> <- env );
 
 // TODO: don't use locs, but build XMI compatible paths somehow. 
-value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
+// for now we assume that all elements are labeled. 
+value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi) {
   p = t.prod;
   
   if (p.def is lex) {
     return "<t>"; // for now, just strings
   }
   
-  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix)> | <str fld, Tree a> <- labeledAstArgs(t, p) ];
+  largs = labeledAstArgs(t, p);
 
   if (p is regular) {
-     return env<1>;
+    return [ tree2model(meta, r, a, fix, uri, xmi + ".<i>") 
+      | int i <- [0..size(largs)], <_, Tree a> := largs[i] ];
   }
+
+  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>", uri=uri)> 
+     | int i <- [0..size(largs)], <str fld, Tree a> := largs[i] ];
+
 
   lrel[str, str] fixes = [];
   
@@ -166,7 +172,14 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
     }
   }
   
-  obj = r.new(tt, make(tt, p.def.name, args, kws), id = id(t@\loc));
+  if (str x <- prodIds(p), <x, str v> <- env) {
+  	uri.fragment = v;
+  }
+  else {
+  	uri.fragment = xmi;
+  }
+  
+  obj = r.new(tt, make(tt, p.def.name, args, kws), id = id(uri.top));
   fix(obj, fixes);
   
   return obj;

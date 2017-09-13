@@ -95,7 +95,7 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
 }
 
 set[str] prodIds(Production p) 
-  = { id | p has attributes, \tag("id"(str id)) <- p.attributes };
+  = { id[2..-2] | p has attributes, \tag("id"(str id)) <- p.attributes };
 
 rel[str field, str class, str path] prodRefs(Production p) {
   if (p has attributes) {

@@ -155,19 +155,20 @@ public class IO {
 				// FIXME: find a more reliable to get the root model.
 				Resource res = domain.getResourceSet().getResources().get(0);
 				return res.getContents().get(0);
-			}, domain, modelType, patchType, ts, ctx.getEvaluator());
+			}, domain, modelType, patchType, ts, loc, ctx.getEvaluator());
 		} catch (PartInitException | IOException e) {
 			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
 		}
 	}
 	
 	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
-		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
+		java.net.URI uri = pkgUri.getURI();
+		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(uri.toString());
 		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) ecoreType, ts);
 		Convert.declareRefType(ts);
-		return Convert.obj2value(pkg, rt, vf, ts);
+		return Convert.obj2value(pkg, rt, vf, ts, vf.sourceLocation(uri));
 	}
 	
 	public IValue load(IValue reifiedType, ISourceLocation uri) {
@@ -177,7 +178,7 @@ public class IO {
 		Convert.declareRefType(ts);
 		EObject root = loadModel(uri);
 		
-		return Convert.obj2value(root, rt, vf, ts);
+		return Convert.obj2value(root, rt, vf, ts, uri);
 	}
 	
 	public void save(INode model, ISourceLocation uri, ISourceLocation pkgUri) {
@@ -225,6 +226,7 @@ public class IO {
 		private Type modelType;
 		private TypeStore ts;
 		private EditingDomain domain;
+		private ISourceLocation src;
 		
 		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 		private static final TypeFactory tf = TypeFactory.getInstance();
@@ -237,12 +239,13 @@ public class IO {
 			return myType;
 		}
 		
-		public EditorClosure(Supplier<EObject> model, EditingDomain domain, Type modelType, Type patchType, TypeStore ts, IEvaluator<Result<IValue>> eval) {
+		public EditorClosure(Supplier<EObject> model, EditingDomain domain, Type modelType, Type patchType, TypeStore ts, ISourceLocation src, IEvaluator<Result<IValue>> eval) {
 			super(null, eval, myType(patchType), Collections.emptyList(), false, eval.getCurrentEnvt());
 			this.model = model;
 			this.domain = domain;
 			this.modelType = modelType;
 			this.ts = ts;
+			this.src = src;
 		}
 
 		@Override
@@ -269,7 +272,7 @@ public class IO {
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
 			ICallableValue argClosure = (ICallableValue)args[0];
 			EObject obj = model.get();
-			IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts);
+			IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts, src);
 			ITuple patch = (ITuple) argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
 			CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
 			domain.getCommandStack().execute(cmd);
