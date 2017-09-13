@@ -11,7 +11,6 @@ import org.eclipse.core.filesystem.EFS;
 import org.eclipse.core.filesystem.IFileStore;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.emf.common.command.CompoundCommand;
@@ -48,7 +47,6 @@ import org.rascalmpl.interpreter.types.RascalTypeFactory;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIEditorInput;
 import org.rascalmpl.uri.URIResolverRegistry;
-import org.rascalmpl.uri.URIResourceResolver;
 import org.rascalmpl.uri.URIStorage;
 import org.rascalmpl.values.uptr.RascalValueFactory;
 
@@ -176,46 +174,41 @@ public class IO {
 
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
 		Convert.declareRefType(ts);
-		EObject root = loadModel(uri);
+		try {
+			EObject root = loadModel(uri);
+			return Convert.obj2value(root, rt, vf, ts, uri);
+		} catch (IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
+		}
 		
-		return Convert.obj2value(root, rt, vf, ts, uri);
+		
 	}
 	
 	public void save(INode model, ISourceLocation uri, ISourceLocation pkgUri) {
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
 		EObject root = Convert.value2obj(pkg, (IConstructor) model);
-		saveModel(root, uri);
-	}
-
-	/*
-	 * For calling rascal from the EMF side
-	 */
-	
-	
-	private static java.net.URI normalizeURI(ISourceLocation loc) {
-		if (loc.getScheme().equals("project")) {
-			IResource resource = URIResourceResolver.getResource(loc);
-			return resource.getRawLocationURI();
-		}
-		return loc.getURI();
-	}
-	
-	private void saveModel(EObject model, ISourceLocation uri) {
-		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.createResource(URI.createURI(normalizeURI(uri).toString()));
-		res.getContents().add(model);
 		try {
-			res.save(Collections.EMPTY_MAP);
+			saveModel(root, uri);
 		} catch (IOException e) {
 			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
 		}
 	}
 	
+	private static void saveModel(EObject model, ISourceLocation uri) throws IOException {
+		ResourceSet rs = new ResourceSetImpl();
+		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
+		URIResolverRegistry reg = URIResolverRegistry.getInstance();
+		res.getContents().add(model);
+		res.save(reg.getOutputStream(uri, false), Collections.EMPTY_MAP);
+	}
+	
 
 	
-	private static EObject loadModel(ISourceLocation uri) {
+	private static EObject loadModel(ISourceLocation uri) throws IOException {
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.getResource(URI.createURI(normalizeURI(uri).toString()), true);
+		Resource res = rs.getResource(URI.createURI(uri.getURI().toString()), true);
+		URIResolverRegistry reg = URIResolverRegistry.getInstance();
+		res.load(reg.getInputStream(uri), Collections.emptyMap());
 		return res.getContents().get(0);
 	}
 

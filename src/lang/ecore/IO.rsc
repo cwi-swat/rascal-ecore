@@ -16,13 +16,12 @@ java &T<:node load(type[&T<:node] meta, loc uri);
 @javaClass{lang.ecore.IO}
 java EPackage load(loc pkgURI, type[EPackage] ecore = #EPackage);
 
-
 // bug in Java brdige (model.pkgURI is not correctly evaled; throws).
-@doc{Save a model to resource `uri`}
-void save(&T<:node model, loc uri) = _save(model, uri, model.pkgURI);
+//@doc{Save a model to resource `uri`}
+//void save(&T<:node model, loc uri) = save(model, uri, model.pkgURI);
 
-void _save(&T<:node model, loc uri, loc pkgURI) = save(model, uri, pkgURI);
-
+@doc{Save a model to resource `uri`. 
+pkgURI is needed to obtain a factory from the meta model registry.}
 @javaClass{lang.ecore.IO}
 java void save(&T<:node model, loc uri, loc pkgURI);
 
