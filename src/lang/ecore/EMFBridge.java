@@ -79,7 +79,7 @@ public class EMFBridge {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private static CompoundCommand patch(EditingDomain domain, EObject root, ITuple patch) {
+	public static CompoundCommand patch(EditingDomain domain, EObject root, ITuple patch) {
 		EPackage pkg = root.eClass().getEPackage();
 		EFactory fact = pkg.getEFactoryInstance();
 		List<Command> cmds = new ArrayList<>();

@@ -13,6 +13,7 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
+import org.eclipse.emf.edit.domain.EditingDomain;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
@@ -28,6 +29,7 @@ import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.IWithKeywordParameters;
@@ -62,7 +64,7 @@ public class IO {
 		return new EditorClosure(() -> {
 			// obtain the model from the editor and return it.
 			return null;
-		}, modelType, patchType, ts, ctx.getEvaluator()); 
+		}, /* editing domain */ null, modelType, patchType, ts, ctx.getEvaluator()); 
 	}
 	
 	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
@@ -130,6 +132,7 @@ public class IO {
 		private Type myType;
 		private Type modelType;
 		private TypeStore ts;
+		private EditingDomain domain;
 		
 		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 		private static final TypeFactory tf = TypeFactory.getInstance();
@@ -141,10 +144,11 @@ public class IO {
 			return myType;
 		}
 		
-		public EditorClosure(Supplier<EObject> model, Type modelType, Type patchType, TypeStore ts, IEvaluator<Result<IValue>> eval) {
+		public EditorClosure(Supplier<EObject> model, EditingDomain domain, Type modelType, Type patchType, TypeStore ts, IEvaluator<Result<IValue>> eval) {
 			super(myType(patchType), null, eval);
 			this.value = this;
 			this.model = model;
+			this.domain = domain;
 			this.modelType = modelType;
 			this.ts = ts;
 			this.eval = eval;
@@ -229,8 +233,12 @@ public class IO {
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
 			ICallableValue argClosure = (ICallableValue)args[0];
-			IValue modelValue = Convert.obj2value(model.get(), modelType, eval.getValueFactory(), ts);
-			return argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap());
+			EObject obj = model.get();
+			IValue modelValue = Convert.obj2value(obj, modelType, eval.getValueFactory(), ts);
+			ITuple patch = (ITuple) argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap());
+			EMFBridge.patch(domain, obj, patch);
+			return null; // void?
+			//return eval.getValueFactory().
 		}
 
 	}
