@@ -407,15 +407,8 @@ class Convert {
 				}
 			}
 		} else {
-			if (!ref.isRequired()) {              // !M && O = Opt[T]
-				Type rt = ts.lookupAbstractDataType("Opt");
-				//System.out.println("rt="+rt);
-				Type t = ts.lookupConstructor(rt, "just", tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
-				return vf.constructor(t);
-			} else {                              // !M && !O = T
-				Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
-				return vf.constructor(t);
-			}
+			Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(obj2value(refValue, fieldType, vf, ts)));
+			return vf.constructor(t);
 		}
 		
 	}
