@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import org.eclipse.core.resources.IResource;
+import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
@@ -236,7 +237,8 @@ public class IO {
 			EObject obj = model.get();
 			IValue modelValue = Convert.obj2value(obj, modelType, eval.getValueFactory(), ts);
 			ITuple patch = (ITuple) argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap());
-			EMFBridge.patch(domain, obj, patch);
+			CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
+			cmd.execute();
 			return null; // void?
 			//return eval.getValueFactory().
 		}
