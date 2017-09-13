@@ -65,8 +65,6 @@ value getField(type[&M<:node] meta, node obj, str fld)
 
 int getFieldIndex(type[&M<:node] meta, Symbol t, str c, str fld) {
   if (cons(label(c, _), ps:[*_, p:label(fld, _), *_], _, _) <- meta.definitions[t].alternatives) {
-    println("PS = <ps>");
-    println("INDEX = <indexOf(ps, p)>");
     return indexOf(ps, p);
   }
   return -1;
@@ -106,11 +104,8 @@ node deref(type[&M<:node] meta, node obj, list[str] elts) {
   }
   
   if (/^<fld:[a-zA-Z0-9_]+>\[<key:[a-zA-Z0-9_]+>=<val:[^\]]*>\]$/ := cur) {
-    println("DEref: <cur>");
     if (list[node] l := getField(meta, obj, fld)) {
-      println("List <l>");
-      println("key: <key>");
-      if (node v <- l, bprintln("V = <v>, \ngetfield = <getField(meta, v, key)>"), getField(meta, v, key) == val) {
+      if (node v <- l, getField(meta, v, key) == val) {
         return deref(meta, v, elts[1..]);
       }
       throw "Could not find element with <key> = <val>";
@@ -159,7 +154,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
   
   
   args = [];  
-  kws = ("src": t@\loc); // TODO: only set src if it's declared in the constructor type (or ADT)
+  kws = (); 
   
   for (<str fld, value v> <- env) {
     if (getFieldIndex(meta, adt(a, []), p.def.name, fld) != -1) {
@@ -170,10 +165,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
     }
   }
   
-  //println("ARGS: <args>");
-  //println("KWS: <kws>");
-  //println("FIX: <fixes>");
-  obj = r.new(tt, make(tt, p.def.name, args, kws));
+  obj = r.new(tt, make(tt, p.def.name, args, kws), id = id(t@\loc));
   fix(obj, fixes);
   
   return obj;

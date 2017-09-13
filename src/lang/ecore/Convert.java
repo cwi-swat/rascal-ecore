@@ -137,7 +137,7 @@ class Convert {
 			
 			for (Map.Entry<String, IValue> e: c.getParameters().entrySet()) {
 				String fieldName = e.getKey();
-				if (fieldName.equals("src") || fieldName.equals("uid")) {
+				if (fieldName.equals("uid")) {
 					continue;
 				}
 				IValue v = e.getValue();
@@ -293,7 +293,7 @@ class Convert {
 				String fieldName = e.getKey();
 				Type fieldType = e.getValue();
 
-				if (fieldName.equals("uid") || fieldName.equals("src") || fieldName.equals("pkgURI")) {
+				if (fieldName.equals("uid") || fieldName.equals("pkgURI")) {
 					continue;
 				}
 				
