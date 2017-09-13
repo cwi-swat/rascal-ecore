@@ -199,7 +199,7 @@ public class IO {
 		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
 		URIResolverRegistry reg = URIResolverRegistry.getInstance();
 		res.getContents().add(model);
-		res.save(reg.getOutputStream(uri, false), Collections.EMPTY_MAP);
+		res.save(reg.getOutputStream(uri, false), Collections.emptyMap());
 	}
 	
 

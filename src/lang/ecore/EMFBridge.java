@@ -2,6 +2,7 @@ package lang.ecore;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,14 +31,16 @@ import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.env.Environment;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
+import org.rascalmpl.interpreter.result.AbstractFunction;
 import org.rascalmpl.interpreter.result.ICallableValue;
 import org.rascalmpl.interpreter.result.Result;
 import org.rascalmpl.interpreter.result.ResultFactory;
+import org.rascalmpl.interpreter.types.FunctionType;
 import org.rascalmpl.interpreter.types.RascalTypeFactory;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.values.ValueFactoryFactory;
+import org.rascalmpl.values.uptr.RascalValueFactory;
 
-import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IBool;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.IInteger;
@@ -48,11 +51,9 @@ import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
-import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
-import io.usethesource.vallang.visitors.IValueVisitor;
 
 public class EMFBridge {
 
@@ -214,82 +215,40 @@ public class EMFBridge {
 		if (cache.containsKey(id)) {
 			return cache.get(id);
 		}
+		
 		// created things always are in the cache, so we can assume
 		// loc ids in this case.
 		String fragment = ((ISourceLocation)id.get(0)).getFragment();
-		EObject obj = null;
-		if (fragment.equals("/")) { // not sure why it has to be this way.
-			obj = root;
-		}
-		else {
-			// same here.
-			obj = EcoreUtil.getEObject(root, fragment.substring(2));
-		}
+
+		// not sure why it has to be this way.
+		EObject obj = fragment.equals("/") ? root :  EcoreUtil.getEObject(root, fragment.substring(2));
+		
 		cache.put(id, obj);
 		return obj;
 	}
 	
 	
-	// TODO: make instanceof AbstractFunction
-	private static class ObtainModelClosure extends Result<ICallableValue> implements ICallableValue{
+	private static class ObtainModelClosure extends AbstractFunction {
 		
-		private IEvaluator<Result<IValue>> eval;
 		private EObject model;
 		private ISourceLocation src;
 		
-		private static final Type myType;
+		private static final FunctionType myType;
 		
 		static {
 			RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 			Type param = tf.parameterType("T", tf.nodeType());
-			myType = rtf.functionType(param, tf.tupleType(rtf.reifiedType(param)), tf.tupleEmpty());
+			myType = (FunctionType) rtf.functionType(param, tf.tupleType(rtf.reifiedType(param)), tf.tupleEmpty());
 		}
 
 		public ObtainModelClosure(EObject model, ISourceLocation src, IEvaluator<Result<IValue>> eval) {
-			super(myType, null, eval);
-			this.value = this;
+			super(null, eval, myType, Collections.emptyList(), false, eval.getCurrentEnvt());
 			this.model = model;
 			this.src = src;
-			this.eval = eval;
 		}
 		
 		@Override
-		public boolean mayHaveKeywordParameters() {
-			return false;
-		}
-		
-		@Override
-		public boolean isEqual(IValue arg0) {
-			return false;
-		}
-		
-		@Override
-		public boolean isAnnotatable() {
-			return false;
-		}
-		
-		@Override
-		public IWithKeywordParameters<? extends IValue> asWithKeywordParameters() {
-			return null;
-		}
-		
-		@Override
-		public IAnnotatable<? extends IValue> asAnnotatable() {
-			return null;
-		}
-		
-		@Override
-		public <T, E extends Throwable> T accept(IValueVisitor<T, E> visit) throws E {
-			return visit.visitExternal(this);
-		}
-		
-		@Override
-		public Type getType() {
-			return myType;
-		}
-		
-		@Override
-		public IConstructor encodeAsConstructor() {
+		public ICallableValue cloneInto(Environment env) {
 			return null;
 		}
 		
@@ -299,28 +258,14 @@ public class EMFBridge {
 		}
 		
 		@Override
-		public boolean hasVarArgs() {
+		public boolean isDefault() {
 			return false;
 		}
 		
 		@Override
-		public boolean hasKeywordArguments() {
-			return false;
-		}
-		
-		@Override
-		public IEvaluator<Result<IValue>> getEval() {
-			return eval;
-		}
-		
-		@Override
-		public int getArity() {
-			return 1;
-		}
-		
-		@Override
-		public ICallableValue cloneInto(Environment arg0) {
-			return null;
+		public IConstructor encodeAsConstructor() {
+			IValueFactory vf = eval.getValueFactory();
+			return vf.constructor(RascalValueFactory.Function_Function, vf.sourceLocation("file:///unknown"));
 		}
 		
 		@Override
@@ -330,9 +275,11 @@ public class EMFBridge {
 		
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
+			// TODO: cache the reifiedType and type store
+			// it will always be the same for every call. 
+			
 			IValue reifiedType = args[0];
 			TypeStore ts = new TypeStore(); // start afresh
-
 			IValueFactory values = getEval().getValueFactory();
 			Type rt = new TypeReifier(values).valueToType((IConstructor) reifiedType, ts);
 
@@ -341,6 +288,8 @@ public class EMFBridge {
 			IValue val = Convert.obj2value(model, rt, values, ts, src);
 			return ResultFactory.makeResult(rt, val, getEval());
 		}
+
+		
 
 	}
 }
