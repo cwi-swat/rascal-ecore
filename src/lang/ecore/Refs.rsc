@@ -4,12 +4,6 @@ import Type;
 import Node;
 import IO;
 
-// just because Maybe is in the wrong tech space...
-data Opt[&T]
-  = just(&T \value)
-  | none()
-  ;
-
 // refs are optional by default.
 data Ref[&T]
   = ref(Id uid)
