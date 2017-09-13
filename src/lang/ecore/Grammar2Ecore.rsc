@@ -48,7 +48,11 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     
     if (s is lex) {
       // todo: make ints etc. (via tags?)
-      return r.new(#EStructuralFeature, EAttribute(fld, referTo(#EClassifier, strType)));
+      eAttr = r.new(#EStructuralFeature, EAttribute(fld, referTo(#EClassifier, strType)));
+      if (str id <- prodIds(p)) {
+        eAttr.iD = true;
+      }
+      return eAttr;
     }
     
     return r.new(#EStructuralFeature, EReference(fld, referTo(#EClassifier, classMap[s.name]), true, false));
@@ -89,6 +93,9 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
   
   return pkg;
 }
+
+set[str] prodIds(Production p) 
+  = { id | p has attributes, \tag("id"(str id)) <- p.attributes };
 
 rel[str field, str class, str path] prodRefs(Production p) {
   if (p has attributes) {

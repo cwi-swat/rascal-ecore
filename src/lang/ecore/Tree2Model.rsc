@@ -124,6 +124,7 @@ lrel[str, Tree] labeledAstArgs(Tree t, Production p)
 str substBindings(str path, lrel[str, value] env) 
   = ( path | replaceAll(it, "$<x>", "<v>") | <str x, value v> <- env );
 
+// TODO: don't use locs, but build XMI compatible paths somehow. 
 value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix) {
   p = t.prod;
   

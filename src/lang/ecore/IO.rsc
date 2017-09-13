@@ -47,6 +47,8 @@ void(Patch) patcher(type[&T<:node] meta, loc uri) {
   };
 }
 
+// probably this is wrong, it reconciles with the previous version
+// given to the reconciler, but not the one in the editor...
 void(&T<:node) reconciler(type[&T<:node] meta, loc uri) {
   void(Patch) patch = patcher(meta, uri);
   Maybe[&T<:node] prev = nothing();
