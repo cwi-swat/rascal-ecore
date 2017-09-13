@@ -40,27 +40,27 @@ import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
 import org.rascalmpl.interpreter.env.Environment;
+import org.rascalmpl.interpreter.result.AbstractFunction;
 import org.rascalmpl.interpreter.result.ICallableValue;
 import org.rascalmpl.interpreter.result.Result;
+import org.rascalmpl.interpreter.types.FunctionType;
 import org.rascalmpl.interpreter.types.RascalTypeFactory;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
 import org.rascalmpl.uri.URIEditorInput;
 import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIResourceResolver;
 import org.rascalmpl.uri.URIStorage;
+import org.rascalmpl.values.uptr.RascalValueFactory;
 
-import io.usethesource.vallang.IAnnotatable;
 import io.usethesource.vallang.IConstructor;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
-import io.usethesource.vallang.IWithKeywordParameters;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
-import io.usethesource.vallang.visitors.IValueVisitor;
 
 /**
  * This class provide a load method to get an ADT from an EMF model
@@ -145,23 +145,20 @@ public class IO {
 		TypeStore ts = new TypeStore();
 		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
 		Type patchType = tr.valueToType((IConstructor) reifiedPatchType, ts); 
-		
+		Convert.declareRefType(ts);
 		try {
 			IEditorPart editor = getEditorFor(loc, ctx);
 			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
 			EditingDomain domain = prov.getEditingDomain();
-
 			return new EditorClosure(() -> {
 				// obtain the model from the editor and return it.
-				Resource res = domain.getResourceSet().getResource(
-						URI.createURI(normalizeURI(loc).toString()), true);
+				// FIXME: find a more reliable to get the root model.
+				Resource res = domain.getResourceSet().getResources().get(0);
 				return res.getContents().get(0);
 			}, domain, modelType, patchType, ts, ctx.getEvaluator());
 		} catch (PartInitException | IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
 		}
-		return null;
 	}
 	
 	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
@@ -222,11 +219,9 @@ public class IO {
 	}
 
 
-	private static class EditorClosure extends Result<ICallableValue> implements ICallableValue{
-		
-		private IEvaluator<Result<IValue>> eval;
+	private static class EditorClosure extends AbstractFunction {
+
 		private Supplier<EObject> model;
-		private Type myType;
 		private Type modelType;
 		private TypeStore ts;
 		private EditingDomain domain;
@@ -234,94 +229,35 @@ public class IO {
 		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 		private static final TypeFactory tf = TypeFactory.getInstance();
 		
-		static Type myType(Type patchType) {
+		private static FunctionType myType(Type patchType) {
 			// type = void(Patch(&T<:node));
 			Type param = tf.parameterType("T", tf.nodeType());
-			Type myType = rtf.functionType(tf.voidType(), rtf.functionType(patchType, tf.tupleType(param) , tf.tupleEmpty()), tf.tupleEmpty());
+			Type closureType = rtf.functionType(patchType, tf.tupleType(param) , null);
+			FunctionType myType = (FunctionType) rtf.functionType(tf.voidType(),  tf.tupleType(closureType), null);
 			return myType;
 		}
 		
 		public EditorClosure(Supplier<EObject> model, EditingDomain domain, Type modelType, Type patchType, TypeStore ts, IEvaluator<Result<IValue>> eval) {
-			super(myType(patchType), null, eval);
-			this.value = this;
+			super(null, eval, myType(patchType), Collections.emptyList(), false, eval.getCurrentEnvt());
 			this.model = model;
 			this.domain = domain;
 			this.modelType = modelType;
 			this.ts = ts;
-			this.eval = eval;
-			this.myType = myType(patchType);
 		}
-		
+
 		@Override
-		public boolean mayHaveKeywordParameters() {
-			return false;
-		}
-		
-		@Override
-		public boolean isEqual(IValue arg0) {
-			return false;
-		}
-		
-		@Override
-		public boolean isAnnotatable() {
-			return false;
-		}
-		
-		@Override
-		public IWithKeywordParameters<? extends IValue> asWithKeywordParameters() {
+		public ICallableValue cloneInto(Environment arg0) {
 			return null;
 		}
-		
-		@Override
-		public IAnnotatable<? extends IValue> asAnnotatable() {
-			return null;
-		}
-		
-		@Override
-		public <T, E extends Throwable> T accept(IValueVisitor<T, E> visit) throws E {
-			return visit.visitExternal(this);
-		}
-		
-		@Override
-		public Type getType() {
-			return myType;
-		}
-		
-		@Override
-		public IConstructor encodeAsConstructor() {
-			Type edit = ts.lookupAbstractDataType("Edit");
-			Type consType = ts.lookupConstructor(edit, "create", tf.tupleEmpty());
-			return eval.getValueFactory().constructor(consType);
-		}
-		
+
 		@Override
 		public boolean isStatic() {
 			return false;
 		}
-		
+
 		@Override
-		public boolean hasVarArgs() {
+		public boolean isDefault() {
 			return false;
-		}
-		
-		@Override
-		public boolean hasKeywordArguments() {
-			return false;
-		}
-		
-		@Override
-		public IEvaluator<Result<IValue>> getEval() {
-			return eval;
-		}
-		
-		@Override
-		public int getArity() {
-			return 1;
-		}
-		
-		@Override
-		public ICallableValue cloneInto(Environment arg0) {
-			return null;
 		}
 		
 		@Override
@@ -333,14 +269,19 @@ public class IO {
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
 			ICallableValue argClosure = (ICallableValue)args[0];
 			EObject obj = model.get();
-			IValue modelValue = Convert.obj2value(obj, modelType, eval.getValueFactory(), ts);
-			ITuple patch = (ITuple) argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap());
+			IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts);
+			ITuple patch = (ITuple) argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
 			CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
-			cmd.execute();
-			return null; // void?
-			//return eval.getValueFactory().
+			domain.getCommandStack().execute(cmd);
+			return null; 
 		}
-
+		
+		@Override
+		public IConstructor encodeAsConstructor() {
+			IValueFactory vf = eval.getValueFactory();
+			return vf.constructor(RascalValueFactory.Function_Function, vf.sourceLocation("file:///unknown"));
+		}
+		
 	}
-
+	
 }

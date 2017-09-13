@@ -3,6 +3,7 @@ module lang::ecore::IO
 import lang::ecore::Ecore;
 import lang::ecore::Diff;
 import lang::ecore::Refs;
+import util::Maybe;
 
 // TODO: https://stackoverflow.com/questions/9386348/register-ecore-meta-model-programmatically
 
@@ -36,6 +37,30 @@ ed(Patch(MetaModel m1) {
 @javaClass{lang.ecore.IO}
 @reflect
 java void(Patch(&T<:node)) editor(type[&T<:node] meta, loc uri, type[Patch] pt = #Patch);
+
+void(Patch) patcher(type[&T<:node] meta, loc uri) {
+  ed = editor(meta, uri); 
+  return void(Patch p) {
+    ed(Patch(&T<:node ignored) {
+      return p;
+    });
+  };
+}
+
+void(&T<:node) reconciler(type[&T<:node] meta, loc uri) {
+  void(Patch) patch = patcher(meta, uri);
+  Maybe[&T<:node] prev = nothing();
+  
+  return void(&T<:node model) {
+    if (just(&T<:node old) := prev) {
+	  patch(diff(meta, old, model));
+    }
+    else {
+      patch(create(meta, model));
+    }
+    prev = just(model);
+  };
+}
 
 
 

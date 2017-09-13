@@ -59,9 +59,14 @@ class Convert {
 	
 	public static void declareRefType(TypeStore ts) {
 		// Cheat: build Ref  here (assuming Id is in there)
+		Type idType = tf.abstractDataType(ts, "Id");
+		tf.constructor(ts, idType, "id", tf.integerType(), "n");
+		tf.constructor(ts, idType, "id", tf.sourceLocationType(), "uri");
+
 		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
 		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
 		tf.constructor(ts, refType, "null");
+
 	}
 	
 	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
@@ -475,10 +480,6 @@ class Convert {
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type idCons = ts.lookupConstructor(idType, "id", tf.tupleType(tf.sourceLocationType()));
 		URI eUri = EcoreUtil.getURI(obj);
-		//ctx.getStdErr().println("EURI: " + eUri);
-		//ctx.getStdErr().println("fragment: " + eUri.fragment());
-		//Object frag = EcoreUtil.getRelativeURIFragmentPath(this.root, obj);
-		//ctx.getStdErr().println("frag: " + frag);
 		
 		try {
 			java.net.URI uriId = URIUtil.create(eUri.scheme(), eUri.authority(), eUri.path(), eUri.query(), eUri.fragment());
