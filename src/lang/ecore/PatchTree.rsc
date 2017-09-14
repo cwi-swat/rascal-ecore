@@ -72,7 +72,7 @@ Tree insertList(Tree t, int pos, Tree x) {
   assert t.prod is regular;
  
   println("Inserting: <x> at <pos>");
-  println("The list is: <t>");
+  //println("The list is: <t>");
   
   
   s = t.prod.def;
@@ -84,6 +84,13 @@ Tree insertList(Tree t, int pos, Tree x) {
   sepSize = size(seps);
     
 
+  // x s1 s2 s3 y s1 s2 s3 z
+  // 0 1   2  3 4  5  6  7  8
+  // 0          1           2
+  
+  // x s y s z s a s b
+  // 0 1 2 3 4 5 6 7 8
+  // 0   1   2   3   4
   int idx = pos * (sepSize + 1);
   
   if (idx == 0, t.args == []) {
@@ -111,7 +118,7 @@ Tree insertList(Tree t, int pos, Tree x) {
     println("- `<z>`");
   }
   
-  if (idx == size(t.args)) {
+  if (idx > size(t.args)) {
     println("Appending at the end");
     return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
   }
@@ -121,12 +128,14 @@ Tree insertList(Tree t, int pos, Tree x) {
     return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
   }
   
+  println("IDX = <idx>; ");
+  println("Size(args) = <size(t.args)>");
   return addLoc(appl(t.prod, t.args[0..idx] + sepTrees + [x] + t.args[idx..]), t);
 }  
   
 Tree removeList(Tree t, int pos) {
   assert t.prod is regular;
-  s = t.prod.symbol;
+  s = t.prod.def;
   int sepSize = 0;
   if (s is \iter-seps || s is \iter-star-seps) {
     sepSize = size(s.separators);
@@ -135,18 +144,31 @@ Tree removeList(Tree t, int pos) {
 
   int idx = pos * (sepSize + 1);
   
+  println("IDX for removal: <idx> (was <pos>)");
+  // seems the diff is bad: it should have deleted 2, not 1
+  // bla sep closed sep opened
+  // 0         1          2
+  
   // last one
   if (idx == size(t.args) - 1) {
-    return appl(t.prod, t.args[0..-1])[@\loc=t@\loc];
+    println("Removing last one.");
+    return addLoc(appl(t.prod, t.args[0..-1]), t);
   }
 
   // singleton
   if (idx == 0, size(t.args) == 1) {
-    return appl(t.prod, [])[@\loc=t@\loc];
+    println("Removing only one");
+    return addLoc(appl(t.prod, []), t);
   }
-
+  
+  if (idx == 0) {
+    println("Removing first one");
+    return addLoc(appl(t.prod, t.args[idx+sepSize..]));
+  }
+  
   // default: also remove separators.
-  return appl(t.prod, t.args[0..idx] + t.args[idx+sepSize..])[@\loc=t@\loc];  
+  println("Removing <t.args[idx]>");
+  return appl(t.prod, t.args[0..idx] + t.args[idx+sepSize+1..])[@\loc=t@\loc];  
 }
 
 
@@ -242,7 +264,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
-         lst = removeFromList(lst, pos);
+         lst = removeList(lst, pos);
          trees[obj] = setArg(t, idx, lst);
        }
 
