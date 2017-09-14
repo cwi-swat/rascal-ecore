@@ -45,7 +45,7 @@ alias FixUps = map[Id, lrel[str field, str path]];
         obj = make(t, c, kids[0..i] + [target is null ? target : referTo(type(rt, meta.definitions), target)] + kids[i+1..], kws);
       }
       else if (cons(label(c, _), _, [*_, p:label(fld, rt:adt("Ref", _)), *_], _) <- alts) {
-        obj = setKeywordParameters(obj, kws + (fld: referTo(type(rt, meta.definitions), target))); 
+        obj = setKeywordParameters(obj, kws + (fld: target is null ? target : referTo(type(rt, meta.definitions), target))); 
       }
       else {
         throw "Cannot find constructor for fixing <obj>.<fld> to <path>";
