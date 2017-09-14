@@ -9,23 +9,33 @@ import IO;
 import String;
 import Node;
 
+&M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc) 
+  = tree2modelWithOrigins(meta, t, uri = uri)[0];
 
-&M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc)  {
+alias Org = map[Id id, loc src];
+
+tuple[&M<:node, Org] tree2modelWithOrigins(type[&M<:node] meta, Tree t, loc uri = t@\loc)  {
   t = (t has top ? t.top : t);
   
   FixUps fixUps = ();
+  Org origins = ();
+  
+  void track(Id x, loc l) {
+    origins[x] = l;
+  }
   
   void fix(node obj, lrel[str field, str path] fixes) {
     fixUps[getId(obj)] = fixes;
   }
   
-  model = tree2model(meta, newRealm(), t, fix, uri, "/");
+  model = tree2model(meta, newRealm(), t, fix, uri, "/", track);
   model = fixUp(meta, model, fixUps);  
   
-  return typeCast(meta, model);
+  return <typeCast(meta, model), origins>;
 }
 
 alias Fix = void(node, lrel[str field, str path]);
+alias Track = void(Id, loc);
 alias FixUps = map[Id, lrel[str field, str path]];
 
 &M<:node fixUp(type[&M<:node] meta, &M model, FixUps fixes) {
@@ -125,7 +135,7 @@ lrel[str, Tree] labeledAstArgs(Tree t, Production p)
 str substBindings(str path, lrel[str, value] env) 
   = ( path | replaceAll(it, "$<x>", "<v>") | <str x, value v> <- env );
 
-value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi) {
+value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi, Track track) {
   p = t.prod;
   
   if (p.def is lex) {
@@ -135,10 +145,10 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   largs = labeledAstArgs(t, p);
 
   if (p is regular) {
-    return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>") | int i <- [0..size(largs)] ];
+    return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>", track) | int i <- [0..size(largs)] ];
   }
 
-  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>")> 
+  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>", track)> 
      | int i <- [0..size(largs)], <str fld, Tree a> := largs[i] ];
 
 
@@ -175,8 +185,10 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   else {
   	uri.fragment = xmi;
   }
+  Id myId = id(uri.top);
+  track(myId, t@\loc);
   
-  obj = r.new(tt, make(tt, p.def.name, args, kws), id = id(uri.top));
+  obj = r.new(tt, make(tt, p.def.name, args, kws), id = myId);
   fix(obj, fixes);
   
   return obj;
