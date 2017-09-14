@@ -69,7 +69,12 @@ Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   //when bprintln("Setting arg <i> on <t>, to <a>");  
   
 Tree insertList(Tree t, int pos, Tree x) {
- assert t.prod is regular;
+  assert t.prod is regular;
+ 
+  println("Inserting: <x> at <pos>");
+  println("The list is: <t>");
+  
+  
   s = t.prod.def;
   int sepSize = 0;
   list[Symbol] seps = [];
@@ -98,6 +103,8 @@ Tree insertList(Tree t, int pos, Tree x) {
   
   assert size(t.args) > 1;
   
+  println("We have size \> 1");
+  
   list[Tree] sepTrees = sepSize > 0 ? t.args[1..1+sepSize] : [];
   println("SEPS:");
   for (Tree z <- sepTrees) {
@@ -107,6 +114,11 @@ Tree insertList(Tree t, int pos, Tree x) {
   if (idx == size(t.args)) {
     println("Appending at the end");
     return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
+  }
+  
+  if (idx == 0) {
+    println("Prepending at the beginning");
+    return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
   }
   
   return addLoc(appl(t.prod, t.args[0..idx] + sepTrees + [x] + t.args[idx..]), t);
@@ -140,13 +152,13 @@ Tree removeList(Tree t, int pos) {
 
 // start with the root.
 map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tree] objs, Id target) {
-  println("Elts: <elts>");
+  //println("Elts: <elts>");
   if (elts == []) {
     return env;
   }
   
   cur = elts[0];
-  println("Undereffing <cur>");
+  //println("Undereffing <cur>");
   
   if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
     int idx = getFieldIndex(tree.prod, fld);
@@ -167,7 +179,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
     if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], t == objs[target]) {
      int subIdx = getFieldIndex(lst.args[i].prod, key);
      Tree val = lst.args[i].args[subIdx];
-     println("Binding <var> to <val>");
+     //println("Binding <var> to <val>");
      env[var] = val;
      return unDeref(t, elts[1..], env, objs, target);
     }
@@ -184,7 +196,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
   Tree valToTree(Production p, str field, Symbol s, value v) {
-    println("Converting <field> = <v>");
+    //println("Converting <field> = <v>");
     int idx = getFieldIndex(p, field);
     xref = (<field, _, _> <- prodRefs(p));
     switch (v) {
@@ -202,7 +214,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
         
       default: {
         Symbol nt = s is label ? s.symbol : s;
-        println("Parsing <v> as <nt>");  
+        //println("Parsing <v> as <nt>");  
         return parse(typeCast(#type[&T<:Tree], type(nt, tt.definitions)), "<v>");
       }
 
@@ -218,7 +230,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
        }
        
        case ins(str field, int pos, value v): {
-         println("INSERT: <field>[<pos>] = <v>");
+         //println("INSERT: <field>[<pos>] = <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
@@ -274,10 +286,10 @@ Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
   }
   
   for (str fld <- env) {
-    println("FLD <fld>");
+    //println("FLD <fld>");
     int idx = getFieldIndex(t.prod, fld);
-    println("Idx = <idx>");
-    println(args);
+    //println("Idx = <idx>");
+    //println(args);
     args[idx] = env[fld];
   }
 
@@ -294,7 +306,7 @@ Tree makeTree(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
     switch (a.prod) {
       case prod(lit("CONTAIN"), [], {\tag("id"(Id x))}): {
         println("Found contain: <x>");
-        println("TREE: <objs[x]>");
+        //println("TREE: <objs[x]>");
         append makeTree(objs[x], objs);
       }
         
