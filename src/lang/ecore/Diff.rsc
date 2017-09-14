@@ -115,10 +115,17 @@ Edits diffKid(Id id, value oldKid, value newKid, str field) {
   if (list[value] xs := oldKid, list[value] ys := newKid) {
     mx = lcsMatrix(xs, ys, refEq);
     ds = getDiff(mx, xs, ys, size(xs), size(ys), refEq);
+    int offset = 0;
     return for (Diff d <- ds) {
       switch (d) {
-        case add(value v, int pos): append <id, ins(field, pos, primOrId(v))>;
-        case remove(_, int pos): append <id, del(field, pos)>;
+        case add(value v, int pos): {
+          append <id, ins(field, pos + offset, primOrId(v))>;
+          offset += 1;
+         }
+        case remove(_, int pos): { 
+          append <id, del(field, pos + offset)>;
+          offset -= 1;
+        }
       }
     }
   }
