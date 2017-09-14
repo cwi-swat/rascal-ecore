@@ -37,6 +37,7 @@ Patch create(type[&T<:node] meta, &T<:node new) {
 }
 
 Patch diff(type[&T<:node] meta, &T old, &T new) {
+  // TODO: we can save some traversals through fusion.
   m1 = objectMap(old);
   m2 = objectMap(new);
   

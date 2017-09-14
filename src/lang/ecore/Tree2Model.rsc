@@ -42,7 +42,7 @@ alias FixUps = map[Id, lrel[str field, str path]];
       target = deref(meta, model, path);
       if (cons(label(c, _), ps:[*_, p:label(fld, rt:adt("Ref", _)), *_], _, _) <- alts) {
         int i = indexOf(ps, p);
-        obj = make(t, c, kids[0..i] + [referTo(type(rt, meta.definitions), target)] + kids[i+1..], kws);
+        obj = make(t, c, kids[0..i] + [target is null ? target : referTo(type(rt, meta.definitions), target)] + kids[i+1..], kws);
       }
       else if (cons(label(c, _), _, [*_, p:label(fld, rt:adt("Ref", _)), *_], _) <- alts) {
         obj = setKeywordParameters(obj, kws + (fld: referTo(type(rt, meta.definitions), target))); 
@@ -108,7 +108,8 @@ node deref(type[&M<:node] meta, node obj, list[str] elts) {
       if (node v <- l, getField(meta, v, key) == val) {
         return deref(meta, v, elts[1..]);
       }
-      throw "Could not find element with <key> = <val>";
+      return null();
+      //throw "Could not find element with <key> = <val>";
     }
     throw "Cannot filter on non-list property: <getField(meta, obj, fld)>";
   }

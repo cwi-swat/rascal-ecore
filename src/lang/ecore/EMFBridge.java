@@ -1,6 +1,7 @@
 package lang.ecore;
 
 import java.io.PrintWriter;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,6 +12,9 @@ import java.util.Set;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.common.command.CompoundCommand;
+import org.eclipse.emf.common.command.StrictCompoundCommand;
+import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EClass;
 import org.eclipse.emf.ecore.EFactory;
 import org.eclipse.emf.ecore.EObject;
@@ -74,7 +78,13 @@ public class EMFBridge {
 		Evaluator eval = bundleEvals.get(bundleId);
 		IRascalMonitor mon = new NullRascalMonitor();
 		eval.doImport(mon, module);
-		ISourceLocation src = eval.getValueFactory().sourceLocation(EcoreUtil.getURI(obj).toString());
+		URI uri = EcoreUtil.getURI(obj);
+		ISourceLocation src;
+		try {
+			src = eval.getValueFactory().sourceLocation(uri.scheme(), uri.authority(), uri.path(), uri.query(), uri.fragment());
+		} catch (URISyntaxException e) {
+			throw RuntimeExceptionFactory.malformedURI(uri.toString(), null, null);
+		}
 		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, src, eval) });
 		
 		return patch(domain, obj, patch);
@@ -91,6 +101,7 @@ public class EMFBridge {
 			ITuple idEdit = (ITuple)v;
 			IConstructor id = (IConstructor) idEdit.get(0);
 			IConstructor edit = (IConstructor) idEdit.get(1);
+			
 			if (edit.getName().equals("create")) {
 				// TODO: we actually create the new objects during patch, not while doing the commands...
 				String clsName = ((IString)edit.get("class")).getValue();
@@ -100,36 +111,42 @@ public class EMFBridge {
 			}
 			else {
 				EObject obj = lookup(root, id, cache);
-				String fieldName = ((IString)edit.get("field")).getValue();
-				EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
 
 				if (edit.getName().equals("destroy")) {
 					cmds.add(DeleteCommand.create(domain, obj));
 				}
-				else if (edit.getName().equals("put")) {
-					Object val = value2obj(edit.get("val"), root, cache);
-					cmds.add(SetCommand.create(domain, obj, field, val));
-				}
-				else if (edit.getName().equals("unset")) {
-					cmds.add(SetCommand.create(domain, obj, field, null));
-				}
 				else {
-					List<Object> lst = (List<Object>)obj.eGet(field);
-					int pos = ((IInteger)edit.get("pos")).intValue();
-					
-					if (edit.getName().equals("ins")) {
-						cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
-					}
-					else if (edit.getName().equals("del")) {
-						cmds.add(RemoveCommand.create(domain, obj, field, lst.get(pos)));
+					String fieldName = ((IString)edit.get("field")).getValue();
+					EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
+					 if (edit.getName().equals("put")) {
+						Object val = value2obj(edit.get("val"), root, cache);
+						cmds.add(SetCommand.create(domain, obj, field, val));
+					 }
+					else if (edit.getName().equals("unset")) {
+						cmds.add(SetCommand.create(domain, obj, field, null));
 					}
 					else {
-						throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+						EList<Object> lst = (EList<Object>)obj.eGet(field);
+						int pos = ((IInteger)edit.get("pos")).intValue();
+						
+						// ??? todo: need to maintain offsets because the positions in the patch assume
+						// immediate execution, so we can not use them here without applying the modifications.
+						if (edit.getName().equals("ins")) {
+							cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
+						}
+						else if (edit.getName().equals("del")) {
+							Object i = lst.get(pos);
+							cmds.add(RemoveCommand.create(domain, obj, field, i));
+						}
+						else {
+							throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+						}
 					}
 				}
 			}
 		}
-		return new CompoundCommand(cmds);
+		CompoundCommand result = new StrictCompoundCommand(cmds);
+		return result;
 	}
 	
 	/*
@@ -218,10 +235,19 @@ public class EMFBridge {
 		
 		// created things always are in the cache, so we can assume
 		// loc ids in this case.
-		String fragment = ((ISourceLocation)id.get(0)).getFragment();
 
-		// not sure why it has to be this way.
-		EObject obj = fragment.equals("/") ? root :  EcoreUtil.getEObject(root, fragment.substring(2));
+		ISourceLocation loc = (ISourceLocation)id.get(0);
+		EObject obj = root.eResource().getEObject(loc.getFragment());
+//		String frag = loc.getFragment();
+//		if (frag.equals("/")) {
+//			obj = root;
+//		}
+//		else if (frag.startsWith("/")) {
+//			obj = EcoreUtil.getEObject(root, frag.substring(2));
+//		}
+//		else {
+//			obj = EcoreUtil.getEObject(root, frag);
+//		}
 		
 		cache.put(id, obj);
 		return obj;
@@ -276,7 +302,7 @@ public class EMFBridge {
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
 			// TODO: cache the reifiedType and type store
-			// it will always be the same for every call. 
+			// it should always be the same for every call because we're tied to 1 meta model anyway. 
 			
 			IValue reifiedType = args[0];
 			TypeStore ts = new TypeStore(); // start afresh
