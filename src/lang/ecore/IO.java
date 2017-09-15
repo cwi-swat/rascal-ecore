@@ -14,12 +14,14 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.emf.common.command.CompoundCommand;
+import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.emf.ecore.util.EContentAdapter;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.eclipse.emf.edit.domain.EditingDomain;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
@@ -78,7 +80,7 @@ public class IO {
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap().put("*", new XMIResourceFactoryImpl());
 	}
 	
-	public IEditorPart getEditorFor(ISourceLocation loc, IEvaluatorContext ctx) throws PartInitException, IOException {
+	public IEditorPart getEditorFor(ISourceLocation loc) throws PartInitException, IOException {
 		IEditorDescriptor desc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(loc.getPath());
 		final List<IEditorPart> l = new ArrayList<>();
 		if (desc != null) {
@@ -138,6 +140,28 @@ public class IO {
 		return new URIEditorInput(storage);
 	}
 	
+	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure) {
+		TypeStore ts = new TypeStore();
+		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
+		Convert.declareRefType(ts);
+		try {
+			IEditorPart editor = getEditorFor(loc);
+			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
+			EditingDomain domain = prov.getEditingDomain();
+			Resource res = domain.getResourceSet().getResources().get(0);
+			EObject obj = res.getContents().get(0);
+			obj.eAdapters().add(new EContentAdapter() {
+	            public void notifyChanged(Notification notification) {
+	                super.notifyChanged(notification);
+	                IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
+	                ((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
+	            }
+			});
+		} catch (PartInitException | IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
+		}
+	}
+	
 	
 	public ICallableValue editor(IValue reifiedType, ISourceLocation loc, IValue reifiedPatchType, IEvaluatorContext ctx) {
 		TypeStore ts = new TypeStore();
@@ -145,7 +169,7 @@ public class IO {
 		Type patchType = tr.valueToType((IConstructor) reifiedPatchType, ts); 
 		Convert.declareRefType(ts);
 		try {
-			IEditorPart editor = getEditorFor(loc, ctx);
+			IEditorPart editor = getEditorFor(loc);
 			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
 			EditingDomain domain = prov.getEditingDomain();
 			return new EditorClosure(() -> {
