@@ -11,7 +11,7 @@ import lang::ecore::Refs;
 
 import ParseTree;
 import IO;
-
+import String;
 
 
 str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::MetaModel::Machine) trafo) {
@@ -26,7 +26,8 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
-  println("Returning: <pt2>");
+  newSrc = "<pt2>"; 
+  println("Returning: <replaceAll(newSrc, " ", "_")>");
   return "<pt2>";
 }
 
@@ -186,6 +187,28 @@ test bool swapTwoStates()
   "machine Doors
   'init closed
   'state opened end state closed end
+  'end";
+
+
+str swapBeginEndStatesResult() = tester("machine Doors
+ 								   'init closed
+ 								   'state closed end
+ 								   'state A end
+ 								   'state B end
+ 								   'state C end
+ 								   'state opened end
+ 								   'end", swapState(0, 4));
+
+test bool swapBeginEndStates()
+  = swapBeginEndStatesResult()
+  ==
+  "machine Doors
+  'init closed
+  'state opened end
+  'state A end
+  'state B end
+  'state C end
+  'state closed end
   'end";
 
 /*
