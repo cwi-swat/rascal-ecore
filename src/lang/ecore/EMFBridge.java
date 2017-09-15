@@ -146,12 +146,12 @@ public class EMFBridge {
 						// immediate execution, so we can not use them here without applying the modifications.
 						if (edit.getName().equals("ins")) {
 							cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), realPos));
-							offsets.get(id).put(fieldName, offset - 1);
+							//offsets.get(id).put(fieldName, offset - 1);
 						}
 						else if (edit.getName().equals("del")) {
 							Object i = lst.get(realPos);
 							cmds.add(RemoveCommand.create(domain, obj, field, i));
-							offsets.get(id).put(fieldName, offset + 1);
+							//offsets.get(id).put(fieldName, offset + 1);
 						}
 						else {
 							throw RuntimeExceptionFactory.illegalArgument(edit, null, null);

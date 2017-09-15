@@ -120,11 +120,11 @@ Edits diffKid(Id id, value oldKid, value newKid, str field) {
       switch (d) {
         case add(value v, int pos): {
           append <id, ins(field, pos + offset, primOrId(v))>;
-          offset += 1;
+          //offset += 1;
          }
         case remove(_, int pos): { 
           append <id, del(field, pos + offset)>;
-          offset -= 1;
+          //offset -= 1;
         }
       }
     }

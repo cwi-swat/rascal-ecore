@@ -118,7 +118,8 @@ Tree insertList(Tree t, int pos, Tree x) {
   
   if (idx == 0 || idx == 1 + sepSize, size(t.args) == 1) {
     sepTrees = [ symbol2tree(sep) | Symbol sep <- s.separators ];
-    println("Adding to singleton");
+    println("Adding <x> to singleton: <containedId(x)>");
+    
     if (idx == 0) {
       return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
     }
@@ -194,7 +195,7 @@ Tree removeList(Tree t, int pos) {
 
   
   if (idx == 0) {
-    println("Removing first one");
+    println("Removing first one: <t.args[0]>, <containedId(t.args[0])>");
     return addLoc(appl(t.prod, t.args[idx+sepSize+1..]), t);
   }
   
@@ -358,6 +359,8 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
+
+Id containedId(appl(prod(lit("CONTAIN"), [], {\tag("id"(Id x))}), _)) = x;
 
 Tree contain(Id id) 
   = appl(prod(lit("CONTAIN"), [], {\tag("id"(id))}), [ char(i) | int i <- chars("CONTAIN") ]);

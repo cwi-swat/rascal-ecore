@@ -25,6 +25,16 @@ Machine(Machine) removeStateAt(int idx) {
   };
 }
 
+Machine(Machine) swapState(int i, int j) {
+  return Machine(Machine m) {
+    tmp = m.states[i];
+    m.states[i] = m.states[j];
+    m.states[j] = tmp;
+    return m;
+  };
+}
+
+
 Machine(Machine) setMachineName(str name) {
   return Machine(Machine m) {
     m.name = name;

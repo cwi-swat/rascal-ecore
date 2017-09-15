@@ -169,6 +169,24 @@ test bool removeFromMid()
   'state opened end
   'end";
   
+  
+/* 
+ * Permutations
+ */
+
+str swapTwoStatesResult() = tester("machine Doors
+ 								   'init closed
+ 								   'state closed end
+ 								   'state opened end
+ 								   'end", swapState(0, 1));
+
+test bool swapTwoStates()
+  = swapTwoStatesResult()
+  ==
+  "machine Doors
+  'init closed
+  'state opened end state closed end
+  'end";
 
 /*
  * Properties
@@ -232,3 +250,5 @@ test bool setInitialToExistingState()
   'state closed end
   'state opened end
   'end";
+  
+  
