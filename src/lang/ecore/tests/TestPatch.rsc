@@ -38,15 +38,19 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
 str createMachineResult() {
   m = createFromScatch();
   patch = create(#lang::ecore::tests::MetaModel::Machine, m);
-  pt = (Machine)`machine X init Y end`;
+  pt = (Machine)`machine X init Y end`; // dummy
   orgs = ();
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
   newSrc = "<pt2>";
   return newSrc; 
-  //machine doors init ⟨initial:Id⟩ state closed on open => ⟨target:Id⟩ end state opened on close => ⟨target:Id⟩ end end
 }
+
+test bool createMachine() 
+  = createMachineResult() 
+  == 
+  "machine Doors init closed state closed on open =\> opened end state opened on close =\> closed end end";
 
 
 /*

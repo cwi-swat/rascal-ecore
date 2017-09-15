@@ -460,7 +460,6 @@ map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
     }
     switch (a.prod) {
       case prod(lit("CONTAIN"), [], {\tag("id"(Id y))}): {
-        println("INLINING contain <y>");
         objs = unflatten(y, objs);
         append objs[y];
       }
@@ -471,7 +470,6 @@ map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
           if (!(elt has prod)) { append elt; continue; }
           switch (elt.prod) {
              case prod(lit("CONTAIN"), [], {\tag("id"(Id y))}): {
-		        println("INLINING contain <y>");
 		        objs = unflatten(y, objs);
 		        append objs[y];
              }
@@ -490,28 +488,6 @@ map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
   return objs;
 }
 
-//Tree unflatten(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
-//
-//  args = for (Tree a <- args) {
-//    if (!(a has prod)) {
-//      append a;
-//      continue;
-//    }
-//    switch (a.prod) {
-//      case prod(lit("CONTAIN"), [], {\tag("id"(Id x))}): {
-//        println("INLINING contain <x>");
-//        objs[x] = unflatten(objs[x], objs);
-//        append objs[x];
-//      }
-//        
-//      default:
-//        append unflatten(a, objs);
-//    }
-//  }  
-//
-//  return addLoc(appl(p, args), t);
-//}
-  
 
 int getFieldIndex(Production p, str fld) {
   if (int i <- [0..size(p.symbols)], p.symbols[i] is label, p.symbols[i].name == fld) {

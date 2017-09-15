@@ -17,7 +17,7 @@ Machine createFromScatch() {
   s2 = r.new(#State, State("opened", []));
   s1.transitions += [r.new(#Trans, Trans("open", referTo(#State, s2)))];
   s2.transitions += [r.new(#Trans, Trans("close", referTo(#State, s1)))];
-  m = r.new(#Machine, Machine("doors", [s1, s2]));
+  m = r.new(#Machine, Machine("Doors", [s1, s2]));
   m.initial = referTo(#State, s1);
   return m;
 }
