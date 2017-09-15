@@ -28,11 +28,9 @@ str symbolName(\iter-star(Symbol s)) = symbolName(s) + "*";
 str symbolName(\iter-star-seps(Symbol s, _)) = symbolName(s) + "*";
 str symbolName(\iter(Symbol s)) = symbolName(s) + "+";
 str symbolName(\iter-seps(Symbol s, _)) = symbolName(s) + "+";
+str symbolName(label(_, Symbol s)) = symbolName(s);
 
-Tree nullTree(Symbol s, str field)
-  = appl(prod(s, [lit(src)], {\tag("category"("MetaAmbiguity"))}), [ char(i) | int i <- chars(src) ])
-  when str src := "\<<field>:null\>";
-  
+
 // find templates for classes in t, substituting arguments to placeholders
 // (if no templates are found, create from grammar, with default layout)
 map[str, Tree] templates(Tree t, set[str] classes) = ();
@@ -137,6 +135,17 @@ Tree insertList(Tree t, int pos, Tree x) {
   return addLoc(appl(t.prod, t.args[0..idx] + sepTrees + [x] + t.args[idx..]), t);
 }  
   
+Tree getListElement(Tree t, int pos) {
+  assert t.prod is regular;
+  s = t.prod.def;
+  int sepSize = 0;
+  if (s is \iter-seps || s is \iter-star-seps) {
+    sepSize = size(s.separators);
+  }
+  int idx = pos * (sepSize + 1);
+  return t.args[idx];
+}  
+  
 Tree removeList(Tree t, int pos) {
   assert t.prod is regular;
   s = t.prod.def;
@@ -179,7 +188,8 @@ Tree removeList(Tree t, int pos) {
 
 
 // start with the root.
-map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tree] objs, Id target) {
+map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tree] objs, value target, Symbol s, str field) {
+
   //println("Elts: <elts>");
   if (elts == []) {
     return env;
@@ -190,65 +200,84 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   
   if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
     int idx = getFieldIndex(tree.prod, fld);
-    return unDeref(tree.args[idx], elts[1..], env, orgs, target);
+    return unDeref(tree.args[idx], elts[1..], env, orgs, target, s, field);
   }
 
   if (/^<fld:[a-zA-Z0-9_]+>\[<idx:[0-9_]+>$/ := cur) {
     int fldIdx = getFieldIndex(tree.prod, fld);
     Tree lst = tree.args[fldIdx];
     realIdx = toInt(idx) * (size(lst.prod.def.separators) + 1);
-    return unDeref(lst.args[realIdx], elts[1..], env, orgs, target);
+    return unDeref(lst.args[realIdx], elts[1..], env, orgs, target, s, field);
   }
   
   if (/^<fld:[a-zA-Z0-9_]+>\[<key:[a-zA-Z0-9_]+>=\$<var:[a-zA-Z0-9_]+>\]$/ := cur) {
     int idx = getFieldIndex(tree.prod, fld);
     Tree lst = tree.args[idx];
     delta = size(lst.prod.def.separators) + 1;
-    println("DELTA: <delta>");
-    if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], t == objs[target]) {
-      println("SUBIDX: <idx>");
+    if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], target in objs, t == objs[target]) {
       int subIdx = getFieldIndex(lst.args[i].prod, key);
       Tree val = lst.args[i].args[subIdx];
       //println("Binding <var> to <val>");
       env[var] = val;
-      return unDeref(t, elts[1..], env, objs, target);
+      return unDeref(t, elts[1..], env, objs, target, s, field);
     }
     
     // not found;
-    return ();
+    // TODO: var is not the var of the refs we're solving...
+    return (var: placeholder(s, field));
     throw "Did not find target <target> in <lst>";  
   }
   
-  
 }
 
-Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
-  int i = 0;
-  args = for (Tree a <- args) {
-    // NB: duplicated below when we build the trees map....
-    if (a has prod, a.prod.def is sort, a@\loc?, loc l := a@\loc, <Id obj, l> <- orgs) {
-      println("MAKING CONTAIN");
-      append contain(obj);
-    }
-    else if (a has prod, a.prod is regular) {
-      lstArgs = for (Tree lstArg <- a.args) {
-         if (lstArg@\loc?, loc l := lstArg@\loc, <Id obj, l> <- orgs) {
-           append contain(obj);
-         }
-         else {
-           append lstArg;
-         }
-      }
-      println("MAKING CONTAIN");
-      append addLoc(appl(a.prod, lstArgs), a); 
-    } 
-    else {
-      append a;
-    }
-    i += 1;
+
+
+
+Tree flatten(t:appl(Production p, list[Tree] args), Tree root, rel[Id, loc] orgs) 
+  = addLoc(appl(p, [ flattenArg(args[i], t, root, p.symbols[i], orgs) | int i <- [0..size(args)] ]), t);
+  
+Tree flattenArg(a:appl(prod(sort(_), _, _), _), Tree parent, Tree root, Symbol s, rel[Id, loc] orgs) 
+  = contain(obj)
+  when loc l := a@\loc, <Id obj, l> <- orgs;
+
+Tree flattenArg(a:appl(p:prod(_, _, _), _), Tree parent, Tree root, label(str field, Symbol _), rel[Id, loc] orgs) 
+  = refer(path, deref(root, split("/", substPath(path, parent))[1..], orgs))
+  when <field, _, str path> <- prodRefs(parent.prod);
+
+// todo: what if a list has refs?
+Tree flattenArg(a:appl(p:regular(Symbol reg), list[Tree] args), Tree parent, Tree root, Symbol s, rel[Id, loc] orgs)
+  =  addLoc(appl(p, [ flattenArg(elt, a, root, reg.symbol, orgs) | Tree elt <- args]), a);
+
+default Tree flattenArg(Tree a, Tree parent, Tree root, Symbol s, rel[Id, loc] orgs) = a;
+
+str substPath(str path, Tree t) {
+  for (label(str fld, _) <- t.prod.symbols) {
+    int i = getFieldIndex(t.prod, fld);
+    path = replaceAll(path, "$<fld>", "<t.args[i]>");
   }
-  return addLoc(appl(p, args), t);
+  return path;
 }
+
+
+Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tree(type[&U<:Tree], str) parse) {
+  switch (v) {
+    case null():
+      return placeholder(s, field);
+    
+    case Id x: {
+      if (<field, _, str path> <- prodRefs(p)) {
+        return refer(path, x);
+      }
+      return contain(x);
+    }
+    
+    default: {
+      Symbol nt = (s is label ? s.symbol : s);
+      return parse(typeCast(#type[&T<:Tree], type(nt, tt.definitions)), "<v>");
+    }
+  } 
+}
+  
 
 &T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
   Tree old = pt;
@@ -258,70 +287,35 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
  
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
   // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
-  trees = ( obj: makeContains(t, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
+  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
   trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
-  Tree valToTree(Production p, str field, Symbol s, value v) {
-    println("Converting <field> = <v>");
-    int idx = getFieldIndex(p, field);
-    xref = (<field, _, _> <- prodRefs(p));
-    switch (v) {
-      case null(): // BUG: edits contain ids, not refs!!!s 
-        // the a argument is only always available for put...
-        return xref ? nullTree(p.def, field) : placeholder(s, field);
-      
-      case Id x:
-        if (<field, _, str path> <- prodRefs(p)) {
-          return refer(path, x);
-        }
-        else {
-          return contain(x);
-        }
-        
-      default: {
-        Symbol nt = s is label ? s.symbol : s;
-        println("Parsing <v> as <nt>");  
-        return parse(typeCast(#type[&T<:Tree], type(nt, tt.definitions)), "<v>");
-      }
-
-    }
-  }
   
   fixRefsTo = [];
   
   for (<Id obj, Edit edit> <- patch.edits) {
      switch (edit) {
        case put(str field, value v): {
-         if (Id referer <- trees, <str field, str class, str path> <- prodRefs(trees[referer].prod)) {
-           env = unDeref(old, split("/", path)[1..], (), trees, obj);
-           if (env != ()) {
-             fixRefsTo += [obj];
-           } 
-         }
-         
          println("PUT: <field> <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
          println("The primitive: <t.args[idx]>");
-         Tree newVal = valToTree(t.prod, field, t.prod.symbols[idx], v);
+         println(t.prod.symbols[idx]);
+         Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);
          println("NEW: <newVal>");
          trees[obj] = setArg(t, idx, newVal);
          println("OBJ now: <trees[obj]>");
-
-         
-           
-         
        }
        
        case ins(str field, int pos, value v): {
          println("INSERT: <field>[<pos>] = <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
-         println("t.prod = <t.prod>");
-         println("IDX = <idx>");
+         //println("t.prod = <t.prod>");
+         //println("IDX = <idx>");
          lst = t.args[idx];
          println(lst.prod);
-         lst = insertList(lst, pos, valToTree(t.prod, field, lst.prod.def.symbol, v));
+         lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse));
          // check for empty layout
          if ("<t.args[idx+1]>" == "") {
            // reuse layout that is before.
@@ -331,6 +325,8 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
        }
 
        case del(str field, int pos): {
+       
+         
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
@@ -346,7 +342,7 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
     root = addLoc(appl(pt.prod, [pt.args[0], root, pt.args[2]]), pt);
   }
   
-  return typeCast(tt, resolveTree(root, root, trees, fixRefsTo)); 
+  return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
 
@@ -355,41 +351,83 @@ bool hasId(Tree t, Id target, rel[Id, loc] orgs) {
   if (t@\loc?, loc l := t@\loc, <target, l> <- orgs) {
     return true;
   }
-  return t has prod && prod(lit("CONTAIN"), [], {\tag("id"(target))}) := t.prod;
+  return t has prod && 
+    prod(lit("CONTAIN"), [], {\tag("id"(target))}) := t.prod;
 } 
  
 
 Tree contain(Id id) 
   = appl(prod(lit("CONTAIN"), [], {\tag("id"(id))}), [ char(i) | int i <- chars("CONTAIN") ]);
 
-Tree refer(str path, Id id) 
-  = appl(prod(lit("REF"), [], {\tag("pathId"(<path, id>))}), [ char(i) | int i <- chars("REF") ]);
+Tree refer(str path, value x) 
+  = appl(prod(lit("REF"), [], {\tag("path"(path, x))}), [ char(i) | int i <- chars("REF") ]);
 
 
-Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs, list[Id] fixRefsTo) {
+value deref(Tree t, list[str] elts, rel[Id, loc] trees) {
+  println("DEREF: <elts>");
+  if (elts == [], loc l := t@\loc, <Id x, l> <- trees) {
+    return x;
+  }
+  
+  cur = elts[0];
+  
+  if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
+    int idx = getFieldIndex(t.prod, fld);
+    return deref(t.args[idx], elts[1..]);
+  }
+
+  if (/^<fld:[a-zA-Z0-9_]+>\[<idx:[0-9_]+>$/ := cur) {
+    int fldIdx = getFieldIndex(t.prod, fld); 
+    if (Tree lst := t.args[fldIdx], lst.prod is regular) {
+      int sepSize = (lst.prod.def is \iter-seps || lst.prod.def is \iter-star-seps) ? size(lst.prod.def.separators) : 0; 
+      int i = toInt(idx) * (sepSize + 1);
+      return deref(lst.args[i], elts[1..], trees);
+    }
+    throw "Cannot index on non-list property: <t.args[fldIdx]>";
+  }
+  
+  if (/^<fld:[a-zA-Z0-9_]+>\[<key:[a-zA-Z0-9_]+>=<val:[^\]]*>\]$/ := cur) {
+    int fldIdx = getFieldIndex(t.prod, fld); 
+    if (Tree lst := t.args[fldIdx], lst.prod is regular) {
+	    int sepSize = (lst.prod.def is \iter-seps || lst.prod.def is \iter-star-seps) ? size(lst.prod.def.separators) : 0;
+	    for (int i <- [0,sepSize+1..size(lst.args)]) {
+	      Tree kid = lst.args[i];
+	      int keyIdx = getFieldIndex(kid.prod, key);
+	      if ("<kid.args[keyIdx]>" == val) {
+	        return deref(kid, elts[1..], trees);
+	      }
+	    }
+	    return null();
+    } 
+    
+    throw "Cannot filter on non-list property: <t.args[fldIdx]>";
+  }
+  
+  throw "Invalid path element <cur>";
+}
+
+Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
   if (appl(_, _) !:= t) {
     return t;
   }
+  
   env = ();
+  
+  int i = 0;
   args = for (Tree a <- t.args) {
-    println("a = <a>");
-    if (a has prod, prod(lit("REF"), [], {\tag("pathId"(<str path, Id x>))}) := a.prod)  {
-      env += unDeref(root, split("/", path)[1..], (), objs, x);
+    //println("a = `<a>`");
+    // if a is a crossref (e.g., "initial"), then we solve for the key value
+    if (a has prod, prod(lit("REF"), [], {\tag("path"(str path, value x))}) := a.prod)  {
+      println("FOUND A REF with path <path> to <x>");
+      Symbol s = t.prod.symbols[i];
+      str fld = s.name; // assume labeled
+      env += unDeref(root, split("/", path)[1..], (), objs, x, s, fld);
       append a; // for now, substituted below. 
     }
-    else if (<str field, str class, str path> <- prodRefs(t.prod)) {
-      for (Id obj <- fixRefsTo) {
-        println("A = <a>");
-        println("FIX? <obj>");
-        println("CURRENT: `<t>`");
-	    env += unDeref(root, split("/", path)[1..], (), objs, obj);
-	    println(env["initial"]);
-	  }
-	  append a;
-    }
     else {
-      append resolveTree(a, root, objs, fixRefsTo);
-    }      
+      append resolveTree(a, root, objs);
+    } 
+    i += 1;     
   }
   
   for (str fld <- env) {

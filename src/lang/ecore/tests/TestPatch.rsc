@@ -35,9 +35,10 @@ str addStateToEmptyResult() = tester("machine Doors
   									'init closed
   									'end", appendState);
 
-test bool addStateToEmpty() = addStateToEmptyResult() == 
+test bool addStateToEmpty() 
+  = addStateToEmptyResult() == 
   "machine Doors
-  'init closed
+  'init \<initial: Id\>
   'state NewState  end
   'end";
 
@@ -114,7 +115,7 @@ test bool removeSingleton()
   = removeSingletonResult()
   ==
   "machine Doors
-  'init closed
+  'init \<initial: Id\>
   '
   'end";
 
@@ -128,7 +129,7 @@ test bool removeFromFront()
   = removeFromFrontResult()
   == 
   "machine Doors
-  'init closed
+  'init \<initial: Id\>
   'state opened end
   'end";
   
@@ -178,7 +179,7 @@ test bool setMachineName()
   = setMachineNameResult()
   ==
   "machine Foo
-  'init closed
+  'init \<initial: Id\>
   'end"; 
 
 str setStateNameWithRefResult() = tester("machine Doors
@@ -208,7 +209,7 @@ test bool setInitialToNullGivesNullTree()
   = setInitialToNullResult()
   ==
   "machine Doors
-  'init \<initial:null\>
+  'init \<initial: Id\>
   'state closed end
   'end";
   
