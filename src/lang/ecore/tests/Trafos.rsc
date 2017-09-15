@@ -25,6 +25,22 @@ Machine(Machine) removeStateAt(int idx) {
   };
 }
 
+Machine(Machine) setMachineName(str name) {
+  return Machine(Machine m) {
+    m.name = name;
+    return m;
+  };
+}
+
+Machine(Machine) setStateName(int idx, str name) {
+  return Machine(Machine m) {
+    s = m.states[idx];
+    s.name = name;
+    m.states[idx] = s;
+    return m;
+  };
+}
+
 Machine(Machine) setInitial(str name) {
   return Machine(Machine m) {
     if (State s <- m.states, s.name == name) {

@@ -186,7 +186,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   }
   
   cur = elts[0];
-  //println("Undereffing <cur>");
+  println("Undereffing <cur>");
   
   if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
     int idx = getFieldIndex(tree.prod, fld);
@@ -217,6 +217,33 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   
 }
 
+Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
+  args = for (Tree a <- args) {
+    // NB: duplicated below when we build the trees map....
+    println(a.prod.def);
+    if (a has prod, a.prod.def is sort, a@\loc?, loc l := a@\loc, <Id obj, l> <- orgs) {
+      println("MAKING CONTAIN");
+      append contain(obj);
+    } 
+    else if (a has prod, a.prod is regular) {
+      lstArgs = for (Tree lstArg <- a.args) {
+         if (lstArg@\loc?, loc l := lstArg@\loc, <Id obj, l> <- orgs) {
+           append contain(obj);
+         }
+         else {
+           append lstArg;
+         }
+      }
+      println("MAKING CONTAIN");
+      append addLoc(appl(a.prod, lstArgs), a); 
+    } 
+    else {
+      append a;
+    }
+  }
+  return addLoc(appl(p, args), t);
+}
+
 &T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
   Tree old = pt;
   if (pt has top) {
@@ -224,11 +251,12 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   }
  
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
-  trees = ( obj: t | /Tree t := old, t has \loc, loc l := t@\loc, <Id obj, l> <- orgs );
+  // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
+  trees = ( obj: makeContains(t, orgs) | /Tree t := old, t has prod, t.prod.def is sort, t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
   trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
   Tree valToTree(Production p, str field, Symbol s, value v) {
-    //println("Converting <field> = <v>");
+    println("Converting <field> = <v>");
     int idx = getFieldIndex(p, field);
     xref = (<field, _, _> <- prodRefs(p));
     switch (v) {
@@ -246,7 +274,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
         
       default: {
         Symbol nt = s is label ? s.symbol : s;
-        //println("Parsing <v> as <nt>");  
+        println("Parsing <v> as <nt>");  
         return parse(typeCast(#type[&T<:Tree], type(nt, tt.definitions)), "<v>");
       }
 
@@ -256,9 +284,14 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   for (<Id obj, Edit edit> <- patch.edits) {
      switch (edit) {
        case put(str field, value v): {
+         println("PUT: <field> <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
-         trees[obj] = setArg(t, idx, valToTree(trees[obj].prod, field, t.prod.symbols[idx], v));
+         println("The primitive: <t.args[idx]>");
+         Tree newVal = valToTree(t.prod, field, t.prod.symbols[idx], v);
+         println("NEW: <newVal>");
+         trees[obj] = setArg(t, idx, newVal);
+         println("OBJ now: <trees[obj]>");
        }
        
        case ins(str field, int pos, value v): {
@@ -363,6 +396,7 @@ Tree makeTree(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
   
 
 int getFieldIndex(Production p, str fld) {
+  println("PROD: <p>");
   if (int i <- [0..size(p.symbols)], p.symbols[i] is label, p.symbols[i].name == fld) {
     return i;
   }

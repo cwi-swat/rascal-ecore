@@ -125,7 +125,7 @@ str removeFromFrontResult() = tester("machine Doors
 
 test bool removeFromFront()
   = removeFromFrontResult()
-  ==
+  == 
   "machine Doors
   'init closed
   'state opened end
@@ -163,6 +163,28 @@ test bool removeFromMid()
   'state opened end
   'end";
   
+
+/*
+ * Properties
+ */
+ 
+
+str setMachineNameResult() = tester("machine Doors
+             					   'init closed
+             					   'end", setMachineName("Foo"));
+ 
+test bool setMachineName()
+  = setMachineNameResult()
+  ==
+  "machine Foo
+  'init closed
+  'end"; 
+
+str setStateNameWithRefResult() = tester("machine Doors
+ 										'init closed
+ 										'state closed end
+ 										'end", setStateName(0, "CLOSED"));
+ 										
   
 /*
  * Cross references.
