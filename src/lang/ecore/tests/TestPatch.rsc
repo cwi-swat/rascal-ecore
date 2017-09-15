@@ -15,17 +15,21 @@ import IO;
 
 
 str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::MetaModel::Machine) trafo) {
+  //gram = addPlaceholderProds(#lang::ecore::tests::Syntax::Machine);
+  //type[lang::ecore::tests::Syntax::Machine] gram = #lang::ecore::tests::Syntax::Machine;
   lang::ecore::tests::Syntax::Machine pt = parse(#start[Machine], src, |project://rascal-ecore/src/lang/ecore/tests/someTest|).top;
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
   patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
   iprintln(patch);
+  // and here it needs to be the non-start reified type...
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
   println("Returning: <pt2>");
   return "<pt2>";
 }
+
 
 /*
  * Insertion (plus creation)
@@ -38,7 +42,7 @@ str addStateToEmptyResult() = tester("machine Doors
 test bool addStateToEmpty() 
   = addStateToEmptyResult() == 
   "machine Doors
-  'init \<initial: Id\>
+  'init ⟨initial:Id⟩
   'state NewState  end
   'end";
 
@@ -115,7 +119,7 @@ test bool removeSingleton()
   = removeSingletonResult()
   ==
   "machine Doors
-  'init \<initial: Id\>
+  'init ⟨initial:Id⟩
   '
   'end";
 
@@ -129,7 +133,7 @@ test bool removeFromFront()
   = removeFromFrontResult()
   == 
   "machine Doors
-  'init \<initial: Id\>
+  'init ⟨initial:Id⟩
   'state opened end
   'end";
   
@@ -179,7 +183,7 @@ test bool setMachineName()
   = setMachineNameResult()
   ==
   "machine Foo
-  'init \<initial: Id\>
+  'init ⟨initial:Id⟩
   'end"; 
 
 str setStateNameWithRefResult() = tester("machine Doors
@@ -209,7 +213,7 @@ test bool setInitialToNullGivesNullTree()
   = setInitialToNullResult()
   ==
   "machine Doors
-  'init \<initial: Id\>
+  'init ⟨initial:Id⟩
   'state closed end
   'end";
   

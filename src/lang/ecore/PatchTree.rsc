@@ -11,14 +11,30 @@ import String;
 import Set;
 import IO;
 
+Production placeholderProd(Symbol s, Symbol id = lex("Id"))
+  = prod(s, [lit("⟨"), id, lit(":"), lit(symbolName(s)), lit("⟩") ], 
+       {\tag("category"("MetaAmbiguity"))});
+
+
+// does not owrk...
+type[&T<:Tree] addPlaceholderProds(type[&T<:Tree] tt, Symbol id = lex("Id")) {
+  map[Symbol, Production] defs = tt.definitions;
+  for (Symbol s <- defs, s is lex || s is sort) {
+    defs[s].alternatives += {placeholderProd(s, id = id)};
+  }
+  if (type[&T<:Tree] tt2 := type(tt.symbol, defs)) {
+    return tt2;
+  }
+  //return typeCast(#type[&T<:Tree], type(tt.symbol, defs));
+}
 
 
 Tree placeholder(Symbol s, str field) {
   if (s is opt || s is \iter-star || s is \iter-star-seps) {
     return appl(regular(s), []);
   }
-  str src = "\<<field>: <symbolName(s)>\>";
-  return appl(prod(s, [lit(src)], {\tag("category"("MetaAmbiguity"))}), [ char(i) | int i <- chars(src) ]);
+  str src = "⟨<field>:<symbolName(s)>⟩";
+  return appl(placeholderProd(s), [ char(i) | int i <- chars(src) ]);
 }
   
 str symbolName(sort(str n)) = n;
@@ -29,6 +45,7 @@ str symbolName(\iter-star-seps(Symbol s, _)) = symbolName(s) + "*";
 str symbolName(\iter(Symbol s)) = symbolName(s) + "+";
 str symbolName(\iter-seps(Symbol s, _)) = symbolName(s) + "+";
 str symbolName(label(_, Symbol s)) = symbolName(s);
+str symbolName(\start(Symbol s)) = symbolName(s);
 
 
 // find templates for classes in t, substituting arguments to placeholders
@@ -291,8 +308,6 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
   
-  fixRefsTo = [];
-  
   for (<Id obj, Edit edit> <- patch.edits) {
      switch (edit) {
        case put(str field, value v): {
@@ -325,8 +340,6 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
        }
 
        case del(str field, int pos): {
-       
-         
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
@@ -337,7 +350,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
      }
    }
    
-  Tree root = makeTree(trees[patch.root], trees);
+  Tree root = unflatten(trees[patch.root], trees);
   if (pt has top) {
     root = addLoc(appl(pt.prod, [pt.args[0], root, pt.args[2]]), pt);
   }
@@ -346,16 +359,6 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
 }
 
 
-
-bool hasId(Tree t, Id target, rel[Id, loc] orgs) {
-  if (t@\loc?, loc l := t@\loc, <target, l> <- orgs) {
-    return true;
-  }
-  return t has prod && 
-    prod(lit("CONTAIN"), [], {\tag("id"(target))}) := t.prod;
-} 
- 
-
 Tree contain(Id id) 
   = appl(prod(lit("CONTAIN"), [], {\tag("id"(id))}), [ char(i) | int i <- chars("CONTAIN") ]);
 
@@ -363,9 +366,12 @@ Tree refer(str path, value x)
   = appl(prod(lit("REF"), [], {\tag("path"(path, x))}), [ char(i) | int i <- chars("REF") ]);
 
 
-value deref(Tree t, list[str] elts, rel[Id, loc] trees) {
+value deref(Tree t, str path, rel[Id, loc] orgs)
+  = deref(t, split("/", path)[1..], trees);
+
+value deref(Tree t, list[str] elts, rel[Id, loc] orgs) {
   println("DEREF: <elts>");
-  if (elts == [], loc l := t@\loc, <Id x, l> <- trees) {
+  if (elts == [], loc l := t@\loc, <Id x, l> <- orgs) {
     return x;
   }
   
@@ -373,7 +379,7 @@ value deref(Tree t, list[str] elts, rel[Id, loc] trees) {
   
   if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
     int idx = getFieldIndex(t.prod, fld);
-    return deref(t.args[idx], elts[1..]);
+    return deref(t.args[idx], elts[1..], orgs);
   }
 
   if (/^<fld:[a-zA-Z0-9_]+>\[<idx:[0-9_]+>$/ := cur) {
@@ -381,7 +387,7 @@ value deref(Tree t, list[str] elts, rel[Id, loc] trees) {
     if (Tree lst := t.args[fldIdx], lst.prod is regular) {
       int sepSize = (lst.prod.def is \iter-seps || lst.prod.def is \iter-star-seps) ? size(lst.prod.def.separators) : 0; 
       int i = toInt(idx) * (sepSize + 1);
-      return deref(lst.args[i], elts[1..], trees);
+      return deref(lst.args[i], elts[1..], orgs);
     }
     throw "Cannot index on non-list property: <t.args[fldIdx]>";
   }
@@ -394,7 +400,7 @@ value deref(Tree t, list[str] elts, rel[Id, loc] trees) {
 	      Tree kid = lst.args[i];
 	      int keyIdx = getFieldIndex(kid.prod, key);
 	      if ("<kid.args[keyIdx]>" == val) {
-	        return deref(kid, elts[1..], trees);
+	        return deref(kid, elts[1..], orgs);
 	      }
 	    }
 	    return null();
@@ -431,17 +437,14 @@ Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
   }
   
   for (str fld <- env) {
-    println("FLD <fld>");
     int idx = getFieldIndex(t.prod, fld);
-    println("Idx = <idx>");
-    //println(args);
     args[idx] = env[fld];
   }
 
   return addLoc(appl(t.prod, args), t);
 }
 
-Tree makeTree(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
+Tree unflatten(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
 
   args = for (Tree a <- args) {
     if (!(a has prod)) {
@@ -450,13 +453,11 @@ Tree makeTree(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
     }
     switch (a.prod) {
       case prod(lit("CONTAIN"), [], {\tag("id"(Id x))}): {
-        println("Found contain: <x>");
-        //println("TREE: <objs[x]>");
-        append makeTree(objs[x], objs);
+        append unflatten(objs[x], objs);
       }
         
       default:
-        append makeTree(a, objs);
+        append unflatten(a, objs);
     }
   }  
 
@@ -469,59 +470,5 @@ int getFieldIndex(Production p, str fld) {
     return i;
   }
   return -1;
-}
-
-&T<:node patchTree_(type[&T<:Tree] tt, &T<:node old, Patch patch, Org origins) {
-
-   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
-   
-   map[Id, Tree] trees = ( k: t | /Tree t := old, t has \loc, loc l := t@\loc, <Id k, l> <- orgs ); 
-   
-
-
-
-   for (<Id obj, Edit edit> <- patch.edits) {
-     switch (edit) {
-       case create(str class): { 
-         // TODO: use old to find a template if it exists, otherwise do default layout.
-         trees[obj] = prod2tree(findProd(tt, class));
-         origins[obj] = id.uri; // use id loc as unique source loc for now
-       }
-       
-       // NB: if ref is null, the placeholder will stay (leading to parse errors)
-       case put(str field, ref(Id to)): {
-         Tree t = trees[obj];
-         int idx = getFieldIndex(t.prod, field);
-         if (<field, _, str path> <- prodRefs(t.prod)) {
-           trg = trees[to];
-           Tree key = unresolve(trg, path);
-           t.args[idx] = key;
-         }
-         else {
-           // can it happen that trees[to] still needs updates?
-           // in that case, we copy too early here.
-           // need to schedule for later...
-           // also children might be out of data...
-           t.args[idx] = trees[to]; 
-         }
-         trees[obj] = t;
-       }
-       
-       case put(str field, value v): {
-         int idx = getFieldIndex(t.prod, field);
-         Symbol s = t.prod.symbols[idx];
-         trees[obj].args[idx] = parse(type(s, tt.definitions), "<v>");
-       }
-       
-       case ins(str field, int pos, ref(Id to)): ;
-
-       case ins(str field, int pos, value v): ;
-
-       case del(str field, int pos): ;
-
-       case destroy(): ;
-       
-     }
-   }
 }
 
