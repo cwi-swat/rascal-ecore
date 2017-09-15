@@ -26,6 +26,9 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
   return "<pt2>";
 }
 
+/*
+ * Insertion (plus creation)
+ */
 
 str addStateToEmptyResult() = tester("machine Doors
   									'init closed
@@ -95,6 +98,75 @@ test bool prependStateToMany()
   'state closed end
   'state opened end
   'end";
+  
+/*
+ * Removal from lists
+ */
+ 
+
+str removeSingletonResult() = tester("machine Doors
+ 									'init closed
+ 									'state closed end
+ 									'end", removeStateAt(0));
+
+test bool removeSingleton()
+  = removeSingletonResult()
+  ==
+  "machine Doors
+  'init closed
+  '
+  'end";
+
+str removeFromFrontResult() = tester("machine Doors
+ 									'init closed
+ 									'state closed end
+ 									'state opened end
+ 									'end", removeStateAt(0));
+
+test bool removeFromFront()
+  = removeFromFrontResult()
+  ==
+  "machine Doors
+  'init closed
+  'state opened end
+  'end";
+  
+
+str removeFromEndResult() = tester("machine Doors
+ 								   'init closed
+ 								   'state closed end
+ 								   'state opened end
+ 								   'end", removeStateAt(1));
+
+test bool removeFromEnd()
+  = removeFromEndResult()
+  ==
+  "machine Doors
+  'init closed
+  'state closed end
+  'end";
+  
+
+str removeFromMidResult() = tester("machine Doors
+ 								   'init closed
+ 								   'state closed end
+ 								   'state removed end
+ 								   'state opened end
+ 								   'end", removeStateAt(1));
+
+test bool removeFromMid()
+  = removeFromMidResult()
+  ==
+  "machine Doors
+  'init closed
+  'state closed end
+  'state opened end
+  'end";
+  
+  
+/*
+ * Cross references.
+ */
   
   
 str setInitialToNullResult() = tester("machine Doors

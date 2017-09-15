@@ -153,21 +153,23 @@ Tree removeList(Tree t, int pos) {
   // bla sep closed sep opened
   // 0         1          2
   
-  // last one
-  if (idx == size(t.args) - 1) {
-    println("Removing last one.");
-    return addLoc(appl(t.prod, t.args[0..-(1 + sepSize)]), t);
-  }
-
   // singleton
   if (idx == 0, size(t.args) == 1) {
     println("Removing only one");
     return addLoc(appl(t.prod, []), t);
   }
   
+  
+  // last one
+  if (idx == size(t.args) - 1) {
+    println("Removing last one.");
+    return addLoc(appl(t.prod, t.args[0..-(1 + sepSize)]), t);
+  }
+
+  
   if (idx == 0) {
     println("Removing first one");
-    return addLoc(appl(t.prod, t.args[idx+sepSize..]));
+    return addLoc(appl(t.prod, t.args[idx+sepSize+1..]), t);
   }
   
   // default: also remove separators.

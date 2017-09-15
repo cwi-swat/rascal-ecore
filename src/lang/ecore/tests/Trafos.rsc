@@ -2,6 +2,7 @@ module lang::ecore::tests::Trafos
 
 import lang::ecore::tests::MetaModel;
 import lang::ecore::Refs;
+import List;
 
 Machine appendState(Machine m, str name = "NewState") {
   r = newRealm();
@@ -15,6 +16,13 @@ Machine prependState(Machine m, str name = "NewState") {
   s = r.new(#State, State(name, []));
   m.states = [s] + m.states;
   return m;
+}
+
+Machine(Machine) removeStateAt(int idx) {
+  return Machine(Machine m) {
+    m.states = delete(m.states, idx);
+    return m;
+  };
 }
 
 Machine(Machine) setInitial(str name) {
