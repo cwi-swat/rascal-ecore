@@ -232,10 +232,14 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
     int idx = getFieldIndex(tree.prod, fld);
     Tree lst = tree.args[idx];
     delta = size(lst.prod.def.separators) + 1;
+    println("LST: <lst>");
+    println("TARGET: <target>");
+    // problem:, objs[target] still has contains... therefore t == objs[target] may fail.
+    // solution (?): update the trees map as well during unflatten
     if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], target in objs, t == objs[target]) {
       int subIdx = getFieldIndex(lst.args[i].prod, key);
       Tree val = lst.args[i].args[subIdx];
-      //println("Binding <var> to <val>");
+      println("Binding <var> to <val>");
       env[var] = val;
       return unDeref(t, elts[1..], env, objs, target, s, field);
     }
@@ -351,9 +355,10 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
      }
    }
    
-  Tree root = unflatten(trees[patch.root], trees);
+  trees = unflatten(patch.root, trees);
+  root = trees[patch.root];
   if (pt has top) {
-    root = addLoc(appl(pt.prod, [pt.args[0], root, pt.args[2]]), pt);
+    root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
   }
   
   return typeCast(tt, resolveTree(root, root, trees)); 
@@ -447,25 +452,65 @@ Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
   return addLoc(appl(t.prod, args), t);
 }
 
-Tree unflatten(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
-
-  args = for (Tree a <- args) {
+map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
+  args = for (Tree a <- objs[x].args) {
     if (!(a has prod)) {
       append a;
       continue;
     }
     switch (a.prod) {
-      case prod(lit("CONTAIN"), [], {\tag("id"(Id x))}): {
-        append unflatten(objs[x], objs);
+      case prod(lit("CONTAIN"), [], {\tag("id"(Id y))}): {
+        println("INLINING contain <y>");
+        objs = unflatten(y, objs);
+        append objs[y];
+      }
+       
+      case regular(_): {
+        println("inlining list");
+        lstArgs = for (Tree elt <- a.args) {
+          if (!(elt has prod)) { append elt; continue; }
+          switch (elt.prod) {
+             case prod(lit("CONTAIN"), [], {\tag("id"(Id y))}): {
+		        println("INLINING contain <y>");
+		        objs = unflatten(y, objs);
+		        append objs[y];
+             }
+             
+             default: append elt;
+          }
+        }
+        append addLoc(appl(a.prod, lstArgs), a);
       }
         
       default:
-        append unflatten(a, objs);
+        append a;
     }
-  }  
-
-  return addLoc(appl(p, args), t);
+  }
+  objs[x] = addLoc(appl(objs[x].prod, args), objs[x]);
+  return objs;
 }
+
+//Tree unflatten(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
+//
+//  args = for (Tree a <- args) {
+//    if (!(a has prod)) {
+//      append a;
+//      continue;
+//    }
+//    switch (a.prod) {
+//      case prod(lit("CONTAIN"), [], {\tag("id"(Id x))}): {
+//        println("INLINING contain <x>");
+//        objs[x] = unflatten(objs[x], objs);
+//        append objs[x];
+//      }
+//        
+//      default:
+//        append unflatten(a, objs);
+//    }
+//  }  
+//
+//  return addLoc(appl(p, args), t);
+//}
   
 
 int getFieldIndex(Production p, str fld) {

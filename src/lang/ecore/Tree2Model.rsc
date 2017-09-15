@@ -17,6 +17,10 @@ Assumptions
 - all regulars are mapped to lists (?)
 - production labels are unique (per sort)
 - no support for optional stuff (we might use S? for this, but not now)
+
+Todo
+- create templates from existing trees
+- save separator layout whenever encountered, so that it can be also used when adding to singletons.
 */
 
 &M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc) 

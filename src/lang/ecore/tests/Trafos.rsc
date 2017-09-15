@@ -11,6 +11,17 @@ Machine appendState(Machine m, str name = "NewState") {
   return m;
 }
 
+Machine createFromScatch() {
+  r = newRealm();
+  s1 = r.new(#State, State("closed", []));
+  s2 = r.new(#State, State("opened", []));
+  s1.transitions += [r.new(#Trans, Trans("open", referTo(#State, s2)))];
+  s2.transitions += [r.new(#Trans, Trans("close", referTo(#State, s1)))];
+  m = r.new(#Machine, Machine("doors", [s1, s2]));
+  m.initial = referTo(#State, s1);
+  return m;
+}
+
 Machine prependState(Machine m, str name = "NewState") {
   r = newRealm();
   s = r.new(#State, State(name, []));
