@@ -141,6 +141,7 @@ public class IO {
 	}
 	
 	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure) {
+		// TODO: this is an editor memory leak...
 		TypeStore ts = new TypeStore();
 		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
 		Convert.declareRefType(ts);
