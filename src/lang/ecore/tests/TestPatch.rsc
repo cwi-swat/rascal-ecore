@@ -19,6 +19,7 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
   patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
+  iprintln(patch);
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
@@ -185,6 +186,13 @@ str setStateNameWithRefResult() = tester("machine Doors
  										'state closed end
  										'end", setStateName(0, "CLOSED"));
  										
+test bool setStateNameWithRef()
+  = setStateNameWithRefResult()
+  == 
+  "machine Doors
+  'init CLOSED
+  'state CLOSED end
+  'end";
   
 /*
  * Cross references.

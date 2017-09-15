@@ -204,13 +204,18 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
     int idx = getFieldIndex(tree.prod, fld);
     Tree lst = tree.args[idx];
     delta = size(lst.prod.def.separators) + 1;
+    println("DELTA: <delta>");
     if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], t == objs[target]) {
-     int subIdx = getFieldIndex(lst.args[i].prod, key);
-     Tree val = lst.args[i].args[subIdx];
-     //println("Binding <var> to <val>");
-     env[var] = val;
-     return unDeref(t, elts[1..], env, objs, target);
+      println("SUBIDX: <idx>");
+      int subIdx = getFieldIndex(lst.args[i].prod, key);
+      Tree val = lst.args[i].args[subIdx];
+      //println("Binding <var> to <val>");
+      env[var] = val;
+      return unDeref(t, elts[1..], env, objs, target);
     }
+    
+    // not found;
+    return ();
     throw "Did not find target <target> in <lst>";  
   }
   
@@ -218,13 +223,13 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
 }
 
 Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
+  int i = 0;
   args = for (Tree a <- args) {
     // NB: duplicated below when we build the trees map....
-    println(a.prod.def);
     if (a has prod, a.prod.def is sort, a@\loc?, loc l := a@\loc, <Id obj, l> <- orgs) {
       println("MAKING CONTAIN");
       append contain(obj);
-    } 
+    }
     else if (a has prod, a.prod is regular) {
       lstArgs = for (Tree lstArg <- a.args) {
          if (lstArg@\loc?, loc l := lstArg@\loc, <Id obj, l> <- orgs) {
@@ -240,6 +245,7 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
     else {
       append a;
     }
+    i += 1;
   }
   return addLoc(appl(p, args), t);
 }
@@ -252,7 +258,7 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
  
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
   // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
-  trees = ( obj: makeContains(t, orgs) | /Tree t := old, t has prod, t.prod.def is sort, t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
+  trees = ( obj: makeContains(t, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
   trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
   Tree valToTree(Production p, str field, Symbol s, value v) {
@@ -281,9 +287,18 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
     }
   }
   
+  fixRefsTo = [];
+  
   for (<Id obj, Edit edit> <- patch.edits) {
      switch (edit) {
        case put(str field, value v): {
+         if (Id referer <- trees, <str field, str class, str path> <- prodRefs(trees[referer].prod)) {
+           env = unDeref(old, split("/", path)[1..], (), trees, obj);
+           if (env != ()) {
+             fixRefsTo += [obj];
+           } 
+         }
+         
          println("PUT: <field> <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
@@ -292,6 +307,10 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
          println("NEW: <newVal>");
          trees[obj] = setArg(t, idx, newVal);
          println("OBJ now: <trees[obj]>");
+
+         
+           
+         
        }
        
        case ins(str field, int pos, value v): {
@@ -326,7 +345,8 @@ Tree makeContains(t:appl(Production p, list[Tree] args), rel[Id, loc] orgs) {
   if (pt has top) {
     root = addLoc(appl(pt.prod, [pt.args[0], root, pt.args[2]]), pt);
   }
-  return typeCast(tt, resolveTree(root, root, trees)); 
+  
+  return typeCast(tt, resolveTree(root, root, trees, fixRefsTo)); 
 }
 
 
@@ -346,25 +366,36 @@ Tree refer(str path, Id id)
   = appl(prod(lit("REF"), [], {\tag("pathId"(<path, id>))}), [ char(i) | int i <- chars("REF") ]);
 
 
-Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
+Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs, list[Id] fixRefsTo) {
   if (appl(_, _) !:= t) {
     return t;
   }
   env = ();
   args = for (Tree a <- t.args) {
+    println("a = <a>");
     if (a has prod, prod(lit("REF"), [], {\tag("pathId"(<str path, Id x>))}) := a.prod)  {
-      env = unDeref(root, split("/", path)[1..], (), objs, x);
+      env += unDeref(root, split("/", path)[1..], (), objs, x);
       append a; // for now, substituted below. 
     }
+    else if (<str field, str class, str path> <- prodRefs(t.prod)) {
+      for (Id obj <- fixRefsTo) {
+        println("A = <a>");
+        println("FIX? <obj>");
+        println("CURRENT: `<t>`");
+	    env += unDeref(root, split("/", path)[1..], (), objs, obj);
+	    println(env["initial"]);
+	  }
+	  append a;
+    }
     else {
-      append resolveTree(a, root, objs);
+      append resolveTree(a, root, objs, fixRefsTo);
     }      
   }
   
   for (str fld <- env) {
-    //println("FLD <fld>");
+    println("FLD <fld>");
     int idx = getFieldIndex(t.prod, fld);
-    //println("Idx = <idx>");
+    println("Idx = <idx>");
     //println(args);
     args[idx] = env[fld];
   }
@@ -396,7 +427,6 @@ Tree makeTree(t:appl(Production p, list[Tree] args), map[Id, Tree] objs) {
   
 
 int getFieldIndex(Production p, str fld) {
-  println("PROD: <p>");
   if (int i <- [0..size(p.symbols)], p.symbols[i] is label, p.symbols[i].name == fld) {
     return i;
   }
