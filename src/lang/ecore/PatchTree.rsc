@@ -29,7 +29,7 @@ str symbolName(\iter-star-seps(Symbol s, _)) = symbolName(s) + "*";
 str symbolName(\iter(Symbol s)) = symbolName(s) + "+";
 str symbolName(\iter-seps(Symbol s, _)) = symbolName(s) + "+";
 
-Tree nullTree(str field)
+Tree nullTree(Symbol s, str field)
   = appl(prod(s, [lit(src)], {\tag("category"("MetaAmbiguity"))}), [ char(i) | int i <- chars(src) ])
   when str src := "\<<field>:null\>";
   
@@ -97,13 +97,17 @@ Tree insertList(Tree t, int pos, Tree x) {
     return addLoc(appl(t.prod, [x]), t);
   }  
   
+  println("idx = <idx>; sepsize = <sepSize>");
+  println(idx == 1 + sepSize);
+  println(size(t.args));
   
-  if (idx == 0 || idx == 1, size(t.args) == 1) {
+  if (idx == 0 || idx == 1 + sepSize, size(t.args) == 1) {
     sepTrees = [ symbol2tree(sep) | Symbol sep <- s.separators ];
+    println("Adding to singleton");
     if (idx == 0) {
       return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
     }
-    if (idx == 1) {
+    if (idx == 1 + sepSize) {
       return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
     }
   }
@@ -211,7 +215,11 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   
 }
 
-&T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree old, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
+&T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
+  Tree old = pt;
+  if (pt has top) {
+    old = pt.top;
+  }
  
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
   trees = ( obj: t | /Tree t := old, t has \loc, loc l := t@\loc, <Id obj, l> <- orgs );
@@ -224,7 +232,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
     switch (v) {
       case null(): // BUG: edits contain ids, not refs!!!s 
         // the a argument is only always available for put...
-        return xref ? nullTree(field) : placeholder(s, field);
+        return xref ? nullTree(p.def, field) : placeholder(s, field);
       
       case Id x:
         if (<field, _, str path> <- prodRefs(p)) {
@@ -252,12 +260,20 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
        }
        
        case ins(str field, int pos, value v): {
-         //println("INSERT: <field>[<pos>] = <v>");
+         println("INSERT: <field>[<pos>] = <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
+         println("t.prod = <t.prod>");
+         println("IDX = <idx>");
          lst = t.args[idx];
+         println(lst.prod);
          lst = insertList(lst, pos, valToTree(t.prod, field, lst.prod.def.symbol, v));
-         trees[obj] = setArg(trees[obj], idx, lst);
+         // check for empty layout
+         if ("<t.args[idx+1]>" == "") {
+           // reuse layout that is before.
+           t = setArg(t, idx + 1, t.args[idx-1]);
+         }
+         trees[obj] = setArg(t, idx, lst);
        }
 
        case del(str field, int pos): {
@@ -272,6 +288,9 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
    }
    
   Tree root = makeTree(trees[patch.root], trees);
+  if (pt has top) {
+    root = addLoc(appl(pt.prod, [pt.args[0], root, pt.args[2]]), pt);
+  }
   return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
