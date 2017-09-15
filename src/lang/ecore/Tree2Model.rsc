@@ -9,6 +9,16 @@ import IO;
 import String;
 import Node;
 
+/*
+Assumptions
+- all prods from grammar correspond to class with identity
+- refs are always primitives
+- ref paths are only along the containment hierarchy.
+- all regulars are mapped to lists (?)
+- production labels are unique (per sort)
+- no support for optional stuff (we might use S? for this, but not now)
+*/
+
 &M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc) 
   = tree2modelWithOrigins(meta, t, uri = uri)[0];
 

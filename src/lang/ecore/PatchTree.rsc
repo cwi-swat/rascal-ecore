@@ -118,7 +118,7 @@ Tree insertList(Tree t, int pos, Tree x) {
     println("- `<z>`");
   }
   
-  if (idx > size(t.args)) {
+  if (idx >= size(t.args)) {
     println("Appending at the end");
     return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
   }
@@ -152,7 +152,7 @@ Tree removeList(Tree t, int pos) {
   // last one
   if (idx == size(t.args) - 1) {
     println("Removing last one.");
-    return addLoc(appl(t.prod, t.args[0..-1]), t);
+    return addLoc(appl(t.prod, t.args[0..-(1 + sepSize)]), t);
   }
 
   // singleton
