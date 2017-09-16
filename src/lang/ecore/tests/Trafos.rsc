@@ -36,6 +36,17 @@ Machine(Machine) removeStateAt(int idx) {
   };
 }
 
+Machine(Machine) removeStates(list[int] idxs) {
+  return Machine(Machine m) {
+    newStates = [];
+    for (int idx <- [0..size(m.states)], idx notin idxs) {
+      newStates += [m.states[idx]];
+    }
+    m.states = newStates;
+    return m;
+  };
+}
+
 Machine(Machine) swapState(int i, int j) {
   return Machine(Machine m) {
     tmp = m.states[i];

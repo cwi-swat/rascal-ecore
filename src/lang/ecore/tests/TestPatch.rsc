@@ -190,6 +190,21 @@ test bool removeFromMid()
   'state closed end
   'state opened end
   'end";
+
+str removeAllResult() = tester("machine Doors
+ 								   'init closed
+ 								   'state closed end
+ 								   'state removed end
+ 								   'state opened end
+ 								   'end", removeStates([0,1,2]));
+
+test bool removeAll()
+  = removeAllResult()
+  ==
+  "machine Doors
+  'init ⟨initial:Id⟩
+  '
+  'end";
   
   
 /* 

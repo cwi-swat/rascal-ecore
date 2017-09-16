@@ -133,10 +133,10 @@ Tree insertList(Tree t, int pos, Tree x) {
   println("We have size \> 1");
   
   list[Tree] sepTrees = sepSize > 0 ? t.args[1..1+sepSize] : [];
-  println("SEPS:");
-  for (Tree z <- sepTrees) {
-    println("- `<z>`");
-  }
+  //println("SEPS:");
+  //for (Tree z <- sepTrees) {
+  //  println("- `<z>`");
+  //}
   
   if (idx >= size(t.args)) {
     println("Appending at the end");
@@ -175,7 +175,7 @@ Tree removeList(Tree t, int pos) {
 
   int idx = pos * (sepSize + 1);
   
-  println("IDX for removal: <idx> (was <pos>)");
+  println("IDX for removal: <idx> (was <pos>) (length=<size(t.args)>)");
   // seems the diff is bad: it should have deleted 2, not 1
   // bla sep closed sep opened
   // 0         1          2
@@ -188,7 +188,7 @@ Tree removeList(Tree t, int pos) {
   
   
   // last one
-  if (idx == size(t.args) - 1) {
+  if (idx - sepSize == size(t.args) - 1) {
     println("Removing last one.");
     return addLoc(appl(t.prod, t.args[0..-(1 + sepSize)]), t);
   }
@@ -200,7 +200,8 @@ Tree removeList(Tree t, int pos) {
   }
   
   // default: also remove separators.
-  println("Removing <t.args[idx]>");
+  println("LENGTH: <size(t.args)>");
+  //println("Removing <t.args[idx]>");
   return appl(t.prod, t.args[0..idx] + t.args[idx+sepSize+1..])[@\loc=t@\loc];  
 }
 
@@ -341,6 +342,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
            // reuse layout that is before.
            t = setArg(t, idx + 1, t.args[idx-1]);
          }
+         println("LIST after insert: <lst>");
          trees[obj] = setArg(t, idx, lst);
        }
 
@@ -349,6 +351,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
          int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
          lst = removeList(lst, pos);
+         println("LIST after del: <lst>");
          trees[obj] = setArg(t, idx, lst);
        }
 
@@ -465,7 +468,7 @@ map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
       }
        
       case regular(_): {
-        println("inlining list");
+        //println("inlining list");
         lstArgs = for (Tree elt <- a.args) {
           if (!(elt has prod)) { append elt; continue; }
           switch (elt.prod) {
