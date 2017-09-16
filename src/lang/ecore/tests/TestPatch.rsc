@@ -21,13 +21,12 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
   patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
-  iprintln(patch);
+  //iprintln(patch);
   // and here it needs to be the non-start reified type...
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
   newSrc = "<pt2>"; 
-  println("Returning: <replaceAll(newSrc, " ", "_")>");
   return "<pt2>";
 }
 

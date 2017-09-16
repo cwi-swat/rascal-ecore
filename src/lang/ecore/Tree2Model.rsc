@@ -12,7 +12,7 @@ import Node;
 /*
 Assumptions
 - all prods from grammar correspond to class with identity
-- refs are always primitives
+- refs are always primitives (i.e. lexicals)
 - ref paths are only along the containment hierarchy.
 - all regulars are mapped to lists (?)
 - production labels are unique (per sort)
@@ -102,8 +102,10 @@ int getFieldIndex(type[&M<:node] meta, Symbol t, str c, str fld) {
  * - Path / Id [ Id = <str> ]
  */  
 
+list[str] splitPath(str path) = split("/", path)[1..];
+
 node deref(type[&M<:node] meta, &M root, str path) 
-  = deref(meta, root, split("/", path)[1..]); 
+  = deref(meta, root, splitPath(path)); 
 
 node deref(type[&M<:node] meta, node obj, list[str] elts) {
   if (elts == []) {

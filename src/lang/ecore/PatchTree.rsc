@@ -81,15 +81,10 @@ Tree addLoc(Tree t, Tree old)
   
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   = addLoc(appl(p, args[0..i] + [a] + args[i+1..]), t);
-  //when bprintln("Setting arg <i> on <t>, to <a>");  
   
 Tree insertList(Tree t, int pos, Tree x) {
   assert t.prod is regular;
  
-  println("Inserting: <x> at <pos>");
-  //println("The list is: <t>");
-  
-  
   s = t.prod.def;
   int sepSize = 0;
   list[Symbol] seps = [];
@@ -98,27 +93,14 @@ Tree insertList(Tree t, int pos, Tree x) {
   }
   sepSize = size(seps);
     
-
-  // x s1 s2 s3 y s1 s2 s3 z
-  // 0 1   2  3 4  5  6  7  8
-  // 0          1           2
-  
-  // x s y s z s a s b
-  // 0 1 2 3 4 5 6 7 8
-  // 0   1   2   3   4
   int idx = pos * (sepSize + 1);
   
   if (idx == 0, t.args == []) {
     return addLoc(appl(t.prod, [x]), t);
   }  
   
-  println("idx = <idx>; sepsize = <sepSize>");
-  println(idx == 1 + sepSize);
-  println(size(t.args));
-  
   if (idx == 0 || idx == 1 + sepSize, size(t.args) == 1) {
     sepTrees = [ symbol2tree(sep) | Symbol sep <- s.separators ];
-    println("Adding <x> to singleton: <containedId(x)>");
     
     if (idx == 0) {
       return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
@@ -130,26 +112,16 @@ Tree insertList(Tree t, int pos, Tree x) {
   
   assert size(t.args) > 1;
   
-  println("We have size \> 1");
-  
   list[Tree] sepTrees = sepSize > 0 ? t.args[1..1+sepSize] : [];
-  //println("SEPS:");
-  //for (Tree z <- sepTrees) {
-  //  println("- `<z>`");
-  //}
   
   if (idx >= size(t.args)) {
-    println("Appending at the end");
     return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
   }
   
   if (idx == 0) {
-    println("Prepending at the beginning");
     return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
   }
   
-  println("IDX = <idx>; ");
-  println("Size(args) = <size(t.args)>");
   return addLoc(appl(t.prod, t.args[0..idx] + sepTrees + [x] + t.args[idx..]), t);
 }  
   
@@ -171,51 +143,42 @@ Tree removeList(Tree t, int pos) {
   if (s is \iter-seps || s is \iter-star-seps) {
     sepSize = size(s.separators);
   }
-  // [0, s1 s2 s3, 1
 
   int idx = pos * (sepSize + 1);
   
-  println("IDX for removal: <idx> (was <pos>) (length=<size(t.args)>)");
-  // seems the diff is bad: it should have deleted 2, not 1
-  // bla sep closed sep opened
-  // 0         1          2
-  
   // singleton
   if (idx == 0, size(t.args) == 1) {
-    println("Removing only one");
     return addLoc(appl(t.prod, []), t);
   }
   
   
   // last one
   if (idx - sepSize == size(t.args) - 1) {
-    println("Removing last one.");
     return addLoc(appl(t.prod, t.args[0..-(1 + sepSize)]), t);
   }
 
   
   if (idx == 0) {
-    println("Removing first one: <t.args[0]>, <containedId(t.args[0])>");
     return addLoc(appl(t.prod, t.args[idx+sepSize+1..]), t);
   }
   
   // default: also remove separators.
-  println("LENGTH: <size(t.args)>");
-  //println("Removing <t.args[idx]>");
   return appl(t.prod, t.args[0..idx] + t.args[idx+sepSize+1..])[@\loc=t@\loc];  
 }
 
 
+map[str, Tree] unDeref(Tree tree, str path, map[str,Tree] env, map[Id, Tree] objs, value target, Symbol s, str field) 
+  = unDeref(tree, splitPath(path), env, objs, target, s, field);
+
 // start with the root.
 map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tree] objs, value target, Symbol s, str field) {
+  // ASSERT: tree is unflattened (no more CONTAIN nodes).
 
-  //println("Elts: <elts>");
   if (elts == []) {
     return env;
   }
   
   cur = elts[0];
-  println("Undereffing <cur>");
   
   if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
     int idx = getFieldIndex(tree.prod, fld);
@@ -233,27 +196,18 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
     int idx = getFieldIndex(tree.prod, fld);
     Tree lst = tree.args[idx];
     delta = size(lst.prod.def.separators) + 1;
-    println("LST: <lst>");
-    println("TARGET: <target>");
-    // problem:, objs[target] still has contains... therefore t == objs[target] may fail.
-    // solution (?): update the trees map as well during unflatten
     if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], target in objs, t == objs[target]) {
       int subIdx = getFieldIndex(lst.args[i].prod, key);
       Tree val = lst.args[i].args[subIdx];
-      println("Binding <var> to <val>");
       env[var] = val;
       return unDeref(t, elts[1..], env, objs, target, s, field);
     }
     
-    // not found;
-    // TODO: var is not the var of the refs we're solving...
     return (var: placeholder(s, field));
-    throw "Did not find target <target> in <lst>";  
   }
   
+  throw "Invalid path element <cur>";  
 }
-
-
 
 
 Tree flatten(t:appl(Production p, list[Tree] args), Tree root, rel[Id, loc] orgs) 
@@ -264,22 +218,16 @@ Tree flattenArg(a:appl(prod(sort(_), _, _), _), Tree parent, Tree root, Symbol s
   when loc l := a@\loc, <Id obj, l> <- orgs;
 
 Tree flattenArg(a:appl(p:prod(_, _, _), _), Tree parent, Tree root, label(str field, Symbol _), rel[Id, loc] orgs) 
-  = refer(path, deref(root, split("/", substPath(path, parent))[1..], orgs))
+  = refer(path, deref(root, substBindings(path, treeEnv(parent)), orgs))
   when <field, _, str path> <- prodRefs(parent.prod);
 
-// todo: what if a list has refs?
 Tree flattenArg(a:appl(p:regular(Symbol reg), list[Tree] args), Tree parent, Tree root, Symbol s, rel[Id, loc] orgs)
   =  addLoc(appl(p, [ flattenArg(elt, a, root, reg.symbol, orgs) | Tree elt <- args]), a);
 
 default Tree flattenArg(Tree a, Tree parent, Tree root, Symbol s, rel[Id, loc] orgs) = a;
 
-str substPath(str path, Tree t) {
-  for (label(str fld, _) <- t.prod.symbols) {
-    int i = getFieldIndex(t.prod, fld);
-    path = replaceAll(path, "$<fld>", "<t.args[i]>");
-  }
-  return path;
-}
+lrel[str, value] treeEnv(Tree t)
+  = [ <fld, t.args[getFieldIndex(t.prod, fld)]> | label(str fld, _) <- t.prod.symbols ];
 
 
 Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tree(type[&U<:Tree], str) parse) {
@@ -309,6 +257,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   }
  
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
+  
   // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
   trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
   trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
@@ -317,32 +266,25 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   for (<Id obj, Edit edit> <- patch.edits) {
      switch (edit) {
        case put(str field, value v): {
-         println("PUT: <field> <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
-         println("The primitive: <t.args[idx]>");
-         println(t.prod.symbols[idx]);
          Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);
-         println("NEW: <newVal>");
          trees[obj] = setArg(t, idx, newVal);
-         println("OBJ now: <trees[obj]>");
        }
        
        case ins(str field, int pos, value v): {
-         println("INSERT: <field>[<pos>] = <v>");
          Tree t = trees[obj];
          int idx = getFieldIndex(t.prod, field);
-         //println("t.prod = <t.prod>");
-         //println("IDX = <idx>");
+
          lst = t.args[idx];
-         println(lst.prod);
          lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse));
+
          // check for empty layout
          if ("<t.args[idx+1]>" == "") {
            // reuse layout that is before.
            t = setArg(t, idx + 1, t.args[idx-1]);
          }
-         println("LIST after insert: <lst>");
+
          trees[obj] = setArg(t, idx, lst);
        }
 
@@ -351,7 +293,6 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
          int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
          lst = removeList(lst, pos);
-         println("LIST after del: <lst>");
          trees[obj] = setArg(t, idx, lst);
        }
 
@@ -367,21 +308,22 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
+Production containProd(Id id) = prod(lit("CONTAIN"), [], {\tag("id"(id))}); 
+Production referProd(str path, value x) =  prod(lit("REF"), [], {\tag("path"(path, x))});
 
 Id containedId(appl(prod(lit("CONTAIN"), [], {\tag("id"(Id x))}), _)) = x;
 
 Tree contain(Id id) 
-  = appl(prod(lit("CONTAIN"), [], {\tag("id"(id))}), [ char(i) | int i <- chars("CONTAIN") ]);
+  = appl(containProd(id), [ char(i) | int i <- chars("CONTAIN") ]);
 
 Tree refer(str path, value x) 
-  = appl(prod(lit("REF"), [], {\tag("path"(path, x))}), [ char(i) | int i <- chars("REF") ]);
+  = appl(referProd(path, x), [ char(i) | int i <- chars("REF") ]);
 
 
 value deref(Tree t, str path, rel[Id, loc] orgs)
-  = deref(t, split("/", path)[1..], trees);
+  = deref(t, splitPath(path), orgs);
 
 value deref(Tree t, list[str] elts, rel[Id, loc] orgs) {
-  println("DEREF: <elts>");
   if (elts == [], loc l := t@\loc, <Id x, l> <- orgs) {
     return x;
   }
@@ -432,13 +374,11 @@ Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
   
   int i = 0;
   args = for (Tree a <- t.args) {
-    //println("a = `<a>`");
     // if a is a crossref (e.g., "initial"), then we solve for the key value
     if (a has prod, prod(lit("REF"), [], {\tag("path"(str path, value x))}) := a.prod)  {
-      println("FOUND A REF with path <path> to <x>");
       Symbol s = t.prod.symbols[i];
       str fld = s.name; // assume labeled
-      env += unDeref(root, split("/", path)[1..], (), objs, x, s, fld);
+      env += unDeref(root, path, (), objs, x, s, fld);
       append a; // for now, substituted below. 
     }
     else {
@@ -468,7 +408,7 @@ map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
       }
        
       case regular(_): {
-        //println("inlining list");
+        //TODO: refactor here...
         lstArgs = for (Tree elt <- a.args) {
           if (!(elt has prod)) { append elt; continue; }
           switch (elt.prod) {
