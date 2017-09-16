@@ -52,6 +52,7 @@ str symbolName(\start(Symbol s)) = symbolName(s);
 // (if no templates are found, create from grammar, with default layout)
 map[str, Tree] templates(Tree t, set[str] classes) = ();
 
+
 Production findProd(type[&T<:Tree] tt, str class) {
   srt = sort(class);
   if (srt in tt.definitions, size(tt.definitions[srt].alternatives) == 1, Production p <- tt.definitions[srt].alternatives) {
@@ -82,15 +83,8 @@ Tree addLoc(Tree t, Tree old)
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   = addLoc(appl(p, args[0..i] + [a] + args[i+1..]), t);
   
-Tree insertList(Tree t, int pos, Tree x) {
+Tree insertList(Tree t, int pos, Tree x, list[Tree] seps) {
   assert t.prod is regular;
- 
-  s = t.prod.def;
-  int sepSize = 0;
-  list[Symbol] seps = [];
-  if (s is \iter-seps || s is \iter-star-seps) {
-    seps = s.separators;
-  }
   sepSize = size(seps);
     
   int idx = pos * (sepSize + 1);
@@ -100,49 +94,44 @@ Tree insertList(Tree t, int pos, Tree x) {
   }  
   
   if (idx == 0 || idx == 1 + sepSize, size(t.args) == 1) {
-    sepTrees = [ symbol2tree(sep) | Symbol sep <- s.separators ];
-    
     if (idx == 0) {
-      return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
+      return addLoc(appl(t.prod, [x] + seps + t.args), t);
     }
     if (idx == 1 + sepSize) {
-      return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
+      return addLoc(appl(t.prod, t.args + seps + [x]), t);
     }
   }
   
   assert size(t.args) > 1;
   
-  list[Tree] sepTrees = sepSize > 0 ? t.args[1..1+sepSize] : [];
-  
   if (idx >= size(t.args)) {
-    return addLoc(appl(t.prod, t.args + sepTrees + [x]), t);
+    return addLoc(appl(t.prod, t.args + seps + [x]), t);
   }
   
   if (idx == 0) {
-    return addLoc(appl(t.prod, [x] + sepTrees + t.args), t);
+    return addLoc(appl(t.prod, [x] + seps + t.args), t);
   }
   
-  return addLoc(appl(t.prod, t.args[0..idx] + sepTrees + [x] + t.args[idx..]), t);
+  return addLoc(appl(t.prod, t.args[0..idx] + seps + [x] + t.args[idx..]), t);
 }  
   
-Tree getListElement(Tree t, int pos) {
-  assert t.prod is regular;
-  s = t.prod.def;
+  
+list[Tree] getSeparators(Tree lst) {
+  assert lst.prod is regular;
+  s = lst.prod.def;
   int sepSize = 0;
   if (s is \iter-seps || s is \iter-star-seps) {
     sepSize = size(s.separators);
   }
-  int idx = pos * (sepSize + 1);
-  return t.args[idx];
-}  
-  
-Tree removeList(Tree t, int pos) {
-  assert t.prod is regular;
-  s = t.prod.def;
-  int sepSize = 0;
-  if (s is \iter-seps || s is \iter-star-seps) {
-    sepSize = size(s.separators);
+  if (size(lst.args) > 1) {
+     return sepSize > 0 ? lst.args[1..1+sepSize] : [];
   }
+  return [ symbol2tree(sep) | Symbol sep <- s.separators ]; 
+}
+  
+Tree removeList(Tree t, int pos, list[Tree] seps) {
+  assert t.prod is regular;
+  sepSize = size(seps);
 
   int idx = pos * (sepSize + 1);
   
@@ -259,29 +248,32 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
   
   // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
-  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs );
-  trees += ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
+  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs )
+        + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
+  map[tuple[Id, str], list[Tree]] seps = ();
   
-  for (<Id obj, Edit edit> <- patch.edits) {
+  for (<Id obj, Edit edit> <- patch.edits, edit has field) {
+     Tree t = trees[obj];
+     int idx = getFieldIndex(t.prod, edit.field);
+     
      switch (edit) {
        case put(str field, value v): {
-         Tree t = trees[obj];
-         int idx = getFieldIndex(t.prod, field);
          Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);
          trees[obj] = setArg(t, idx, newVal);
        }
        
        case ins(str field, int pos, value v): {
-         Tree t = trees[obj];
-         int idx = getFieldIndex(t.prod, field);
-
          lst = t.args[idx];
-         lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse));
+         if (<obj, field> notin seps) {
+           seps[<obj,field>] = getSeparators(lst);
+         }
+         
+         lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse), 
+                  seps[<obj, field>]);
 
-         // check for empty layout
+         // check for empty layout & reuse layout that is before.
          if ("<t.args[idx+1]>" == "") {
-           // reuse layout that is before.
            t = setArg(t, idx + 1, t.args[idx-1]);
          }
 
@@ -289,11 +281,11 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
        }
 
        case del(str field, int pos): {
-         Tree t = trees[obj];
-         int idx = getFieldIndex(t.prod, field);
          lst = t.args[idx];
-         lst = removeList(lst, pos);
-         trees[obj] = setArg(t, idx, lst);
+         if (<obj, field> notin seps) {
+           seps[<obj,field>] = getSeparators(lst);
+         }
+         trees[obj] = setArg(t, idx, removeList(lst, pos, seps[<obj,field>]));
        }
 
      }

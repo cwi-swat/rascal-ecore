@@ -4,6 +4,9 @@ import lang::ecore::tests::MetaModel;
 import lang::ecore::Refs;
 import List;
 
+
+
+
 Machine appendState(Machine m, str name = "NewState") {
   r = newRealm();
   s = r.new(#State, State(name, []));
@@ -56,6 +59,10 @@ Machine(Machine) swapState(int i, int j) {
   };
 }
 
+Machine reverseStates(Machine m) {
+  m.states = reverse(m.states);
+  return m;
+}
 
 Machine(Machine) setMachineName(str name) {
   return Machine(Machine m) {
@@ -83,4 +90,18 @@ Machine(Machine) setInitial(str name) {
     }
     return m;
   };
+}
+
+Machine arbitraryTrafo1(Machine m) {
+  r = newRealm();
+  newState = r.new(#State, State("NewState_<size(m.states)>", []));
+  m.states = [m.states[0]] + [m.states[2]];
+  bla = r.new(#State, State("BLA", []));
+  tr = r.new(#Trans, Trans("bar", referTo(#State, newState)));
+  bla.transitions += [tr];
+  m.states += [newState];
+  m.states = [bla] + m.states;
+  m.initial = referTo(#State, newState);
+  m.name = m.name + "_";
+  return m;
 }
