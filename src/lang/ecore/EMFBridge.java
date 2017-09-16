@@ -97,16 +97,10 @@ public class EMFBridge {
 		List<Command> cmds = new ArrayList<>();
 		Map<IConstructor, EObject> cache = new HashMap<>();
 		
-		Map<IConstructor, Map<String, Integer>> offsets = new HashMap<>();
-		
 		for (IValue v: (IList)patch.get(1)) {
 			ITuple idEdit = (ITuple)v;
 			IConstructor id = (IConstructor) idEdit.get(0);
 			IConstructor edit = (IConstructor) idEdit.get(1);
-			
-			if (!offsets.containsKey(id)) {
-				offsets.put(id, new HashMap<>());
-			}
 			
 			if (edit.getName().equals("create")) {
 				// TODO: we actually create the new objects during patch, not while doing the commands...
@@ -124,10 +118,6 @@ public class EMFBridge {
 				else {
 					String fieldName = ((IString)edit.get("field")).getValue();
 					
-					if (!offsets.get(id).containsKey(fieldName)) {
-						offsets.get(id).put(fieldName, 0);
-					}
-					
 					EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
 					 if (edit.getName().equals("put")) {
 						Object val = value2obj(edit.get("val"), root, cache);
@@ -139,19 +129,15 @@ public class EMFBridge {
 					else {
 						EList<Object> lst = (EList<Object>)obj.eGet(field);
 						int pos = ((IInteger)edit.get("pos")).intValue();
-						int offset = offsets.get(id).get(fieldName);
-						int realPos = pos + offset;
 						
 						// need to maintain reverse offsets because the positions in the patch assume
 						// immediate execution, so we can not use them here without applying the modifications.
 						if (edit.getName().equals("ins")) {
-							cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), realPos));
-							//offsets.get(id).put(fieldName, offset - 1);
+							cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
 						}
 						else if (edit.getName().equals("del")) {
-							Object i = lst.get(realPos);
+							Object i = lst.get(pos);
 							cmds.add(RemoveCommand.create(domain, obj, field, i));
-							//offsets.get(id).put(fieldName, offset + 1);
 						}
 						else {
 							throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
