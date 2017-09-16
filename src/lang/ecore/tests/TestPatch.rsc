@@ -348,13 +348,13 @@ str arbitraryTrafo1Result() = tester("machine Doors
  test bool testArbitraryTrafo1()
    = arbitraryTrafo1Result()
    ==
-  "machine Doors_
-  'init NewState_3
-  'state BLA on bar =\> NewState_3 end
-  'state closed end
-  'state locked end
-  'state NewState_3  end
-  'end";
+   "machine Doors_
+   'init NewState_3
+   'state BLA on bar =\> NewState_3 end
+   'state closed end
+   'state locked end
+   'state NewState_3  end
+   'end";
    
    
    

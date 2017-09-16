@@ -251,7 +251,14 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs )
         + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
-  map[tuple[Id, str], list[Tree]] seps = ();
+  map[tuple[Id, str], list[Tree]] sepCache = ();
+  
+  tuple[Tree,list[Tree]] getListAndSeps(Id obj, str field, Tree lst) {
+     if (<obj, field> notin sepCache) {
+       sepCache[<obj,field>] = getSeparators(lst);
+     }
+     return <lst, sepCache[<obj,field>]>;
+  }
   
   for (<Id obj, Edit edit> <- patch.edits, edit has field) {
      Tree t = trees[obj];
@@ -264,13 +271,10 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
        }
        
        case ins(str field, int pos, value v): {
-         lst = t.args[idx];
-         if (<obj, field> notin seps) {
-           seps[<obj,field>] = getSeparators(lst);
-         }
-         
+         <lst, seps> = getListAndSeps(obj, field, t.args[idx]);
+        
          lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse), 
-                  seps[<obj, field>]);
+                  seps);
 
          // check for empty layout & reuse layout that is before.
          if ("<t.args[idx+1]>" == "") {
@@ -281,11 +285,8 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
        }
 
        case del(str field, int pos): {
-         lst = t.args[idx];
-         if (<obj, field> notin seps) {
-           seps[<obj,field>] = getSeparators(lst);
-         }
-         trees[obj] = setArg(t, idx, removeList(lst, pos, seps[<obj,field>]));
+         <lst, seps> = getListAndSeps(obj, field, t.args[idx]);
+         trees[obj] = setArg(t, idx, removeList(lst, pos, seps));
        }
 
      }
