@@ -18,3 +18,37 @@ syntax Trans
   "on" {Id ","}+ events "=\>" Id target 
   ;
   
+
+ Machine example() = (Machine)
+`machine Doors
+'  init closed
+'
+'  state closed
+'    on open =\> opened
+'    on lock =\> locked
+'  end
+' 
+'  state opened
+'    on close =\> closed
+'  end
+'  
+'  state locked
+'    on unlock =\> closed
+'  end
+'end`;
+ 
+ Machine example2() = (Machine)
+`machine Doors
+'  init closed
+'
+'  state closed
+'    on open =\> opened
+'  end
+' 
+'  state opened
+'    on close =\> closed
+'  end
+'  
+'  state locked
+'  end
+'end`;
