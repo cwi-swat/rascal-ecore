@@ -21,7 +21,7 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
   patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
-  //iprintln(patch);
+  iprintln(patch);
   // and here it needs to be the non-start reified type...
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
@@ -39,6 +39,7 @@ str createMachineResult() {
   patch = create(#lang::ecore::tests::MetaModel::Machine, m);
   pt = (Machine)`machine X init Y end`; // dummy
   orgs = ();
+  iprintln(patch);
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
@@ -124,6 +125,77 @@ test bool testPrependStateToMany()
   'state NewState  end
   'state closed end
   'state opened end
+  'end";
+
+
+str prependEventToSingletonResult() = tester("machine Doors
+                                            'init closed
+                                            'state closed
+                                            '  on bar =\> closed
+                                            'end
+                                            'end", addEvent(0));
+  
+test bool testPrependEventToSingletonResult()
+  = prependEventToSingletonResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on newEvent , bar =\> closed
+  'end
+  'end";
+  
+str appendEventToSingletonResult() = tester("machine Doors
+                                            'init closed
+                                            'state closed
+                                            '  on bar =\> closed
+                                            'end
+                                            'end", addEvent(1));
+  
+test bool testAppendEventToSingletonResult()
+  = appendEventToSingletonResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on bar , newEvent =\> closed
+  'end
+  'end";  
+  
+  
+  
+str appendEventToManyResult() = tester("machine Doors
+                                            'init closed
+                                            'state closed
+                                            '  on bar, foo =\> closed
+                                            'end
+                                            'end", addEvent(2));
+  
+test bool testAppendEventToManyResult()
+  = appendEventToManyResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on bar, foo, newEvent =\> closed
+  'end
+  'end";   
+
+str insertEventToManyResult() = tester("machine Doors
+                                            'init closed
+                                            'state closed
+                                            '  on bar, foo =\> closed
+                                            'end
+                                            'end", addEvent(1));
+  
+test bool testInsertEventToManyResult()
+  = insertEventToManyResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on bar, newEvent, foo =\> closed
+  'end
   'end";
   
 /*

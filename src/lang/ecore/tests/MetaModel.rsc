@@ -11,5 +11,5 @@ data State(Id uid = noId())
   = State(str name, list[Trans] transitions);
   
 data Trans(Id uid = noId())
-  = Trans(str event, Ref[State] target);
+  = Trans(list[str] events, Ref[State] target);
   

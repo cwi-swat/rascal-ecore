@@ -18,8 +18,8 @@ Machine createFromScatch() {
   r = newRealm();
   s1 = r.new(#State, State("closed", []));
   s2 = r.new(#State, State("opened", []));
-  s1.transitions += [r.new(#Trans, Trans("open", referTo(#State, s2)))];
-  s2.transitions += [r.new(#Trans, Trans("close", referTo(#State, s1)))];
+  s1.transitions += [r.new(#Trans, Trans(["open"], referTo(#State, s2)))];
+  s2.transitions += [r.new(#Trans, Trans(["close"], referTo(#State, s1)))];
   m = r.new(#Machine, Machine("Doors", [s1, s2]));
   m.initial = referTo(#State, s1);
   return m;
@@ -35,6 +35,14 @@ Machine prependState(Machine m, str name = "NewState") {
 Machine(Machine) removeStateAt(int idx) {
   return Machine(Machine m) {
     m.states = delete(m.states, idx);
+    return m;
+  };
+}
+
+
+Machine(Machine) addEvent(int idx) {
+  return Machine(Machine m) {
+    m.states[0].transitions[0].events = insertAt(m.states[0].transitions[0].events, idx, "newEvent");  
     return m;
   };
 }
@@ -97,7 +105,7 @@ Machine arbitraryTrafo1(Machine m) {
   newState = r.new(#State, State("NewState_<size(m.states)>", []));
   m.states = [m.states[0]] + [m.states[2]];
   bla = r.new(#State, State("BLA", []));
-  tr = r.new(#Trans, Trans("bar", referTo(#State, newState)));
+  tr = r.new(#Trans, Trans(["bar"], referTo(#State, newState)));
   bla.transitions += [tr];
   m.states += [newState];
   m.states = [bla] + m.states;

@@ -15,6 +15,6 @@ syntax State
   
 syntax Trans
   = @ref{target:State:/states[name=$target]} 
-  "on" Id event "=\>" Id target 
+  "on" {Id ","}+ events "=\>" Id target 
   ;
   

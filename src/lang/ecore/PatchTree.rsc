@@ -11,6 +11,7 @@ import String;
 import Set;
 import IO;
 
+
 Production placeholderProd(Symbol s, Symbol id = lex("Id"))
   = prod(s, [lit("⟨"), id, lit(":"), lit(symbolName(s)), lit("⟩") ], 
        {\tag("category"("MetaAmbiguity"))});
@@ -31,6 +32,11 @@ type[&T<:Tree] addPlaceholderProds(type[&T<:Tree] tt, Symbol id = lex("Id")) {
 
 Tree placeholder(Symbol s, str field) {
   if (s is opt || s is \iter-star || s is \iter-star-seps) {
+    return appl(regular(s), []);
+  }
+  if (s is \iter-seps || s is iter) {
+    // TODO: why not generate a single element here?
+    // (if so, currently it will be part of the list for new elements always...)
     return appl(regular(s), []);
   }
   str src = "⟨<field>:<symbolName(s)>⟩";
@@ -55,6 +61,7 @@ map[str, Tree] templates(Tree t, set[str] classes) = ();
 
 Production findProd(type[&T<:Tree] tt, str class) {
   srt = sort(class);
+  
   if (srt in tt.definitions, size(tt.definitions[srt].alternatives) == 1, Production p <- tt.definitions[srt].alternatives) {
     return p;
   }
@@ -66,8 +73,7 @@ Production findProd(type[&T<:Tree] tt, str class) {
   throw "No production for <class>";
 }
 
-Tree prod2tree(Production p)
-  = appl(p, [ symbol2tree(s) | Symbol s <- p.symbols ]);
+Tree prod2tree(Production p) = appl(p, [ symbol2tree(s) | Symbol s <- p.symbols ]);
   
 Tree symbol2tree(label(str field, Symbol s)) = placeholder(s, field);
 
@@ -77,12 +83,25 @@ Tree symbol2tree(s:layouts(_)) = appl(prod(s, [], {}), [ char(i) | int i <- char
 
 
 
-Tree addLoc(Tree t, Tree old)
- = (old has \loc) ? t[@\loc=old@\loc] : t;  
+Tree addLoc(Tree t, Tree old) = (old has \loc) ? t[@\loc=old@\loc] : t;  
   
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   = addLoc(appl(p, args[0..i] + [a] + args[i+1..]), t);
   
+list[Tree] getSeparators(Tree lst) {
+  assert lst.prod is regular;
+  s = lst.prod.def;
+  int sepSize = 0;
+  if (s is \iter-seps || s is \iter-star-seps) {
+    sepSize = size(s.separators);
+  }
+  if (size(lst.args) > 1) {
+     return sepSize > 0 ? lst.args[1..1+sepSize] : [];
+  }
+  return [ symbol2tree(sep) | Symbol sep <- s.separators ]; 
+}
+  
+    
 Tree insertList(Tree t, int pos, Tree x, list[Tree] seps) {
   assert t.prod is regular;
   sepSize = size(seps);
@@ -112,22 +131,9 @@ Tree insertList(Tree t, int pos, Tree x, list[Tree] seps) {
     return addLoc(appl(t.prod, [x] + seps + t.args), t);
   }
   
-  return addLoc(appl(t.prod, t.args[0..idx] + seps + [x] + t.args[idx..]), t);
+  return addLoc(appl(t.prod, t.args[0..idx]  + [x] + seps + t.args[idx..]), t);
 }  
   
-  
-list[Tree] getSeparators(Tree lst) {
-  assert lst.prod is regular;
-  s = lst.prod.def;
-  int sepSize = 0;
-  if (s is \iter-seps || s is \iter-star-seps) {
-    sepSize = size(s.separators);
-  }
-  if (size(lst.args) > 1) {
-     return sepSize > 0 ? lst.args[1..1+sepSize] : [];
-  }
-  return [ symbol2tree(sep) | Symbol sep <- s.separators ]; 
-}
   
 Tree removeList(Tree t, int pos, list[Tree] seps) {
   assert t.prod is regular;
@@ -152,7 +158,7 @@ Tree removeList(Tree t, int pos, list[Tree] seps) {
   }
   
   // default: also remove separators.
-  return appl(t.prod, t.args[0..idx] + t.args[idx+sepSize+1..])[@\loc=t@\loc];  
+  return addLoc(appl(t.prod, t.args[0..idx] + t.args[idx+sepSize+1..]), t);  
 }
 
 
@@ -184,7 +190,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
   if (/^<fld:[a-zA-Z0-9_]+>\[<key:[a-zA-Z0-9_]+>=\$<var:[a-zA-Z0-9_]+>\]$/ := cur) {
     int idx = getFieldIndex(tree.prod, fld);
     Tree lst = tree.args[idx];
-    delta = size(lst.prod.def.separators) + 1;
+    delta = size(getSeparators(lst)) + 1;
     if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], target in objs, t == objs[target]) {
       int subIdx = getFieldIndex(lst.args[i].prod, key);
       Tree val = lst.args[i].args[subIdx];
