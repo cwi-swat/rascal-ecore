@@ -47,6 +47,14 @@ Machine(Machine) addEvent(int idx) {
   };
 }
 
+Machine(Machine) removeEvent(int idx) {
+  return Machine(Machine m) {
+    m.states[0].transitions[0].events = delete(m.states[0].transitions[0].events, idx);  
+    return m;
+  };
+}
+
+
 Machine(Machine) removeStates(list[int] idxs) {
   return Machine(Machine m) {
     newStates = [];

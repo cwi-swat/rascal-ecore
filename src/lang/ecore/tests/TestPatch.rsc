@@ -277,6 +277,58 @@ test bool testRemoveAll()
   '
   'end";
   
+str removeEventAtEndFromTwoResult() = tester("machine Doors
+                                            'init closed
+                                            'state closed
+                                            '  on bar, foo =\> closed
+                                            'end
+                                            'end", removeEvent(1));
+  
+test bool testRemoveEventAtEndFromTwoResult()
+  = removeEventAtEndFromTwoResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on bar =\> closed
+  'end
+  'end";
+
+str removeEventAtStartFromTwoResult() = tester("machine Doors
+                                            'init closed
+                                            'state closed
+                                            '  on bar, foo =\> closed
+                                            'end
+                                            'end", removeEvent(0));
+  
+test bool testRemoveEventAtStartFromTwoResult()
+  = removeEventAtStartFromTwoResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on foo =\> closed
+  'end
+  'end";
+
+str removeEventInTheMiddleFromManyResult() = tester("machine Doors
+		                                            'init closed
+		                                            'state closed
+		                                            '  on bar, removed, foo =\> closed
+		                                            'end
+		                                            'end", removeEvent(1));
+  
+test bool testRemoveEventInTheMiddleFromManyResult()
+  = removeEventInTheMiddleFromManyResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed
+  '  on bar, foo =\> closed
+  'end
+  'end";
+  
+    
   
 /* 
  * Permutations
