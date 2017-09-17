@@ -7,6 +7,15 @@ import String;
 import List;
 import IO;
 
+str patch(str src, lrel[loc, str] diff) {
+  int offset = 0;
+  for (<loc l, str s> <- diff) {
+    src = src[0..l.offset + offset] + s + src[l.offset + offset + l.length..];
+    offset += size(s) - l.length;
+  }
+  return src;
+}
+
 lrel[loc, str] ptDiff(Tree old, Tree new) {
   diff = [];
 
@@ -20,8 +29,6 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
     return [<old@\loc, "<new>">];  
   }
 
-  assert old.prod == new.prod;
-  
   bool ptEq(Tree t1, Tree t2) = t1.prod == t2.prod;
   
 
@@ -30,7 +37,7 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
       return kid@\loc;
     }
     args = parent.args;
-    src = [ "<a>" | Tree a <- args[0..pos] ];
+    src = ( "" | it + "<a>" | Tree a <- args[0..pos] );
     return parent@\loc[offset=parent@\loc.offset+size(src)];
   }
   
@@ -39,16 +46,24 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
     ds = getDiff(mx, old.args, new.args, size(old.args), size(new.args), ptEq);
     for (Diff d <- ds) {
       switch (d) {
-        case add(Tree v, int pos): 
-          diff += [<getLoc(old, v, pos)[length=0], "<v>">];
+        case add(Tree v, int pos): { 
+          println("INSERTING `<v>`");
+          diff += [<getLoc(old, old.args[pos], pos)[length=0], "<v>">];
+        }
         
-        case remove(Tree v, int pos):  
+        case remove(Tree v, int pos): {
+          println("DELETING `<v>`");
           diff += [<getLoc(old, v, pos), "">];
+        }
           
         case same(Tree t1, Tree t2): {
           if (dontRecurse(t1.prod.def)) {
-            if (t1 != t2) {
+            if (!realEq(t1, t2)) {
+              println("REPLACING `<t1>` with `<t2>`");
               diff += [<t1@\loc, "<t2>">];
+            }
+            else {
+              ; //println("REALLY SAME: `<t1>` vs `<t2>`");
             }
           }
           else {
@@ -63,14 +78,23 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
   
   
   int argOffset = old@\loc.offset;
+  
+  assert size(old.args) == size(new.args);
+  
   for (int i <- [0..size(old.args)]) {
     Tree oldArg = old.args[i];
     Tree newArg = new.args[i];
+    //println("OLD: `<oldArg>`");
+    //println("NEW: `<newArg>`");
 
     if (dontRecurse(oldArg.prod.def)) {
-      if (newArg != oldArg) {
-	    newSrc = "<newArg>";
+      if (!realEq(newArg, oldArg)) {
+        println("REPLACING `<oldArg>` with `<newArg>`");
 	    diff += [<old@\loc[offset=argOffset][length=size("<oldArg>")], "<newArg>">];
+	  }
+	  else {
+	    ;
+	    //println("REALLY SAME ARG: `<oldArg>` vs `<newArg>`");
 	  }
     }
     else {
@@ -82,6 +106,13 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
   return diff;
 }
 
+
+bool realEq(appl(Production p, list[Tree] args1), appl(p, list[Tree] args2))
+  = size(args1) == size(args2) && ( true | it && realEq(args1[i], args2[i]) | int i <- [0..size(args1)] );
+  
+bool realEq(char(int i), char(int j)) = i == j;  
+  
+default bool realEq(Tree _, Tree _) = false; 
 
 bool dontRecurse(label(_, Symbol s)) = dontRecurse(s);
 bool dontRecurse(lex(_)) = true;

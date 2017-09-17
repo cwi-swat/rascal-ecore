@@ -25,15 +25,17 @@ str tester(str src, str key, lang::ecore::tests::MetaModel::Machine(lang::ecore:
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
   patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
-  iprintln(patch);
+  //iprintln(patch);
+  
   // and here it needs to be the non-start reified type...
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
+  
   iprintln(ptDiff(pt, pt2));
   newSrc = "<pt2>"; 
   writeFile(|project://rascal-ecore/src/lang/ecore/tests/<key>.new|, newSrc);
-  return "<pt2>";
+  return newSrc;
 }
 
 /*
@@ -45,12 +47,10 @@ str createMachineResult() {
   patch = create(#lang::ecore::tests::MetaModel::Machine, m);
   pt = (Machine)`machine X init Y end`; // dummy
   orgs = ();
-  iprintln(patch);
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
-  newSrc = "<pt2>";
-  return newSrc; 
+  return "<pt2>";
 }
 
 test bool testCreateMachine() 
