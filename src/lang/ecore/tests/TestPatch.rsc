@@ -7,6 +7,7 @@ import lang::ecore::tests::Trafos;
 import lang::ecore::Tree2Model;
 import lang::ecore::PatchTree;
 import lang::ecore::Diff;
+import lang::ecore::PTDiff;
 import lang::ecore::Refs;
 
 import ParseTree;
@@ -14,10 +15,13 @@ import IO;
 import String;
 
 
-str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::MetaModel::Machine) trafo) {
+
+str tester(str src, str key, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::MetaModel::Machine) trafo) {
   //gram = addPlaceholderProds(#lang::ecore::tests::Syntax::Machine);
   //type[lang::ecore::tests::Syntax::Machine] gram = #lang::ecore::tests::Syntax::Machine;
-  lang::ecore::tests::Syntax::Machine pt = parse(#start[Machine], src, |project://rascal-ecore/src/lang/ecore/tests/someTest|).top;
+  loc org = |project://rascal-ecore/src/lang/ecore/tests/<key>.old|;
+  writeFile(org, src);
+  lang::ecore::tests::Syntax::Machine pt = parse(#start[Machine], src, org).top;
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
   patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
@@ -26,7 +30,9 @@ str tester(str src, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::M
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
+  iprintln(ptDiff(pt, pt2));
   newSrc = "<pt2>"; 
+  writeFile(|project://rascal-ecore/src/lang/ecore/tests/<key>.new|, newSrc);
   return "<pt2>";
 }
 
@@ -59,7 +65,7 @@ test bool testCreateMachine()
 
 str addStateToEmptyResult() = tester("machine Doors
   									'init closed
-  									'end", appendState);
+  									'end", "stateToEmpty", appendState);
 
 test bool testAddStateToEmpty() 
   = addStateToEmptyResult() == 
@@ -71,7 +77,7 @@ test bool testAddStateToEmpty()
 str addStateToSingletonResult() = tester("machine Doors
   										'init closed
   										'state closed end
-  										'end", appendState);
+  										'end", "stateToSingleton", appendState);
 
 test bool testAddStateToSingleton() 
   = addStateToSingletonResult()
@@ -85,7 +91,7 @@ str addStateToManyResult() = tester("machine Doors
   								   'init closed
   								   'state closed end
   								   'state opened end
-                                    'end", appendState);
+                                    'end", "stateToMany", appendState);
 
 test bool testAddStateToMany() 
   = addStateToManyResult()
@@ -101,7 +107,7 @@ test bool testAddStateToMany()
 str prependStateToSingletonResult() = tester("machine Doors
 									        'init closed
 									        'state closed end
-									        'end", prependState);
+									        'end", "prependToSingleton", prependState);
 									        
 test bool testPrependStateToSingleton()
   = prependStateToSingletonResult()
@@ -115,7 +121,7 @@ str prependStateToManyResult() = tester("machine Doors
 							           'init closed
 							           'state closed end
 							           'state opened end
-							           'end", prependState);
+							           'end", "prependToMany", prependState);
 									        
 test bool testPrependStateToMany()
   = prependStateToManyResult()
@@ -133,7 +139,7 @@ str prependEventToSingletonResult() = tester("machine Doors
                                             'state closed
                                             '  on bar =\> closed
                                             'end
-                                            'end", addEvent(0));
+                                            'end", "prependEventSingleton", addEvent(0));
   
 test bool testPrependEventToSingletonResult()
   = prependEventToSingletonResult()
@@ -150,7 +156,7 @@ str appendEventToSingletonResult() = tester("machine Doors
                                             'state closed
                                             '  on bar =\> closed
                                             'end
-                                            'end", addEvent(1));
+                                            'end", "appendEventSingleton", addEvent(1));
   
 test bool testAppendEventToSingletonResult()
   = appendEventToSingletonResult()
@@ -169,9 +175,9 @@ str appendEventToManyResult() = tester("machine Doors
                                             'state closed
                                             '  on bar, foo =\> closed
                                             'end
-                                            'end", addEvent(2));
+                                            'end", "appendEventMany", addEvent(2));
   
-test bool testAppendEventToManyResult()
+test bool testAppendEventToMany()
   = appendEventToManyResult()
   == 
   "machine Doors
@@ -186,9 +192,9 @@ str insertEventToManyResult() = tester("machine Doors
                                             'state closed
                                             '  on bar, foo =\> closed
                                             'end
-                                            'end", addEvent(1));
+                                            'end", "insertEventMany", addEvent(1));
   
-test bool testInsertEventToManyResult()
+test bool testInsertEventToMany()
   = insertEventToManyResult()
   == 
   "machine Doors
@@ -206,7 +212,7 @@ test bool testInsertEventToManyResult()
 str removeSingletonResult() = tester("machine Doors
  									'init closed
  									'state closed end
- 									'end", removeStateAt(0));
+ 									'end", "removeSingleton", removeStateAt(0));
 
 test bool testRemoveSingleton()
   = removeSingletonResult()
@@ -220,7 +226,7 @@ str removeFromFrontResult() = tester("machine Doors
  									'init closed
  									'state closed end
  									'state opened end
- 									'end", removeStateAt(0));
+ 									'end", "removeFront", removeStateAt(0));
 
 test bool testRemoveFromFront()
   = removeFromFrontResult()
@@ -235,7 +241,7 @@ str removeFromEndResult() = tester("machine Doors
  								   'init closed
  								   'state closed end
  								   'state opened end
- 								   'end", removeStateAt(1));
+ 								   'end", "removeEnd", removeStateAt(1));
 
 test bool testRemoveFromEnd()
   = removeFromEndResult()
@@ -251,7 +257,7 @@ str removeFromMidResult() = tester("machine Doors
  								   'state closed end
  								   'state removed end
  								   'state opened end
- 								   'end", removeStateAt(1));
+ 								   'end", "removeMid", removeStateAt(1));
 
 test bool testRemoveFromMid()
   = removeFromMidResult()
@@ -267,7 +273,7 @@ str removeAllResult() = tester("machine Doors
  								   'state closed end
  								   'state removed end
  								   'state opened end
- 								   'end", removeStates([0,1,2]));
+ 								   'end", "removeAll", removeStates([0,1,2]));
 
 test bool testRemoveAll()
   = removeAllResult()
@@ -282,7 +288,7 @@ str removeEventAtEndFromTwoResult() = tester("machine Doors
                                             'state closed
                                             '  on bar, foo =\> closed
                                             'end
-                                            'end", removeEvent(1));
+                                            'end", "removeEventAtEnd", removeEvent(1));
   
 test bool testRemoveEventAtEndFromTwoResult()
   = removeEventAtEndFromTwoResult()
@@ -299,7 +305,7 @@ str removeEventAtStartFromTwoResult() = tester("machine Doors
                                             'state closed
                                             '  on bar, foo =\> closed
                                             'end
-                                            'end", removeEvent(0));
+                                            'end", "removeEventAtStart", removeEvent(0));
   
 test bool testRemoveEventAtStartFromTwoResult()
   = removeEventAtStartFromTwoResult()
@@ -316,7 +322,7 @@ str removeEventInTheMiddleFromManyResult() = tester("machine Doors
 		                                            'state closed
 		                                            '  on bar, removed, foo =\> closed
 		                                            'end
-		                                            'end", removeEvent(1));
+		                                            'end", "removeEventMid", removeEvent(1));
   
 test bool testRemoveEventInTheMiddleFromManyResult()
   = removeEventInTheMiddleFromManyResult()
@@ -338,7 +344,7 @@ str swapTwoStatesResult() = tester("machine Doors
  								   'init closed
  								   'state closed end
  								   'state opened end
- 								   'end", swapState(0, 1));
+ 								   'end", "swapTwo", swapState(0, 1));
 
 test bool testSwapTwoStates()
   = swapTwoStatesResult()
@@ -357,7 +363,7 @@ str swapBeginEndStatesResult() = tester("machine Doors
  								   'state B end
  								   'state C end
  								   'state opened end
- 								   'end", swapState(0, 4));
+ 								   'end", "swapBeginEnd", swapState(0, 4));
 
 test bool testSwapBeginEndStates()
   = swapBeginEndStatesResult()
@@ -378,7 +384,7 @@ str reverseAllStatesResult() = tester("machine Doors
  								   'state B end
  								   'state C end
  								   'state opened end
- 								   'end", reverseStates);
+ 								   'end", "reverseStates", reverseStates);
 
 test bool testReverseAllStates()
   = reverseAllStatesResult()
@@ -400,7 +406,7 @@ test bool testReverseAllStates()
 
 str setMachineNameResult() = tester("machine Doors
              					   'init closed
-             					   'end", setMachineName("Foo"));
+             					   'end", "setName", setMachineName("Foo"));
  
 test bool testSetMachineName()
   = setMachineNameResult()
@@ -412,7 +418,7 @@ test bool testSetMachineName()
 str setStateNameWithRefResult() = tester("machine Doors
  										'init closed
  										'state closed end
- 										'end", setStateName(0, "CLOSED"));
+ 										'end", "setNameWithRef", setStateName(0, "CLOSED"));
  										
 test bool testSetStateNameWithRef()
   = setStateNameWithRefResult()
@@ -430,7 +436,7 @@ test bool testSetStateNameWithRef()
 str setInitialToNullResult() = tester("machine Doors
                                       'init closed
                                       'state closed end
-                                      'end", setInitial("nonExisting"));
+                                      'end", "setNull", setInitial("nonExisting"));
                                       
 test bool testSetInitialToNullGivesNullTree()
   = setInitialToNullResult()
@@ -445,7 +451,7 @@ str setInitialToExistingStateResult() = tester("machine Doors
                                                'init closed
                                                'state closed end
                                                'state opened end
-                                               'end", setInitial("opened"));
+                                               'end", "setRef", setInitial("opened"));
                                                
 test bool testSetInitialToExistingState()
   = setInitialToExistingStateResult()
@@ -466,7 +472,7 @@ str arbitraryTrafo1Result() = tester("machine Doors
                                     'state closed end
                                     'state opened end
                                     'state locked end
-                                    'end", arbitraryTrafo1);
+                                    'end", "arbitraryTrafo1", arbitraryTrafo1);
 
  
  test bool testArbitraryTrafo1()
