@@ -3,6 +3,7 @@ package lang.ecore;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -20,8 +21,11 @@ import org.eclipse.emf.ecore.EFactory;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EStructuralFeature;
+import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.util.EcoreUtil;
+import org.eclipse.emf.edit.command.AbstractOverrideableCommand;
 import org.eclipse.emf.edit.command.AddCommand;
+import org.eclipse.emf.edit.command.ChangeCommand;
 import org.eclipse.emf.edit.command.DeleteCommand;
 import org.eclipse.emf.edit.command.RemoveCommand;
 import org.eclipse.emf.edit.command.SetCommand;
@@ -67,7 +71,7 @@ public class EMFBridge {
 	// The signature of the `function` should be
 	// Patch (Loader[&T] load);
 
-	public static CompoundCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
+	public static ChangeCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
 		if (!(bundleEvals.containsKey(bundleId))) {
 			GlobalEnvironment heap = new GlobalEnvironment();
 		    Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), 
@@ -91,60 +95,79 @@ public class EMFBridge {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public static CompoundCommand patch(EditingDomain domain, EObject root, ITuple patch) {
+	public static ChangeCommand patch(EditingDomain domain, EObject root, ITuple patch) {
 		EPackage pkg = root.eClass().getEPackage();
 		EFactory fact = pkg.getEFactoryInstance();
-		List<Command> cmds = new ArrayList<>();
 		Map<IConstructor, EObject> cache = new HashMap<>();
 		
-		for (IValue v: (IList)patch.get(1)) {
-			ITuple idEdit = (ITuple)v;
-			IConstructor id = (IConstructor) idEdit.get(0);
-			IConstructor edit = (IConstructor) idEdit.get(1);
-			
-			if (edit.getName().equals("create")) {
-				// TODO: we actually create the new objects during patch, not while doing the commands...
-				String clsName = ((IString)edit.get("class")).getValue();
-				EClass eCls = (EClass) pkg.getEClassifier(clsName);
-				EObject obj = fact.create(eCls);
-				cache.put(id, obj);
-			}
-			else {
-				EObject obj = lookup(root, id, cache);
+		ChangeRecorder recorder = new ChangeRecorder(root);
+		recorder.endRecording();
+		
+		
+		ChangeCommand result = new ChangeCommand(recorder, root) {
 
-				if (edit.getName().equals("destroy")) {
-					cmds.add(DeleteCommand.create(domain, obj));
-				}
-				else {
-					String fieldName = ((IString)edit.get("field")).getValue();
+			@Override
+			protected void doExecute() {
+				//changeRecorder.beginRecording(Collections.singleton(root));
+				
+				for (IValue v: (IList)patch.get(1)) {
+					ITuple idEdit = (ITuple)v;
+					IConstructor id = (IConstructor) idEdit.get(0);
+					IConstructor edit = (IConstructor) idEdit.get(1);
 					
-					EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
-					 if (edit.getName().equals("put")) {
-						Object val = value2obj(edit.get("val"), root, cache);
-						cmds.add(SetCommand.create(domain, obj, field, val));
-					 }
-					else if (edit.getName().equals("unset")) {
-						cmds.add(SetCommand.create(domain, obj, field, null));
+					if (edit.getName().equals("create")) {
+						// TODO: we actually create the new objects during patch, not while doing the commands...
+						String clsName = ((IString)edit.get("class")).getValue();
+						EClass eCls = (EClass) pkg.getEClassifier(clsName);
+						EObject obj = fact.create(eCls);
+						cache.put(id, obj);
 					}
 					else {
-						EList<Object> lst = (EList<Object>)obj.eGet(field);
-						int pos = ((IInteger)edit.get("pos")).intValue();
-						
-						if (edit.getName().equals("ins")) {
-							cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
-						}
-						else if (edit.getName().equals("del")) {
-							Object i = lst.get(pos);
-							cmds.add(RemoveCommand.create(domain, obj, field, i));
+						EObject obj = lookup(root, id, cache);
+
+						if (edit.getName().equals("destroy")) {
+							;
+							//cmds.add(DeleteCommand.create(domain, obj));
 						}
 						else {
-							throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+							String fieldName = ((IString)edit.get("field")).getValue();
+							
+							EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
+							if (edit.getName().equals("put")) {
+								Object val = value2obj(edit.get("val"), root, cache);
+								obj.eSet(field, val);
+								//cmds.add(SetCommand.create(domain, obj, field, val));
+							 }
+							else if (edit.getName().equals("unset")) {
+								obj.eUnset(field);
+								//cmds.add(SetCommand.create(domain, obj, field, null));
+							}
+							else {
+								EList<Object> lst = (EList<Object>)obj.eGet(field);
+								int pos = ((IInteger)edit.get("pos")).intValue();
+								if (edit.getName().equals("ins")) {
+									lst.add(pos, value2obj(edit.get("val"), root, cache));
+									//cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
+								}
+								else if (edit.getName().equals("del")) {
+									lst.remove(pos);
+									//Object i = lst.get(pos);
+									//cmds.add(RemoveCommand.create(domain, obj, field, i));
+								}
+								else {
+									throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+								}
+							}
 						}
 					}
+					
 				}
+				
+				//changeRecorder.endRecording();
+				
 			}
-		}
-		CompoundCommand result = new StrictCompoundCommand(cmds);
+			
+		};
 		return result;
 	}
 	

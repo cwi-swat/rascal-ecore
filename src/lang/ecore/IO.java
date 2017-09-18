@@ -26,6 +26,7 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EContentAdapter;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
+import org.eclipse.emf.edit.command.ChangeCommand;
 import org.eclipse.emf.edit.domain.EditingDomain;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
 import org.eclipse.jface.text.BadLocationException;
@@ -168,14 +169,17 @@ public class IO {
 						EditingDomain domain = prov.getEditingDomain();
 						Resource res = domain.getResourceSet().getResources().get(0);
 						EObject obj = res.getContents().get(0);
+						System.out.println(obj.eDeliver());
 						obj.eAdapters().add(new EContentAdapter() {
 				            public void notifyChanged(Notification notification) {
+								System.out.println(obj.eDeliver());
 				                super.notifyChanged(notification);
 				                IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
 				                ((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
 				            }
 						});
 					} catch (PartInitException | IOException e) {
+						System.err.println(e.getMessage());
 						//return Status.CANCEL_STATUS;
 						//throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
 					}
@@ -417,9 +421,9 @@ public class IO {
 					EObject obj = model.get();
 					IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts, src);
 					ITuple patch = (ITuple) closure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
-					obj.eSetDeliver(false);
 					try {
-						CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
+						ChangeCommand cmd = EMFBridge.patch(domain, obj, patch);
+						obj.eSetDeliver(false);
 						domain.getCommandStack().execute(cmd);
 					}
 					finally {
