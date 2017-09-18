@@ -16,7 +16,6 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
@@ -47,7 +46,6 @@ import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.part.FileEditorInput;
 import org.eclipse.ui.progress.UIJob;
 import org.rascalmpl.debug.IRascalMonitor;
-import org.rascalmpl.eclipse.Activator;
 import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
@@ -199,12 +197,12 @@ public class IO {
 		return new PatchEditorClosure(loc, ctx.getEvaluator());
 	}
 	
-	static class PatchJob extends UIJob {
+	static class PatchEditorJob extends UIJob {
 		private IList patch;
 		private ISourceLocation src;
 		private IValueFactory vf;
 
-		public PatchJob(IList patch, ISourceLocation src, IValueFactory vf) {
+		public PatchEditorJob(IList patch, ISourceLocation src, IValueFactory vf) {
 			super("updating editor");
 			this.patch = patch;
 			this.src = src;
@@ -257,7 +255,12 @@ public class IO {
 						        	ITuple subst = (ITuple)v;
 						        	ISourceLocation loc = (ISourceLocation) subst.get(0);
 						        	IString txt = (IString) subst.get(1);
-						        	doc.replace(loc.getOffset() + offset, loc.getLength(), txt.getValue());
+						        	if (loc.getLength() == 0) { // insert
+						        		doc.replace(loc.getOffset(), loc.getLength(), txt.getValue());
+						        	}
+						        	else {
+						        		doc.replace(loc.getOffset() + offset, loc.getLength(), txt.getValue());
+						        	}
 						        	offset += txt.length() - loc.getLength(); 
 					        }
 				        } catch (UnsupportedOperationException e) {
@@ -415,9 +418,13 @@ public class IO {
 					IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts, src);
 					ITuple patch = (ITuple) closure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
 					obj.eSetDeliver(false);
-					CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
-					domain.getCommandStack().execute(cmd);
-					obj.eSetDeliver(true);
+					try {
+						CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
+						domain.getCommandStack().execute(cmd);
+					}
+					finally {
+						obj.eSetDeliver(true);
+					}
 					return Status.OK_STATUS;
 			}
 			
@@ -484,7 +491,7 @@ public class IO {
 		
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
-				PatchJob job = new PatchJob((IList) args[0], src, eval.getValueFactory());
+				PatchEditorJob job = new PatchEditorJob((IList) args[0], src, eval.getValueFactory());
 				job.schedule();
 				return null;
 		}

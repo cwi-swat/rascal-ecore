@@ -20,6 +20,7 @@ str patch(str src, loc newLoc, lrel[loc, str] diff) {
   for (int i <- [0..size(diff)]) { 
     <l, s> = diff[i];
 
+    // todo: not good if both src's come fom the same loc...
     if (l.top == newLoc.top) {
       src = src[0..l.offset] + s + src[l.offset + l.length..];
     }
