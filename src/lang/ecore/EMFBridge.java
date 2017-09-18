@@ -224,7 +224,7 @@ public class EMFBridge {
 		if (type.isBool()) {
 			return ((IBool)v).getValue();
 		}
-		throw RuntimeExceptionFactory.illegalArgument(v, null, null);
+		return null;
 	}
 	
 	private static EObject lookup(EObject root, IConstructor id, Map<IConstructor, EObject> cache) {
