@@ -16,6 +16,7 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.emf.common.command.Command;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
@@ -159,22 +160,38 @@ public class IO {
 		TypeStore ts = new TypeStore();
 		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
 		Convert.declareRefType(ts);
-		try {
-			IEditorPart editor = getEditorFor(loc);
-			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
-			EditingDomain domain = prov.getEditingDomain();
-			Resource res = domain.getResourceSet().getResources().get(0);
-			EObject obj = res.getContents().get(0);
-			obj.eAdapters().add(new EContentAdapter() {
-	            public void notifyChanged(Notification notification) {
-	                super.notifyChanged(notification);
-	                IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
-	                ((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
-	            }
-			});
-		} catch (PartInitException | IOException e) {
-			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
-		}
+//		UIJob job = new UIJob("observe ediror") {
+//			
+//				@Override
+//				public IStatus runInUIThread(IProgressMonitor monitor) {
+					try {
+						IEditorPart editor = getEditorFor(loc);
+						IEditingDomainProvider prov = (IEditingDomainProvider) editor;
+						EditingDomain domain = prov.getEditingDomain();
+						Resource res = domain.getResourceSet().getResources().get(0);
+						EObject obj = res.getContents().get(0);
+						obj.eAdapters().add(new EContentAdapter() {
+				            public void notifyChanged(Notification notification) {
+				                super.notifyChanged(notification);
+				                IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
+				                ((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
+				            }
+						});
+					} catch (PartInitException | IOException e) {
+						//return Status.CANCEL_STATUS;
+						//throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
+					}
+					//return Status.OK_STATUS;
+				//}
+				
+		//};
+		
+//		try {
+			//job.schedule();
+//			job.join();
+//		} catch (InterruptedException e) {
+//			Activator.getInstance().logException("model updater interrupted", e);
+//		} 
 	}
 	
 	// java void(lrel[loc, str]) termEditor(loc src);
@@ -228,7 +245,7 @@ public class IO {
 							
 							
 					if (editor != null && editor instanceof UniversalEditor) {
-						IDocument doc = ((UniversalEditor)editor).getDocumentProvider().getDocument(null);
+						IDocument doc = ((UniversalEditor)editor).getParseController().getDocument();
 						if (patch.isEmpty()) {
 							return Status.OK_STATUS;
 						}
@@ -384,15 +401,39 @@ public class IO {
 			return call(arg1, arg2, arg3);
 		}
 		
+		private class PatchModelJob extends UIJob {
+			private ICallableValue closure;
+
+			public PatchModelJob(ICallableValue closure) {
+				super("patching model");
+				this.closure = closure;
+			}
+
+			@Override
+			public IStatus runInUIThread(IProgressMonitor monitor) {
+					EObject obj = model.get();
+					IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts, src);
+					ITuple patch = (ITuple) closure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
+					obj.eSetDeliver(false);
+					CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
+					domain.getCommandStack().execute(cmd);
+					obj.eSetDeliver(true);
+					return Status.OK_STATUS;
+			}
+			
+		}
+		
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
 			ICallableValue argClosure = (ICallableValue)args[0];
-			EObject obj = model.get();
-			IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts, src);
-			ITuple patch = (ITuple) argClosure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
-			CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
-			domain.getCommandStack().execute(cmd);
-			return null; 
+				//try {
+					PatchModelJob job = new PatchModelJob(argClosure);
+					job.schedule();
+					//job.join();
+//				} catch (InterruptedException e) {
+//					Activator.getInstance().logException("model updater interrupted", e);
+//				} 
+				return null;
 		}
 		
 		@Override
@@ -443,14 +484,9 @@ public class IO {
 		
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
-			try {
 				PatchJob job = new PatchJob((IList) args[0], src, eval.getValueFactory());
 				job.schedule();
-				job.join();
-			} catch (InterruptedException e) {
-				Activator.getInstance().logException("editor updater interrupted", e);
-			} 
-			return null;
+				return null;
 		}
 		
 		@Override

@@ -202,7 +202,12 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   	uri.fragment = xmi;
   }
   Id myId = id(uri.top);
-  track(myId, t@\loc);
+  if (t@\loc?) {
+    track(myId, t@\loc);
+  }
+  else {
+    println("WARNING: no loc for <t>");
+  }
   
   obj = r.new(tt, make(tt, p.def.name, args, kws), id = myId);
   fix(obj, fixes);
