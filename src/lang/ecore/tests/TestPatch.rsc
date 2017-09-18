@@ -24,7 +24,7 @@ str tester(str src, str key, lang::ecore::tests::MetaModel::Machine(lang::ecore:
   lang::ecore::tests::Syntax::Machine pt = parse(#start[Machine], src, org).top;
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
   m2 = trafo(m);
-  patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
+  Patch patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
   //iprintln(patch);
   
   // and here it needs to be the non-start reified type...
@@ -39,12 +39,53 @@ str tester(str src, str key, lang::ecore::tests::MetaModel::Machine(lang::ecore:
 }
 
 /*
+ * Patch to text 
+ */
+ 
+bool testDiff(loc old, loc new) {
+  try {
+      pt1 = parse(#start[Machine], old);
+      pt2 = parse(#start[Machine], new);
+      d = ptDiff(pt1, pt2);
+      iprintln(d);
+      src1 = "<pt1>";
+      src2 = patch(src1, new, d);
+      if (src2 != "<pt2>") {
+        println("Patch fail:");
+        println("NEW: <new>");
+        println("EXP: <pt2>");
+        println("GOT: <src2>");
+        return false;
+      }
+      return true;
+  }
+  catch ParseError(loc l): {
+    println("Exception for <old>: <l>");
+    return false;
+  }
+} 
+ 
+void testPTDiffAndPatch() {
+  olds = [ l | loc l <- |project://rascal-ecore/src/lang/ecore/tests/|.ls, l.extension == "old" ];
+  int fails = 0;
+  int errs = 0;
+  for (loc old <- olds) {
+    loc new = old[extension="new"];
+    if (!testDiff(old, new)) {
+      fails += 1;
+    } 
+  } 
+  println("<fails> failed; <errs> exceptions; <size(olds) - fails - errs> success");
+}
+
+
+/*
  * Creation
  */
  
 str createMachineResult() {
   m = createFromScatch();
-  patch = create(#lang::ecore::tests::MetaModel::Machine, m);
+  Patch patch = create(#lang::ecore::tests::MetaModel::Machine, m);
   pt = (Machine)`machine X init Y end`; // dummy
   orgs = ();
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
@@ -70,7 +111,7 @@ str addStateToEmptyResult() = tester("machine Doors
 test bool testAddStateToEmpty() 
   = addStateToEmptyResult() == 
   "machine Doors
-  'init ⟨initial:Id⟩
+  'init \<initial:Id\>
   'state NewState  end
   'end";
 
@@ -218,7 +259,7 @@ test bool testRemoveSingleton()
   = removeSingletonResult()
   ==
   "machine Doors
-  'init ⟨initial:Id⟩
+  'init \<initial:Id\>
   '
   'end";
 
@@ -232,7 +273,7 @@ test bool testRemoveFromFront()
   = removeFromFrontResult()
   == 
   "machine Doors
-  'init ⟨initial:Id⟩
+  'init \<initial:Id\>
   'state opened end
   'end";
   
@@ -279,7 +320,7 @@ test bool testRemoveAll()
   = removeAllResult()
   ==
   "machine Doors
-  'init ⟨initial:Id⟩
+  'init \<initial:Id\>
   '
   'end";
   
@@ -412,7 +453,7 @@ test bool testSetMachineName()
   = setMachineNameResult()
   ==
   "machine Foo
-  'init ⟨initial:Id⟩
+  'init \<initial:Id\>
   'end"; 
 
 str setStateNameWithRefResult() = tester("machine Doors
@@ -442,7 +483,7 @@ test bool testSetInitialToNullGivesNullTree()
   = setInitialToNullResult()
   ==
   "machine Doors
-  'init ⟨initial:Id⟩
+  'init \<initial:Id\>
   'state closed end
   'end";
   

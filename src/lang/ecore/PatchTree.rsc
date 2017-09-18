@@ -13,7 +13,7 @@ import IO;
 
 
 Production placeholderProd(Symbol s, Symbol id = lex("Id"))
-  = prod(s, [lit("⟨"), id, lit(":"), lit(symbolName(s)), lit("⟩") ], 
+  = prod(s, [lit("\<"), id, lit(":"), lit(symbolName(s)), lit("\>") ], 
        {\tag("category"("MetaAmbiguity"))});
 
 
@@ -39,7 +39,7 @@ Tree placeholder(Symbol s, str field) {
     // (if so, currently it will be part of the list for new elements always...)
     return appl(regular(s), []);
   }
-  str src = "⟨<field>:<symbolName(s)>⟩";
+  str src = "\<<field>:<symbolName(s)>\>";
   return appl(placeholderProd(s), [ char(i) | int i <- chars(src) ]);
 }
   

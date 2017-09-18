@@ -19,6 +19,10 @@ syntax Trans
   ;
   
 
+// for testing purposes
+lexical Id
+  = "\<" Id ":" "Id" "\>";
+
  Machine example() = (Machine)
 `machine Doors
 '  init closed
