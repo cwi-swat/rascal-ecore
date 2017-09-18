@@ -130,8 +130,6 @@ public class EMFBridge {
 						EList<Object> lst = (EList<Object>)obj.eGet(field);
 						int pos = ((IInteger)edit.get("pos")).intValue();
 						
-						// need to maintain reverse offsets because the positions in the patch assume
-						// immediate execution, so we can not use them here without applying the modifications.
 						if (edit.getName().equals("ins")) {
 							cmds.add(AddCommand.create(domain, obj, field, value2obj(edit.get("val"), root, cache), pos));
 						}

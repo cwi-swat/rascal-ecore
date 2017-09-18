@@ -13,6 +13,9 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
@@ -25,6 +28,11 @@ import org.eclipse.emf.ecore.util.EContentAdapter;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.eclipse.emf.edit.domain.EditingDomain;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.DocumentRewriteSession;
+import org.eclipse.jface.text.DocumentRewriteSessionType;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.IDocumentExtension4;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorDescriptor;
 import org.eclipse.ui.IEditorInput;
@@ -36,7 +44,9 @@ import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.part.FileEditorInput;
+import org.eclipse.ui.progress.UIJob;
 import org.rascalmpl.debug.IRascalMonitor;
+import org.rascalmpl.eclipse.Activator;
 import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.IEvaluatorContext;
 import org.rascalmpl.interpreter.TypeReifier;
@@ -52,9 +62,12 @@ import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIStorage;
 import org.rascalmpl.values.uptr.RascalValueFactory;
 
+import io.usethesource.impulse.editor.UniversalEditor;
 import io.usethesource.vallang.IConstructor;
+import io.usethesource.vallang.IList;
 import io.usethesource.vallang.INode;
 import io.usethesource.vallang.ISourceLocation;
+import io.usethesource.vallang.IString;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
@@ -99,7 +112,7 @@ public class IO {
 			Display.getDefault().syncExec(new Runnable() {
                public void run() {
 				try {
-					IEditorPart editor = page.openEditor(getEditorInput(theLoc.getURI()), desc.getId());
+					IEditorPart editor = page.openEditor(getEditorInput(theLoc.getURI(), vf), desc.getId());
 					l.add(editor);
 				} catch (PartInitException e) {
 					// TODO Auto-generated catch block
@@ -117,7 +130,7 @@ public class IO {
 		return l.get(0);
 	}
 	
-	private IEditorInput getEditorInput(java.net.URI uri) {
+	private static IEditorInput getEditorInput(java.net.URI uri, IValueFactory vf) {
 		String scheme = uri.getScheme();
 
 		if (scheme.equals("project")) {
@@ -139,6 +152,7 @@ public class IO {
 		URIStorage storage = new URIStorage(vf.sourceLocation(uri));
 		return new URIEditorInput(storage);
 	}
+	
 	
 	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure) {
 		// TODO: this is an editor memory leak...
@@ -163,6 +177,90 @@ public class IO {
 		}
 	}
 	
+	// java void(lrel[loc, str]) termEditor(loc src);
+	public ICallableValue termEditor(ISourceLocation loc, IEvaluatorContext ctx) {
+		return new PatchEditorClosure(loc, ctx.getEvaluator());
+	}
+	
+	static class PatchJob extends UIJob {
+		private IList patch;
+		private ISourceLocation src;
+		private IValueFactory vf;
+
+		public PatchJob(IList patch, ISourceLocation src, IValueFactory vf) {
+			super("updating editor");
+			this.patch = patch;
+			this.src = src;
+			this.vf = vf;
+		}
+		
+		@Override
+		public IStatus runInUIThread(IProgressMonitor monitor) {
+			IEditorDescriptor editorDesc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(src.getPath());
+			IWorkbenchWindow activeWindow = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+			if (activeWindow != null) {
+				IWorkbenchPage activePage = activeWindow.getActivePage();
+				
+				if (activePage != null) {
+					
+					URIResolverRegistry reg = URIResolverRegistry.getInstance();
+					ISourceLocation theLoc;
+					try {
+						theLoc = reg.logicalToPhysical(src);
+					} catch (IOException e2) {
+						return Status.CANCEL_STATUS;
+					}
+					
+					IWorkbench wb = PlatformUI.getWorkbench();
+					IWorkbenchWindow win = wb.getActiveWorkbenchWindow();
+					
+					if (win == null && wb.getWorkbenchWindowCount() != 0) {
+						win = wb.getWorkbenchWindows()[0];
+					}
+					
+					
+					IEditorPart editor;
+					try {
+						editor = activePage.openEditor(getEditorInput(theLoc.getURI(), vf), editorDesc.getId());
+					} catch (PartInitException e1) {
+						return Status.CANCEL_STATUS;
+					}
+							
+							
+					if (editor != null && editor instanceof UniversalEditor) {
+						IDocument doc = ((UniversalEditor)editor).getDocumentProvider().getDocument(null);
+						if (patch.isEmpty()) {
+							return Status.OK_STATUS;
+						}
+								
+				        DocumentRewriteSession session = ((IDocumentExtension4)doc).startRewriteSession(DocumentRewriteSessionType.UNRESTRICTED_SMALL);
+				        try {
+				        	int offset = 0;
+					        for (IValue v: patch) {
+						        	ITuple subst = (ITuple)v;
+						        	ISourceLocation loc = (ISourceLocation) subst.get(0);
+						        	IString txt = (IString) subst.get(1);
+						        	doc.replace(loc.getOffset() + offset, loc.getLength(), txt.getValue());
+						        	offset += txt.length() - loc.getLength(); 
+					        }
+				        } catch (UnsupportedOperationException e) {
+							e.printStackTrace();
+							return Status.CANCEL_STATUS;
+						} catch (BadLocationException e) {
+							e.printStackTrace();
+							return Status.CANCEL_STATUS;
+						}
+				        finally {
+				        	((IDocumentExtension4)doc).stopRewriteSession(session);
+				        }				        
+					}
+					return Status.OK_STATUS;
+				}
+				return Status.CANCEL_STATUS;
+			}
+			return Status.CANCEL_STATUS;
+		}
+	}
 	
 	public ICallableValue editor(IValue reifiedType, ISourceLocation loc, IValue reifiedPatchType, IEvaluatorContext ctx) {
 		TypeStore ts = new TypeStore();
@@ -295,6 +393,64 @@ public class IO {
 			CompoundCommand cmd = EMFBridge.patch(domain, obj, patch);
 			domain.getCommandStack().execute(cmd);
 			return null; 
+		}
+		
+		@Override
+		public IConstructor encodeAsConstructor() {
+			IValueFactory vf = eval.getValueFactory();
+			return vf.constructor(RascalValueFactory.Function_Function, vf.sourceLocation("file:///unknown"));
+		}
+		
+	}
+	
+	private static class PatchEditorClosure extends AbstractFunction {
+
+		private ISourceLocation src;
+		
+		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
+		private static final TypeFactory tf = TypeFactory.getInstance();
+		
+		private static FunctionType myType() {
+			// type = void(lrel[loc,str]);
+			Type closureType = rtf.functionType(tf.voidType(), tf.tupleType(tf.lrelType(tf.sourceLocationType(), tf.stringType())) , null);
+			return (FunctionType)closureType;
+		}
+		
+		public PatchEditorClosure(ISourceLocation loc, IEvaluator<Result<IValue>> iEvaluator) {
+			super(null, iEvaluator, myType(), Collections.emptyList(), false, iEvaluator.getCurrentEnvt());
+			this.src = loc;
+		}
+
+		@Override
+		public ICallableValue cloneInto(Environment arg0) {
+			return null;
+		}
+
+		@Override
+		public boolean isStatic() {
+			return false;
+		}
+
+		@Override
+		public boolean isDefault() {
+			return false;
+		}
+		
+		@Override
+		public Result<IValue> call(IRascalMonitor arg0, Type[] arg1, IValue[] arg2, Map<String, IValue> arg3) {
+			return call(arg1, arg2, arg3);
+		}
+		
+		@Override
+		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
+			try {
+				PatchJob job = new PatchJob((IList) args[0], src, eval.getValueFactory());
+				job.schedule();
+				job.join();
+			} catch (InterruptedException e) {
+				Activator.getInstance().logException("editor updater interrupted", e);
+			} 
+			return null;
 		}
 		
 		@Override

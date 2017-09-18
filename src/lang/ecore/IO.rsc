@@ -25,6 +25,10 @@ pkgURI is needed to obtain a factory from the meta model registry.}
 @javaClass{lang.ecore.IO}
 java void save(&T<:node model, loc uri, loc pkgURI);
 
+@javaClass{lang.ecore.IO}
+@reflect{Eval}
+java void(lrel[loc,str]) termEditor(loc src);
+
 
 @javaClass{lang.ecore.IO}
 java void observeEditor(type[&T<:node] meta, loc uri, void(&T<:node) callback);
