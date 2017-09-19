@@ -16,7 +16,6 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.emf.common.command.CompoundCommand;
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
@@ -153,13 +152,16 @@ public class IO {
 		return new URIEditorInput(storage);
 	}
 	
-	
-	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure) {
+	EContentAdapter adapter = null;
+	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure, IEvaluatorContext ctx) {
 		// TODO: this is an editor memory leak...
 		TypeStore ts = new TypeStore();
 		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
 		Convert.declareRefType(ts);
-//		UIJob job = new UIJob("observe ediror") {
+		
+		
+		
+//		UIJob job = new UIJob("observe editor") {
 //			
 //				@Override
 //				public IStatus runInUIThread(IProgressMonitor monitor) {
@@ -170,14 +172,23 @@ public class IO {
 						Resource res = domain.getResourceSet().getResources().get(0);
 						EObject obj = res.getContents().get(0);
 						System.out.println(obj.eDeliver());
-						obj.eAdapters().add(new EContentAdapter() {
-				            public void notifyChanged(Notification notification) {
-								System.out.println(obj.eDeliver());
-				                super.notifyChanged(notification);
-				                IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
-				                ((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
+						adapter = new EContentAdapter() {
+							
+							@Override
+							public void notifyChanged(Notification notification) {
+								if (notification.getEventType() == Notification.ADD) {
+									((EObject)notification.getNewValue()).eAdapters().add(this);
+								}
+					            	IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
+					            	synchronized (ctx.getEvaluator()) {
+					            		((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
+					            	}
 				            }
-						});
+							
+							
+						};
+						
+						res.eAdapters().add(adapter);
 					} catch (PartInitException | IOException e) {
 						System.err.println(e.getMessage());
 						//return Status.CANCEL_STATUS;
@@ -367,6 +378,7 @@ public class IO {
 		private TypeStore ts;
 		private EditingDomain domain;
 		private ISourceLocation src;
+		private EContentAdapter adapter;
 		
 		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 		private static final TypeFactory tf = TypeFactory.getInstance();
@@ -411,24 +423,32 @@ public class IO {
 		private class PatchModelJob extends UIJob {
 			private ICallableValue closure;
 
-			public PatchModelJob(ICallableValue closure) {
+			public PatchModelJob(ICallableValue closure, EContentAdapter adapter) {
 				super("patching model");
 				this.closure = closure;
 			}
 
 			@Override
 			public IStatus runInUIThread(IProgressMonitor monitor) {
-					EObject obj = model.get();
+					EObject obj = model.get();	
 					IValue modelValue = Convert.obj2value(obj, modelType, getEval().getValueFactory(), ts, src);
-					ITuple patch = (ITuple) closure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
-					try {
-						ChangeCommand cmd = EMFBridge.patch(domain, obj, patch);
-						obj.eSetDeliver(false);
-						domain.getCommandStack().execute(cmd);
+					ITuple patch;
+					synchronized (getEval()) {
+					  patch = (ITuple) closure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
 					}
-					finally {
-						obj.eSetDeliver(true);
-					}
+					  ChangeCommand cmd = EMFBridge.patch(domain, obj, patch);
+						try {
+//							if (adapter != null) {
+//								obj.eResource().eAdapters().remove(adapter);
+//							}
+							domain.getCommandStack().execute(cmd);
+						}
+						finally {
+//							if (adapter != null) {
+//								obj.eResource().eAdapters().add(adapter);
+//							}
+						}
+					//}
 					return Status.OK_STATUS;
 			}
 			
@@ -437,14 +457,9 @@ public class IO {
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
 			ICallableValue argClosure = (ICallableValue)args[0];
-				//try {
-					PatchModelJob job = new PatchModelJob(argClosure);
-					job.schedule();
-					//job.join();
-//				} catch (InterruptedException e) {
-//					Activator.getInstance().logException("model updater interrupted", e);
-//				} 
-				return null;
+			PatchModelJob job = new PatchModelJob(argClosure, adapter);
+			job.schedule();
+			return null;
 		}
 		
 		@Override

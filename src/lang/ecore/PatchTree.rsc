@@ -229,6 +229,8 @@ lrel[str, value] treeEnv(Tree t)
 Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tree(type[&U<:Tree], str) parse) {
   switch (v) {
     case null():
+      // todo: if there's something already in the tree, reuse that
+      // so that user's partial ids for references are not deleted.
       return placeholder(s, field);
     
     case Id x: {
@@ -256,6 +258,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
   if (pt has top) {
     old = pt.top;
   }
+  
  
   rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
   

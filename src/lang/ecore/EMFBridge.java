@@ -3,7 +3,6 @@ package lang.ecore;
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -11,9 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.core.runtime.Platform;
-import org.eclipse.emf.common.command.Command;
-import org.eclipse.emf.common.command.CompoundCommand;
-import org.eclipse.emf.common.command.StrictCompoundCommand;
+import org.eclipse.emf.common.notify.Notifier;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EClass;
@@ -23,12 +20,7 @@ import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.eclipse.emf.edit.command.AbstractOverrideableCommand;
-import org.eclipse.emf.edit.command.AddCommand;
 import org.eclipse.emf.edit.command.ChangeCommand;
-import org.eclipse.emf.edit.command.DeleteCommand;
-import org.eclipse.emf.edit.command.RemoveCommand;
-import org.eclipse.emf.edit.command.SetCommand;
 import org.eclipse.emf.edit.domain.EditingDomain;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.eclipse.nature.ProjectEvaluatorFactory;
@@ -94,21 +86,30 @@ public class EMFBridge {
 		return patch(domain, obj, patch);
 	}
 	
+	private static class MyChangeRecorder extends ChangeRecorder {
+		public MyChangeRecorder(EObject root) {
+			super(root);
+		}
+
+		public void myAddAdapter(Notifier n) {
+			addAdapter(n);
+		}
+	};
+	
 	@SuppressWarnings("unchecked")
 	public static ChangeCommand patch(EditingDomain domain, EObject root, ITuple patch) {
 		EPackage pkg = root.eClass().getEPackage();
 		EFactory fact = pkg.getEFactoryInstance();
 		Map<IConstructor, EObject> cache = new HashMap<>();
 		
-		ChangeRecorder recorder = new ChangeRecorder(root);
-		recorder.endRecording();
+		List<Notifier> roots = new ArrayList<>();
+		roots.add(root);
 		
 		
-		ChangeCommand result = new ChangeCommand(recorder, root) {
+		ChangeCommand result = new ChangeCommand(roots) {
 
 			@Override
 			protected void doExecute() {
-				//changeRecorder.beginRecording(Collections.singleton(root));
 				
 				for (IValue v: (IList)patch.get(1)) {
 					ITuple idEdit = (ITuple)v;
@@ -116,7 +117,6 @@ public class EMFBridge {
 					IConstructor edit = (IConstructor) idEdit.get(1);
 					
 					if (edit.getName().equals("create")) {
-						// TODO: we actually create the new objects during patch, not while doing the commands...
 						String clsName = ((IString)edit.get("class")).getValue();
 						EClass eCls = (EClass) pkg.getEClassifier(clsName);
 						EObject obj = fact.create(eCls);
@@ -162,8 +162,6 @@ public class EMFBridge {
 					}
 					
 				}
-				
-				//changeRecorder.endRecording();
 				
 			}
 			
