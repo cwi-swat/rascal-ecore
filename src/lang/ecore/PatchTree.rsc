@@ -11,13 +11,85 @@ import String;
 import Set;
 import IO;
 
+/*
+TODOS
+
+- use original tree to find class prototypes and separator prototypes if not found in list itself
+- support mutliple production with same class
+- implement "create" by factoring out the flattened tree from patch tree.
+- fix locs during the unflatten phase.
+*/
+
+
+&T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
+  Tree old = pt;
+  if (pt has top) {
+    old = pt.top;
+  }
+  
+ 
+  rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
+  
+  // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
+  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs )
+        + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
+  
+  map[tuple[Id, str], list[Tree]] sepCache = ();
+  
+  tuple[Tree,list[Tree]] getListAndSeps(Id obj, str field, Tree lst) {
+     if (<obj, field> notin sepCache) {
+       sepCache[<obj,field>] = getSeparators(lst);
+     }
+     return <lst, sepCache[<obj,field>]>;
+  }
+  
+  for (<Id obj, Edit edit> <- patch.edits, edit has field) {
+     Tree t = trees[obj];
+     int idx = getFieldIndex(t.prod, edit.field);
+     
+     switch (edit) {
+       case put(str field, value v): {
+         Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);
+         trees[obj] = setArg(t, idx, newVal);
+       }
+       
+       case ins(str field, int pos, value v): {
+         <lst, seps> = getListAndSeps(obj, field, t.args[idx]);
+        
+         lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse), 
+                  seps);
+
+         // check for empty layout & reuse layout that is before.
+         if ("<t.args[idx+1]>" == "") {
+           t = setArg(t, idx + 1, t.args[idx-1]);
+         }
+
+         trees[obj] = setArg(t, idx, lst);
+       }
+
+       case del(str field, int pos): {
+         <lst, seps> = getListAndSeps(obj, field, t.args[idx]);
+         trees[obj] = setArg(t, idx, removeList(lst, pos, seps));
+       }
+
+     }
+   }
+   
+  trees = unflatten(patch.root, trees);
+  root = trees[patch.root];
+  if (pt has top) {
+    root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
+  }
+  
+  return typeCast(tt, resolveTree(root, root, trees)); 
+}
 
 Production placeholderProd(Symbol s, Symbol id = lex("Id"))
   = prod(s, [lit("\<"), id, lit(":"), lit(symbolName(s)), lit("\>") ], 
        {\tag("category"("MetaAmbiguity"))});
 
 
-// does not owrk...
+// the result cannot be used to parse (yet; bug in Rascal)
 type[&T<:Tree] addPlaceholderProds(type[&T<:Tree] tt, Symbol id = lex("Id")) {
   map[Symbol, Production] defs = tt.definitions;
   for (Symbol s <- defs, s is lex || s is sort) {
@@ -253,68 +325,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
 }
   
 
-&T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
-  Tree old = pt;
-  if (pt has top) {
-    old = pt.top;
-  }
-  
- 
-  rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
-  
-  // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
-  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs )
-        + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
-  
-  map[tuple[Id, str], list[Tree]] sepCache = ();
-  
-  tuple[Tree,list[Tree]] getListAndSeps(Id obj, str field, Tree lst) {
-     if (<obj, field> notin sepCache) {
-       sepCache[<obj,field>] = getSeparators(lst);
-     }
-     return <lst, sepCache[<obj,field>]>;
-  }
-  
-  for (<Id obj, Edit edit> <- patch.edits, edit has field) {
-     Tree t = trees[obj];
-     int idx = getFieldIndex(t.prod, edit.field);
-     
-     switch (edit) {
-       case put(str field, value v): {
-         Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);
-         trees[obj] = setArg(t, idx, newVal);
-       }
-       
-       case ins(str field, int pos, value v): {
-         <lst, seps> = getListAndSeps(obj, field, t.args[idx]);
-        
-         lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse), 
-                  seps);
 
-         // check for empty layout & reuse layout that is before.
-         if ("<t.args[idx+1]>" == "") {
-           t = setArg(t, idx + 1, t.args[idx-1]);
-         }
-
-         trees[obj] = setArg(t, idx, lst);
-       }
-
-       case del(str field, int pos): {
-         <lst, seps> = getListAndSeps(obj, field, t.args[idx]);
-         trees[obj] = setArg(t, idx, removeList(lst, pos, seps));
-       }
-
-     }
-   }
-   
-  trees = unflatten(patch.root, trees);
-  root = trees[patch.root];
-  if (pt has top) {
-    root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
-  }
-  
-  return typeCast(tt, resolveTree(root, root, trees)); 
-}
 
 Production containProd(Id id) = prod(lit("CONTAIN"), [], {\tag("id"(id))}); 
 Production referProd(str path, value x) =  prod(lit("REF"), [], {\tag("path"(path, x))});
@@ -332,8 +343,11 @@ value deref(Tree t, str path, rel[Id, loc] orgs)
   = deref(t, splitPath(path), orgs);
 
 value deref(Tree t, list[str] elts, rel[Id, loc] orgs) {
-  if (elts == [], loc l := t@\loc, <Id x, l> <- orgs) {
-    return x;
+  if (elts == []) {
+    if (loc l := t@\loc, <Id x, l> <- orgs) {
+      return x;
+    }
+    return null();
   }
   
   cur = elts[0];

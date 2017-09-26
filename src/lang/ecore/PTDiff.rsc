@@ -16,7 +16,6 @@ str patch(str src, loc newLoc, lrel[loc, str] diff) {
   int offset = 0;
   list[str] result = [];
   
-    
   for (int i <- [0..size(diff)]) { 
     <l, s> = diff[i];
 
@@ -67,7 +66,6 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
         case add(Tree v, int pos): { 
           // todo: this requires newtree to have locs!!!
           diff += [<getLoc(new, v, pos)[length=0], "<v>">];
-
         }
         
         case remove(Tree v, int pos): {

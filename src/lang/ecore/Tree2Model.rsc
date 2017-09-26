@@ -23,6 +23,12 @@ Todo
 - save separator layout whenever encountered, so that it can be also used when adding to singletons.
 */
 
+
+alias Fix = void(node, lrel[str field, str path]);
+alias Track = void(Id, loc);
+alias FixUps = map[Id, lrel[str field, str path]];
+
+
 &M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc) 
   = tree2modelWithOrigins(meta, t, uri = uri)[0];
 
@@ -48,9 +54,70 @@ tuple[&M<:node, Org] tree2modelWithOrigins(type[&M<:node] meta, Tree t, loc uri 
   return <typeCast(meta, model), origins>;
 }
 
-alias Fix = void(node, lrel[str field, str path]);
-alias Track = void(Id, loc);
-alias FixUps = map[Id, lrel[str field, str path]];
+value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi, Track track) {
+  p = t.prod;
+  
+  if (p.def is lex) {
+    return "<t>"; // for now, just strings
+  }
+  
+  largs = labeledAstArgs(t, p);
+
+  if (p is regular) {
+    return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>", track) | int i <- [0..size(largs)] ];
+  }
+
+  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>", track)> 
+     | int i <- [0..size(largs)], <str fld, Tree a> := largs[i] ];
+
+
+  lrel[str, str] fixes = [];
+  env = for (<str fld, value v> <- env) {
+    if (<fld, _, str path> <- prodRefs(p)) {
+      fixes += [<fld, substBindings(path, env)>];
+      append <fld, null()>;
+    }
+    else {
+      append <fld, v>;
+    }      
+  }  
+  
+  adtName = p.def is label ? p.def.symbol.name : p.def.name;
+  tt = type(adt(adtName, []), meta.definitions);
+  
+  
+  args = [];  
+  kws = (); 
+  
+  for (<str fld, value v> <- env) {
+    if (getFieldIndex(meta, adt(adtName, []), p.def.name, fld) != -1) {
+      args += [v];
+    }
+    else { // assume it's a keyword param.
+      kws[fld] = v;
+    }
+  }
+  
+  if (str x <- prodIds(p), <x, str v> <- env) {
+  	uri.fragment = v;
+  }
+  else {
+  	uri.fragment = xmi;
+  }
+  
+  Id myId = id(uri.top);
+  if (t@\loc?) {
+    track(myId, t@\loc);
+  }
+  else {
+    println("WARNING: no loc for <t>");
+  }
+  
+  obj = r.new(tt, make(tt, p.def.name, args, kws), id = myId);
+  fix(obj, fixes);
+  
+  return obj;
+}
 
 &M<:node fixUp(type[&M<:node] meta, &M model, FixUps fixes) {
   // The stuff with typeOf etc is truly horrible here.
@@ -151,68 +218,5 @@ lrel[str, Tree] labeledAstArgs(Tree t, Production p)
 str substBindings(str path, lrel[str, value] env) 
   = ( path | replaceAll(it, "$<x>", "<v>") | <str x, value v> <- env );
 
-value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi, Track track) {
-  p = t.prod;
-  
-  if (p.def is lex) {
-    return "<t>"; // for now, just strings
-  }
-  
-  largs = labeledAstArgs(t, p);
-
-  if (p is regular) {
-    return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>", track) | int i <- [0..size(largs)] ];
-  }
-
-  lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>", track)> 
-     | int i <- [0..size(largs)], <str fld, Tree a> := largs[i] ];
-
-
-  lrel[str, str] fixes = [];
-  env = for (<str fld, value v> <- env) {
-    if (<fld, _, str path> <- prodRefs(p)) {
-      fixes += [<fld, substBindings(path, env)>];
-      append <fld, null()>;
-    }
-    else {
-      append <fld, v>;
-    }      
-  }  
-  
-  adtName = p.def is label ? p.def.symbol.name : p.def.name;
-  tt = type(adt(adtName, []), meta.definitions);
-  
-  
-  args = [];  
-  kws = (); 
-  
-  for (<str fld, value v> <- env) {
-    if (getFieldIndex(meta, adt(adtName, []), p.def.name, fld) != -1) {
-      args += [v];
-    }
-    else { // assume it's a keyword param.
-      kws[fld] = v;
-    }
-  }
-  
-  if (str x <- prodIds(p), <x, str v> <- env) {
-  	uri.fragment = v;
-  }
-  else {
-  	uri.fragment = xmi;
-  }
-  Id myId = id(uri.top);
-  if (t@\loc?) {
-    track(myId, t@\loc);
-  }
-  else {
-    println("WARNING: no loc for <t>");
-  }
-  
-  obj = r.new(tt, make(tt, p.def.name, args, kws), id = myId);
-  fix(obj, fixes);
-  
-  return obj;
-}
 
 bool isAST(Tree t) = t has prod && !(t.prod.def is lit || t.prod.def is cilit);

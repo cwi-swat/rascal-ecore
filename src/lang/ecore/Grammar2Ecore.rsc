@@ -10,6 +10,61 @@ import ParseTree;
 import IO;
 
 
+/*
+ * TODOS
+ * - multiple productions with same class (use this to infer optionality)
+ * - support optional literals as boolean properties
+ * - optional non-terminals are optional references
+ *
+ * "The Mapping"
+ *  
+ * RULES
+ * syntax S = Prod* -> abstract class S + subclasses where all Ps are partioned according to their label
+ * 
+ * PRODUCTIONS
+ * for each set of prods with the same label
+ * p: Symbol*
+ * p: Symbol*
+ * ...
+ * - add *required* fields to class p, for all field-labeled symbols occurring in *all* prods
+ * - add optional fields to class p, for all field-labeled symbols occurring in at *least one* prod (but not all)
+ * - if @id{x} is present, set iD = true; @id{x} must be present on all prods with same label.
+ * 
+ * SYMBOLS
+ * Symbol label
+ * - create feature with type according to Symbol named label.
+ * - type of Symbol is determined as (in order):
+ *   - "literal"? -> boolean
+ *   - if prod has @ref{label:C:/path}, make ref to C, set containment=false 
+ *   - else Id -> string,
+ *   - if prod has @lift{label:prim}, set type to prim (assume values of type prim are parseable as Symbol)
+ *   - Symbol* -> set many=true, lowerbound=0, upperbound=-1, type = typeOf(Symbol), containment=true
+ *   - Symbol? -> set lowerbound=0, upperbound=1, type = typeOf(Symbol), containment=true
+ *   - Symbol+ -> set lowerbound=1, upperbound=-1, type = typeOf(symbol), containment=true
+ *        [for all regulars: if @ref{label:C:/...} and Symbol=Id, same, but containment=false]
+ *        [for all * /+ regulars: if @ordered{label:b}, set ordered=b;
+ *   - else: set containment=true, type = typeOf(Symbol) (implied: many=false, etc.)
+ *
+ * So annotations required
+ *  @id{fieldName}
+ *  @ref{fieldName:Class:path}
+ *  @ordered{fieldName:bool}
+ *  @lift{fieldName:prim}
+ *  @opposite{fieldName:Class.fieldName}
+ *
+ * NOTES REGARDING TREE2MODEL
+ *
+ * Assumptions
+ * - all every tree node (that is not a lexical/@lifted, or literal etc.) corresponds to an object
+ *   (i.e. has an identity)
+ * - everything that is optional as per the above, should be optional (= keyword param) in model ADT
+ * - all collections are represented as lists (even if @ordered{fieldName:false})
+ * - primitives (via @lift) are converted via to<prim>("<tree>"); for int/bool/real
+ * - @ref things are created as Ref[Class] values via the refs referTo(#Class, ...) function
+ *   (this implies that every Class needs to be an ADT...; FIXME: this is problematic)
+ */
+
+
 EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pkgName, str nsPrefix = "") {
   r = newRealm();
   
@@ -32,6 +87,8 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
       classMap[nt] = super;
       for (Production p <- prods, label(str cls, _) := p.def) {
         // todo: invent names if there are no prod labels
+        // todo: merge class fields if multiple prods have same labels.
+        // deal with optionality. 
         class = r.new(#EClassifier, EClass(cls, false, false));
         class.eSuperTypes += [referTo(#EClassifier, class)];
         classMap[cls] = class;
@@ -97,10 +154,6 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
 set[str] prodIds(Production p) 
   = { id[2..-2] | p has attributes, \tag("id"(str id)) <- p.attributes };
 
-rel[str field, str class, str path] prodRefs(Production p) {
-  if (p has attributes) {
-    return { <fld, cls, path> | \tag("ref"(str spec)) <- p.attributes, 
+rel[str field, str class, str path] prodRefs(Production p) 
+  = { <fld, cls, path> | p has attributes, \tag("ref"(str spec)) <- p.attributes, 
        [str fld, str cls, str path] := split(":", spec[1..-1]) };
-  }
-  return {};
-}
