@@ -21,7 +21,6 @@ import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.change.util.ChangeRecorder;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.edit.command.ChangeCommand;
-import org.eclipse.emf.edit.domain.EditingDomain;
 import org.rascalmpl.debug.IRascalMonitor;
 import org.rascalmpl.eclipse.nature.ProjectEvaluatorFactory;
 import org.rascalmpl.interpreter.Evaluator;
@@ -63,7 +62,7 @@ public class EMFBridge {
 	// The signature of the `function` should be
 	// Patch (Loader[&T] load);
 
-	public static ChangeCommand runRascal(String bundleId, EditingDomain domain, EObject obj, String module, String function) {
+	public static ChangeCommand runRascal(String bundleId, EObject obj, String module, String function) {
 		if (!(bundleEvals.containsKey(bundleId))) {
 			GlobalEnvironment heap = new GlobalEnvironment();
 		    Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), 
@@ -83,7 +82,7 @@ public class EMFBridge {
 		}
 		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, src, eval) });
 		
-		return patch(domain, obj, patch);
+		return patch(obj, patch);
 	}
 	
 	private static class MyChangeRecorder extends ChangeRecorder {
@@ -97,7 +96,7 @@ public class EMFBridge {
 	};
 	
 	@SuppressWarnings("unchecked")
-	public static ChangeCommand patch(EditingDomain domain, EObject root, ITuple patch) {
+	public static ChangeCommand patch(EObject root, ITuple patch) {
 		EPackage pkg = root.eClass().getEPackage();
 		EFactory fact = pkg.getEFactoryInstance();
 		Map<IConstructor, EObject> cache = new HashMap<>();
