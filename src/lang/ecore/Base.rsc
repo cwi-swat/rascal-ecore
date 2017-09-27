@@ -3,14 +3,24 @@ module lang::ecore::Base
 extend lang::std::Layout;
 extend lang::std::Id;
 
-lexical Ref
+syntax Ref[&Class]
   = Id
-  | Path;
+  | Loc
+  ;
   
-lexical Path
+syntax Loc = ProtocolChars PathChars;
+  
+lexical ProtocolChars = [|] URLChars "://" !>> [\t-\n \r \ \u00A0 \u1680 \u2000-\u200A \u202F \u205F \u3000];
+
+lexical PathChars = URLChars [|] ;
+
+lexical URLChars = ![\t-\n \r \  \< |]* ;
+
+  
+syntax Nav
   = root: "/"
-  | field: Path "/@" Id 
-  | index: Path!root "." Int
+  | field: Nav "/@" Id 
+  | index: Nav "." Int
   ;
 
 lexical Bool
@@ -26,8 +36,8 @@ lexical Real
 
 
 lexical Int
-  = [0] !>> [0-9 A-Z _ a-z] 
-  | [\-]? [1-9] [0-9]* !>> [0-9 A-Z _ a-z] 
+  = [0] !>> [0-9] 
+  | [\-]? [1-9] [0-9]* !>> [0-9] 
   ;
 
 lexical Str
@@ -40,8 +50,8 @@ lexical StringCharacter
 	;
   
 lexical UnicodeEscape
-	  = utf16: "\\" [u] [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] 
-    | utf32: "\\" [U] (("0" [0-9 A-F a-f]) | "10") [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] // 24 bits 
-    | ascii: "\\" [a] [0-7] [0-9A-Fa-f]
-    ;
+  = utf16: "\\" [u] [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] 
+  | utf32: "\\" [U] (("0" [0-9 A-F a-f]) | "10") [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] [0-9 A-F a-f] // 24 bits 
+  | ascii: "\\" [a] [0-7] [0-9A-Fa-f]
+  ;
   

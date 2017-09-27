@@ -1,4 +1,4 @@
-module lang::ecore::EcoreModelSyntax
+module lang::ecore::EcoreHUTN
 
 extend lang::ecore::Base;
 
@@ -43,7 +43,7 @@ syntax ETypedElementField
   | "upperBound" ":" Int
   | "many" ":" Bool
   | "required" ":" Bool
-  | "eType" ":" Ref // to EClassifier
+  | "eType" ":" Ref[EClassifier]
   | ENamedElementField
   ;
 
@@ -58,6 +58,10 @@ syntax EClassifier
   | EClass
   ;
   
+syntax EClassifierField
+  = ENamedElementField
+  ;  
+  
 syntax EClass
   = "EClass" "{" EClassField* "}"
   ;
@@ -67,7 +71,7 @@ syntax EClassField
   | "interface" ":" Bool
   | "eStructuralFeatures" ":" "[" EStructuralFeature* "]"
   | "eOperations" ":" "[" EOperation* "]"
-  | "eSuperTypes" ":" "[" Ref* "]"
+  | "eSuperTypes" ":" "[" Ref[EClass]* "]"
   | EClassifierField
   ;
     
@@ -118,8 +122,8 @@ syntax EReferenceField
   = "containment" ":" Bool
   | "container" ":" Bool
   | "resolveProxies" ":" Bool
-  | "eOpposite" ":" Ref // to EReference
-  | "eReferenceType" ":" Ref // to EClass
+  | "eOpposite" ":" Ref[EReference]
+  | "eReferenceType" ":" Ref[EClass]
   | EStructuralFeatureField
   ;
 
@@ -138,7 +142,7 @@ syntax EOperation
   
 syntax EOperationField
   = ETypedElementField
-  | "eExceptions" ":" "[" Ref* /* to EClass */ "]"
+  | "eExceptions" ":" "[" Ref[EClass] "]"
   | "eParameters" ":" "[" EParameter* "]"
   ;
   
@@ -168,3 +172,5 @@ syntax EStringToMapEntryField
   = "key" ":" Str
   | "value" ":" Str
   ;
+  
+  
