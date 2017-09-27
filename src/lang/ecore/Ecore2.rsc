@@ -7,10 +7,10 @@ extend lang::ecore::Refs;
 // root
 data EPackage(loc pkgURI = |http://www.eclipse.org/emf/2002/Ecore|)
   = EPackage(
-      str name,  // from ENamedElement
+      str name,  
       str nsURI, 
       str nsPrefix, 
-      list[EAnnotation] eAnnotations = [], // from EModelElement
+      list[EAnnotation] eAnnotations = [], 
       list[EClassifier] eClassifiers = [],
       list[EPackage] eSubpackages = [],
       Id uid = noId()); 
@@ -115,6 +115,7 @@ data EReference
 	  str defaultValueLiteral = "",
 	  bool unsettable = false,
 	  bool derived = false,
+	  list[EAnnotation] eAnnotations = [], 
 	  Id uid = noId());
       
 data EAttribute
@@ -134,6 +135,7 @@ data EAttribute
 	  str defaultValueLiteral = "",
 	  bool unsettable = false,
 	  bool derived = false,
+      list[EAnnotation] eAnnotations = [], 
 	  Id uid = noId())
   ;
 
@@ -150,19 +152,19 @@ data EOperation
       int upperBound = 1,
       bool many = false,
       bool required = false,
+      list[EAnnotation] eAnnotations = [], 
       Id uid = noId());
 
 data EParameter(Id uid = noId())
   = EParameter(
       str name, 
       Ref[EClassifier] eType,
-      list[EParameter] eParameters = [],
-      list[EClassifier] eExceptions = [],
       bool ordered = true,
       bool unique = true,
       int lowerBound = 0,
       int upperBound = 1,
       bool many = false,
       bool required = false,
+      list[EAnnotation] eAnnotations = [], 
       Id uid = noId());
 
