@@ -18,32 +18,32 @@ data EPackage(loc pkgURI = |http://www.eclipse.org/emf/2002/Ecore|)
 
 
 data EModelElement
-  = EModelElement(ENamedElement eNamedElement)
-  | EModelElement(EAnnotation eAnnotation)
+  = EModelElement(ENamedElement eNamedElement, Id uid = eNamedElement.uid)
+  | EModelElement(EAnnotation eAnnotation, Id uid = eAnnotation.uid)
   ;
   
   
 data ENamedElement
-  = ENamedElement(EPackage ePackage)
-  | ENamedElement(EClassifier eClassifier)
-  | ENamedElement(EEnumLiteral eEnumerLiteral)
-  | ENamedElement(ETypedElement eTypedElement)
+  = ENamedElement(EPackage ePackage, Id uid = ePackage.uid)
+  | ENamedElement(EClassifier eClassifier, Id uid = eClassifier.uid)
+  | ENamedElement(EEnumLiteral eEnumLiteral, Id uid = eEnumLiteral.uid)
+  | ENamedElement(ETypedElement eTypedElement, Id uid = eTypedElement.uid)
   ;
   
 data ETypedElement
-  = ETypedElement(EStructuralFeature eStructuralFeature)
-  | ETypedElement(EOperation eOperation)
-  | ETypedElement(EParameter eParameter)
+  = ETypedElement(EStructuralFeature eStructuralFeature, Id uid = eStructuralFeature.uid)
+  | ETypedElement(EOperation eOperation, Id uid = eOperation.uid)
+  | ETypedElement(EParameter eParameter, Id uid = eParameter.uid)
   ;
   
 data EClassifier
-  = EClassifier(EClass eClass)
-  | EClassifier(EDataType eDataType)
+  = EClassifier(EClass eClass, Id uid = eClass.uid)
+  | EClassifier(EDataType eDataType, Id uid = eDataType.uid)
   ;
   
 data EStructuralFeature
-  = EStructuralFeature(EAttribute eAttribute)
-  | EStructuralFeature(EReference eReference)
+  = EStructuralFeature(EAttribute eAttribute, Id uid = eAttribute.uid)
+  | EStructuralFeature(EReference eReference, Id uid = eReference.uid)
   ;
   
 
@@ -76,7 +76,7 @@ data EDataType
       bool serializable = true,
       list[EAnnotation] eAnnotations = [],
       Id uid = noId())
-   | EDataType(EEnum eEnum)
+   | EDataType(EEnum eEnum, Id uid = eEnum.uid)
    ;
    
 data EEnum      
@@ -149,7 +149,8 @@ data EOperation
       int lowerBound = 0,
       int upperBound = 1,
       bool many = false,
-      bool required = false);
+      bool required = false,
+      Id uid = noId());
 
 data EParameter(Id uid = noId())
   = EParameter(
