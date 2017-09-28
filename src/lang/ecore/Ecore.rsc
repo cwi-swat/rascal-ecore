@@ -63,12 +63,10 @@ data EStructuralFeature(
    int lowerBound = 0,
    int upperBound = 1,
    bool many = false,
-   bool required = false,
    bool changeable = true, 
    bool volatile = false,
    bool transient = false,
    str defaultValueLiteral = "",
-   bool unsettable = false,
    bool derived = false,
    Id uid = noId())
   = EReference(
@@ -96,7 +94,6 @@ data EOperation(Id uid = noId())
       int lowerBound = 0,
       int upperBound = 1,
       bool many = false,
-      bool required = false,
       list[EParameter] eParameters = [],
       list[EClassifier] eExceptions = []);
 
@@ -108,6 +105,5 @@ data EParameter(Id uid = noId())
       bool unique = true,
       int lowerBound = 0,
       int upperBound = 1,
-      bool many = false,
-      bool required = false);
+      bool many = false);
 
