@@ -7,12 +7,28 @@ import IO;
 import Type;
 import List;
 import String;
+import analysis::graphs::Graph;
 
+//writeEcoreADTModule("lang::ecore::Ecore3", |project://rascal-ecore/src/lang/ecore/Ecore3.rsc|, ec);
+
+void writeEcoreADTModule(str moduleName, loc l, EPackage pkg) 
+  = writeFile(l, "module <moduleName>
+                 '
+                 'import util::Maybe;
+                 'import lang::ecore::Refs;
+                 '
+                 '<ecore2rsc(pkg)>");
 
 str ecore2rsc(EPackage pkg) 
-  = intercalate("\n\n", [ choice2rsc(defs[s]) | Symbol s <- defs ])
+  = intercalate("\n\n", [ choice2rsc(defs[s]) | Symbol s <- orderADTs(defs) ])
   when 
     defs := package2definitions(pkg);
+
+list[Symbol] orderADTs(map[Symbol, Production] defs) {
+  deps = { <s1, s2> | s1 <- defs, /s2:adt(str x, _) := defs[s1], x != "Ref", x != "Id", x != "Maybe" };
+  return reverse(order(deps));
+}
+
 
 str choice2rsc(choice(Symbol a, set[Production] alts)) 
   = "data <a.name>\n  = <intercalate("\n  | ", [ prod2rsc(p) | Production p <- alts ])>
@@ -23,7 +39,7 @@ str prod2rsc(cons(label(str c, _), [label(str x, adt(str sub, []))], [label("uid
   when fieldName(sub) == x;
 
 default str prod2rsc(cons(label(str c, _), list[Symbol] ps, list[Symbol] kws, _))
-  = "<c>(<intercalate(", ", args)>)"
+  = "<c>(<intercalate("\n      , ", args)>)"
   when
     list[str] args := [ param2rsc(p) | p <- ps ] + [ kwp2rsc(k) | k <- kws ];
     
@@ -119,7 +135,7 @@ Symbol prim2symbol("ELong") = \int();
 Symbol prim2symbol("EBoolean") = \bool();
 Symbol prim2symbol("EString") = \str();
 Symbol prim2symbol("EDate") = \datetime();
-Symbol prim2symbol("EEnumerator") = \tuple([label("literal", \str()), label("name", \str()), label("value", \int())]);
+Symbol prim2symbol("EEnumerator") = \tuple([label("literal", \str()), label("name", \str()), label("\\value", \int())]);
 default Symbol prim2symbol(str d) { throw "Unsupported primitive <d>"; }
 
 
