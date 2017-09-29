@@ -65,31 +65,35 @@ import IO;
  */
 
 
-EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pkgName, str nsPrefix = "") {
-  r = newRealm();
+EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pkgName, str nsPrefix = "", Realm realm = newRealm()) {
+  fact = realm.new(#EFactory, EFactory(null()));
   
-  fact = r.new(#EFactory, EFactory(null()));
-  
-  pkg = r.new(#EPackage, EPackage(referTo(#EFactory, fact), name = pkgName, nsURI = nsURI, nsPrefix = nsPrefix));
+  pkg = realm.new(#EPackage, EPackage(referTo(#EFactory, fact), name = pkgName, nsURI = nsURI, nsPrefix = nsPrefix));
   fact.ePackage = referTo(#EPackage, pkg);
   
-  strType = EClassifier(r.new(#EDataType, EDataType(name = "EString")));
+  strType = EClassifier(realm.new(#EDataType, EDataType(name = "EString")));
   pkg.eClassifiers += [strType];
   
   map[str, EClass] classMap = ();
   
   // first do classes
   for (s:sort(str nt) <- g.definitions) {
-    super = r.new(#EClass, EClass(name = nt, abstract = true));
+    super = realm.new(#EClass, EClass(name = nt));
+    assert nt notin classMap : "class <nt> already defined";
     classMap[nt] = super;
     prods = g.definitions[s].alternatives;
+    
+    if (size(prods) > 1) {
+      classMap[nt].abstract = true;
+    }
 
-    for (Production p <- prods, label(str cls, _) := p.def) {
+    for (size(prods) > 1, Production p <- prods, label(str cls, _) := p.def) {
       // todo: invent names if there are no prod labels
       // todo: merge class fields if multiple prods have same labels.
-      // deal with optionality. 
-      class = r.new(#EClass, EClass(name = cls));
+      // deal with optionality.
+      class = realm.new(#EClass, EClass(name = cls));
       class.eSuperTypes += [referTo(#EClass, super)];
+      assert cls notin classMap : "class <nt> already defined";
       classMap[cls] = class;
     }
   }
@@ -98,19 +102,19 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     assert s is lex || s is sort;
     
     if (<fld, str class, _> <- prodRefs(p)) {
-      return EStructuralFeature(r.new(#EReference, EReference(
+      return EStructuralFeature(realm.new(#EReference, EReference(
         name = fld, 
         lowerBound = 1, upperBound = 1,
-        eType = referTo(#EClass, EClassifier(classMap[class])))
+        eType = referTo(#EClassifier, EClassifier(classMap[class])))
       ));
     }
     
     if (s is lex) {
       // todo: make ints etc. (via tags?)
-      eAttr = EStructuralFeature(r.new(#EAttribute, EAttribute(
+      eAttr = EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         lowerBound = 1, upperBound = 1,
-        eType = referTo(#EClass, strType))
+        eType = referTo(#EClassifier, strType))
       ));
         
       if (str id <- prodIds(p)) {
@@ -119,25 +123,39 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
       return eAttr;
     }
     
-    return EStructuralFeature(r.new(#EReference, EReference(
+    return EStructuralFeature(realm.new(#EReference, EReference(
       name = fld, 
-      eType = EClassifier(referTo(#EClass, classMap[s.name])),
+      eType = referTo(#EClassifier, EClassifier(classMap[s.name])),
       lowerBound = 1, upperBound = 1,
       containment = true)
     ));
   }  
+  
+  EStructuralFeature makeOpt(EStructuralFeature(EAttribute a))
+    = EStructuralFeature(a[lowerBound=0]);
+
+  EStructuralFeature makeOpt(EStructuralFeature(EReference r))
+    = EStructuralFeature(r[lowerBound=0]);
+
+
+  EStructuralFeature makeMany(EStructuralFeature(EAttribute a))
+    = EStructuralFeature(a[upperBound=-1]);
+
+  EStructuralFeature makeMany(EStructuralFeature(EReference r))
+    = EStructuralFeature(r[upperBound=-1]);
     
   EStructuralFeature symbol2feature(str fld, Symbol s, Production p) {
     if (s is \iter-star-seps || s is \iter-star) {
-      return toField(fld, s.symbol, p)[upperBound=-1][lowerBound=0];
+      // OOPS: this sets attributes on EStructuralFeature injection, not the attribute/ref itself...
+      return makeOpt(makeMany(toField(fld, s.symbol, p)));
     }
     
     if (s is \iter-seps || s is \iter) {
-      return toField(fld, s.symbol, p)[upperBound=-1];
+      return makeMany(toField(fld, s.symbol, p));
     }
     
     if (s is \opt) {
-      return toField(fld, s.symbol, p)[lowerBound=0];
+      return makeOpt(toField(fld, s.symbol, p));
     }
     
     return toField(fld, s, p);
@@ -145,10 +163,16 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     
   // then do fields
   for (s:sort(str nt) <- g.definitions) {
-    prods = g.definitions[s].alternatives; 
-    for (Production p <- prods, label(str cls, _) := p.def) {
-      classMap[cls].eStructuralFeatures += 
+    prods = g.definitions[s].alternatives;
+    if (size(prods) == 1, Production p <- prods) {
+      classMap[nt].eStructuralFeatures += 
         [ symbol2feature(fldName, s, p) | label(str fldName, Symbol s) <- p.symbols ];
+    }
+    else { 
+      for (Production p <- prods, label(str cls, _) := p.def) {
+        classMap[cls].eStructuralFeatures += 
+          [ symbol2feature(fldName, s, p) | label(str fldName, Symbol s) <- p.symbols ];
+      }
     }
   }
     

@@ -10,7 +10,9 @@ import List;
 import String;
 import analysis::graphs::Graph;
 
-// TODO: annotations
+// TODO: 
+// - annotations
+// - defaultValues from the metametamodel
 
 //writeEcoreADTModule("lang::ecore::Ecore3", |project://rascal-ecore/src/lang/ecore/Ecore3.rsc|, ec);
 

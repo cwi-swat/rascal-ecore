@@ -14,7 +14,7 @@ syntax State
   
   
 syntax Trans
-  = @ref{target:State:/states[name=$target]} Trans: "on" {Id ","}+ events "=\>" Id target
+  = @ref{target:State:/states[name=$target]} Normal: "on" {Id ","}+ events "=\>" Id target
   | @ref{target:State:/states[name=$target]} Guarded: "on" {Id ","}+ events "when" Str guard "=\>" Id target
   ;
   
