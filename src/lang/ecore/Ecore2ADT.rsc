@@ -1,6 +1,6 @@
 module lang::ecore::Ecore2ADT
 
-import lang::ecore::Ecore3;
+import lang::ecore::Ecore4;
 import lang::ecore::Refs;
 import lang::ecore::IO;
 import IO;
@@ -31,6 +31,17 @@ str ecore2rsc(EPackage pkg)
   = intercalate("\n\n", [ choice2rsc(defs[s]) | Symbol s <- orderADTs(defs) ])
   when 
     defs := package2definitions(pkg);
+
+
+map[Symbol, Production] package2definitions(EPackage pkg) 
+  = ( p.def: p | EClassifier c <- pkg.eClassifiers, EClassifier(EDataType _) !:= c, p := classifier2choice(c, pkg) );
+
+Production classifier2choice(EClassifier(EDataType(EEnum enum)), EPackage pkg) {
+  Symbol a = adt(enum.name, []);
+  set[Production] alts = { cons(label(el.name, a), [], [], {}) | el <- enum.eLiterals };
+  return choice(a, alts);
+}
+
 
 list[Symbol] orderADTs(map[Symbol, Production] defs) {
   deps = { <s1, s2> | s1 <- defs, /s2:adt(str x, _) := defs[s1], x != "Ref", x != "Id", x != "Maybe" };
@@ -82,7 +93,15 @@ str sym2rsc(\tuple(list[Symbol] ss)) = "tuple[<intercalate(", ", [ sym2rsc(s) | 
 str sym2rsc(label(str n, Symbol s)) = "<sym2rsc(s)> <n>";
 
 str sym2rsc(adt(str n, list[Symbol] ps)) 
-  = "<n><ps != [] ? "[" + intercalate(", ", [ sym2rsc(p) | p <- ps ]) + "]" : "">";
+  = "<qualify(n)><ps != [] ? "[" + intercalate(", ", [ sym2rsc(p) | p <- ps ]) + "]" : "">";
+  
+str qualify("Maybe") = "util::Maybe::Maybe";
+  
+str qualify("Ref") = "lang::ecore::Refs::Ref";
+
+str qualify("Id") = "lang::ecore::Refs::Id";
+  
+default str qualify(str x) = x;
   
 str default4sym(\int()) = "0";
 
@@ -208,14 +227,6 @@ Production classifier2choice(EClassifier(EClass class), EPackage pkg) {
 
 str fieldName(str x) = "\\<uncapitalize(x)>";
 
-Production classifier2choice(EClassifier(EDataType(EEnum enum)), EPackage pkg) {
-  Symbol a = adt(enum.name, []);
-  set[Production] alts = { cons(label(el.name, a), [], [], {}) | el <- enum.eLiterals };
-  return choice(a, alts);
-}
-
-map[Symbol, Production] package2definitions(EPackage pkg) 
-  = ( p.def: p | EClassifier c <- pkg.eClassifiers, EClassifier(EDataType _) !:= c, p := classifier2choice(c, pkg) );
   
 
 
