@@ -327,7 +327,7 @@ public class IO {
 		return Convert.obj2value(pkg, rt, vf, ts, vf.sourceLocation(uri));
 	}
 	
-	public IValue load(IValue reifiedType, ISourceLocation uri) {
+	public IValue load__(IValue reifiedType, ISourceLocation uri) {
 		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
@@ -338,9 +338,23 @@ public class IO {
 		} catch (IOException e) {
 			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
 		}
-		
-		
 	}
+	
+	public IValue load(IValue reifiedType, ISourceLocation uri) {
+		TypeStore ts = new TypeStore(); // start afresh
+
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		try {
+			EObject root = loadModel(uri);
+			return Convert.obj2value(root, rt, vf, ts, uri);
+		} catch (IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
+		}
+	}
+
+	
 	
 	public void save(INode model, ISourceLocation uri, ISourceLocation pkgUri) {
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
@@ -436,7 +450,7 @@ public class IO {
 					synchronized (getEval()) {
 					  patch = (ITuple) closure.call(new Type[] {modelType}, new IValue[] { modelValue }, Collections.emptyMap()).getValue();
 					}
-					  ChangeCommand cmd = EMFBridge.patch(domain, obj, patch);
+					  ChangeCommand cmd = EMFBridge.patch(obj, patch);
 						try {
 //							if (adapter != null) {
 //								obj.eResource().eAdapters().remove(adapter);

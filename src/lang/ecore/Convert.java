@@ -39,6 +39,7 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.IWithKeywordParameters;
+import io.usethesource.vallang.io.binary.message.IValueIDs.ConstructorType;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
@@ -68,6 +69,13 @@ class Convert {
 		tf.constructor(ts, refType, "null");
 
 	}
+	
+	public static void declareMaybeType(TypeStore ts) {
+		Type idType = tf.abstractDataType(ts, "Maybe", tf.parameterType("A"));
+		tf.constructor(ts, idType, "just", tf.parameterType("A"), "val");
+		tf.constructor(ts, idType, "nothing");
+	}
+
 	
 	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
 		private EPackage pkg;
@@ -252,7 +260,24 @@ class Convert {
 			EClass eCls = eObj.eClass();
 
 			// FIXME: Assuming that there's a unique constructor with the EClass' name
-			Type t = ts.lookupConstructor(type, eCls.getName()).iterator().next();
+			// INDEED: we now have multiple ones...
+			Type t = null; 
+			boolean maybe = false;
+			if (type.isSubtypeOf(ts.lookupAbstractDataType("Maybe"))) {
+				type = type.getTypeParameters().getFieldType(0);
+				maybe = true;
+			}
+			for (Type candidate: ts.lookupAlternatives(ts.lookupAbstractDataType(eCls.getName()))) {
+				if (ts.getKeywordParameters(candidate).containsKey("_inject")) {
+					continue;
+				}
+				t = candidate;
+				break;
+			}
+			if (t == null) {
+				throw RuntimeExceptionFactory.io(vf.string("No constructor for " + eCls + " "
+						+ type), null, null);
+			}
 			
 			List<IValue> fields = new ArrayList<>();
 			for (int i = 0; i < t.getArity(); i++) {
@@ -270,7 +295,7 @@ class Convert {
 					// Then featureValue is an EObject
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
-						fields.add(visitContainmentRef(ref, featureValue, fieldType, vf, ts, src));
+						fields.add(inject(t.getFieldType(i), ts, vf, visitContainmentRef(ref, featureValue, fieldType, vf, ts, src)));
 					}
 					else {
 						fields.add(visitReference(ref, featureValue, fieldType, vf, ts, src));
@@ -293,6 +318,7 @@ class Convert {
 				String fieldName = e.getKey();
 				Type fieldType = e.getValue();
 
+				
 				if (fieldName.equals("uid") || fieldName.equals("pkgURI")) {
 					continue;
 				}
@@ -306,21 +332,17 @@ class Convert {
 				if (!eObj.eIsSet(feature)) {
 					continue;
 				}
-				
-				//System.out.println("For kw " + fieldName + ": found " + feature);
 
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
-//						fields.add(visitContainmentRef(ref, featureValue, fieldType, ts));
 						IValue x = visitContainmentRef(ref, featureValue, fieldType, vf, ts, src);
 						if (x != null) {
 							keywords.put(fieldName, x);
 						}
 					}
 					else {
-//						fields.add(visitReference(ref, featureValue, fieldType));
 						IValue x = visitReference(ref, featureValue, fieldType, vf, ts, src);
 						if (x != null) {
 							keywords.put(fieldName, x);
@@ -330,7 +352,6 @@ class Convert {
 				else if (feature instanceof EAttribute) {
 					// Then featureValue is a primitive type
 					EAttribute att = (EAttribute) feature;
-//					fields.add();
 					IValue x = visitAttribute(att, featureValue, fieldType, vf, ts);
 					if (x != null) {
 						keywords.put(fieldName, x);
@@ -340,13 +361,53 @@ class Convert {
 			
 			keywords.put("uid", getIdFor(eObj, vf, ts, src));
 			IValue[] arr = new IValue[fields.size()];
-			return vf.constructor(t, fields.toArray(arr), keywords);
+			
+			IValue arg = inject(type, ts, vf, vf.constructor(t, fields.toArray(arr), keywords));
+			if (maybe && arg != null) {
+				return vf.constructor(ts.lookupConstructor(ts.lookupAbstractDataType("Maybe"), "just", tf.tupleType(arg)), arg);
+			}
+			if (maybe && arg == null) {
+				return vf.constructor(ts.lookupConstructor(ts.lookupAbstractDataType("Maybe"), "nothing", tf.tupleEmpty()));
+			}
+			if (arg == null) {
+				System.out.println("BLA");
+			}
+			return arg;
 		}
 
 		return makePrimitive(obj, type, vf);
 	}
 	
 	
+	private static IValue inject(Type type, TypeStore ts, IValueFactory vf, IValue x) {
+		/*
+		 * Example:
+		 * x maybe EClass(...)
+		 * but type maybe EClassifier
+		 * so need to create EClassifier(x);
+		 */
+		
+		for (Type cons: ts.lookupAlternatives(type)) {
+			if (cons == ((IConstructor)x).getConstructorType()) {
+				return x;
+			}
+			if (cons.getArity() == 0) {
+				continue;
+			}
+			if (ts.getKeywordParameters(cons).containsKey("_inject") && cons.getFieldType(0) == x.getType()) {
+				// found it;
+				return vf.constructor(cons, x);
+			}
+			else {
+				IValue injected = inject(cons.getFieldType(0), ts, vf, x);
+				if (injected != null) {
+					return injected;
+				}
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Returns IValue for an EAttribute
 	 */
@@ -392,23 +453,15 @@ class Convert {
 			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, vf, ts, src)).collect(Collectors.toList());
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
-			
-			if (ref.isUnique()) {
-				if (ref.isOrdered()) {            // M & U & O = ?
-					return vf.list(values.toArray(valuesArray));
-				} else {                          // M & U & !O = set[T]
-					return vf.set(values.toArray(valuesArray));
-				}
-			} else {
-				if (ref.isOrdered()) {            // M & !U & O = list[T]
-					return vf.list(values.toArray(valuesArray));
-				} else {                          // M & !U & !O = map[T, int]
-					throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
-				}
-			}
+			return vf.list(values.toArray(valuesArray));
 		} else {
-			Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(obj2value(refValue, fieldType, vf, ts, src)));
-			return vf.constructor(t);
+			IValue val = obj2value(refValue, fieldType, vf, ts, src);
+			if (val == null) {
+				System.out.println("");
+			}
+			return val;
+//			Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(val));
+//			return vf.constructor(t, val);
 		}
 		
 	}
@@ -556,5 +609,6 @@ class Convert {
 		
 		throw RuntimeExceptionFactory.illegalArgument(vf.string("Unsupported prim: " + obj.toString()), null, null);
 	}
+
 	
 }

@@ -5,8 +5,6 @@ import lang::ecore::Diff;
 import lang::ecore::Refs;
 import util::Maybe;
 
-// TODO: https://stackoverflow.com/questions/9386348/register-ecore-meta-model-programmatically
-
 @doc{Load a model resource `uri` and "parse" it according to `meta`.} 
 @javaClass{lang.ecore.IO}
 java &T<:node load(type[&T<:node] meta, loc uri);
