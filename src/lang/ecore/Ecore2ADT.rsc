@@ -16,7 +16,7 @@ import analysis::graphs::Graph;
 
 void writeEcoreEcore() {
   ec = load(#EPackage, |file:///Users/tvdstorm/CWI/rascal-ecore/src/lang/ecore/Ecore.ecore|);
-  writeEcoreADTModule("lang::ecore::Ecore3", |project://rascal-ecore/src/lang/ecore/Ecore3.rsc|, ec);
+  writeEcoreADTModule("lang::ecore::Ecore3", |project://rascal-ecore/src/lang/ecore/Ecore4.rsc|, ec);
 }
 
 void writeEcoreADTModule(str moduleName, loc l, EPackage pkg) 
@@ -115,8 +115,8 @@ str default4sym(adt(str x, list[Symbol] ps))  { throw "No default for ADT <x> we
 
 
 EPackage flattenInheritance(Realm realm, EPackage mm) {
-  EClass flatten(EClass t) {
-    supers = [ flatten(lookup(mm, #EClass, sup)) | sup <- t.eSuperTypes ]; 
+  EClass flattenClass(EClass t) {
+    supers = [ flattenClass(lookup(mm, #EClass, sup)) | sup <- t.eSuperTypes ]; 
     t.eStructuralFeatures  
       = [ EStructuralFeature(realm.new(#EAttribute, f)) | s <- supers, EStructuralFeature(EAttribute f) <- s.eStructuralFeatures ]
       + [ EStructuralFeature(realm.new(#EReference, f)) | s <- supers, EStructuralFeature(EReference f) <- s.eStructuralFeatures ]
@@ -124,7 +124,10 @@ EPackage flattenInheritance(Realm realm, EPackage mm) {
    return t;
  }
  
- mm.eClassifiers = [ EClassifier(flatten(c)) | EClassifer(EClass c) <- mm.eClassifiers ];
+ EClassifier flatten(EClassifier(EClass c)) = EClassifier(flattenClass(c));
+ default EClassifier flatten(EClassifier c) = c; 
+
+ mm.eClassifiers = [ flatten(c) | EClassifier c <- mm.eClassifiers ];
  return mm;
 }
 
