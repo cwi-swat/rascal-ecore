@@ -31,14 +31,17 @@ bool hasId(node t) {
   if (t has uid) {
     return true;
   }
-  return hasId(getChilderen(t)[0]); // injection
+  if (arity(t) == 0) {
+    return false;
+  }
+  return hasId(getChildren(t)[0]); // injection
 }
 
-bool isRef(Ref[void] _) = true;
+bool isRef(node n) = (Ref[void] _ := n);
 
-default bool isRef(node _) = false;
+bool isId(node n) = (Id _ := n);
 
-bool isObj(node n) = !isRef(n) && hasId(n);
+bool isObj(node n) = !isRef(n) && !isId(n) && hasId(n);
 
 data Id 
   = id(int n)

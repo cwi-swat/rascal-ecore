@@ -112,7 +112,6 @@ Tree placeholder(Symbol s, str field) {
     return appl(regular(s), []);
   }
   str src = "\<<field>:<symbolName(s)>\>";
-  println("PLACHOLDER: <src>");
   return appl(placeholderProd(s), [ char(i) | int i <- chars(src) ]);
 }
   
@@ -318,7 +317,6 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
       if (src == "") {
         return placeholder(nt, field);
       }
-      println("PARSING `<src>` as <nt>");
       return parse(typeCast(#type[&T<:Tree], type(nt, tt.definitions)), src);
     }
   } 

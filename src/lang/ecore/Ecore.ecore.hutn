@@ -1,0 +1,17 @@
+EPackage {
+  name: "Ecore"
+  nsURI: "http://www.eclipse.org/emf/2002/Ecore"
+  eClassifiers: [
+    EClass  { 
+      name: "EModelElement" 
+    }
+    EClass {
+      abstract: true
+      name: "ENamedElement"
+      eSuperTypes: [ 
+        |http://www.eclipse.org/emf/2002/Ecore#/0/ENamedElement| 
+      ] 
+    }
+  ]
+}
+
