@@ -189,9 +189,9 @@ value primOrId(value v) {
   return v;
 }
   
-str getClass(node n) = getName(n);
+str getClass(node n) = getName(uninject(n));
 
-Symbol getType(node n) = typeOf(n);
+Symbol getType(node n) = typeOf(uninject(n));
 
 list[str] getParams(type[&T<:node] meta, Symbol s, str c)
   = [ fld | cons(label(c, s), list[Symbol] ps, _, _) <- meta.definitions[s].alternatives, label(str fld, _) <- ps ];

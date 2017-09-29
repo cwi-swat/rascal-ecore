@@ -9,15 +9,18 @@ start syntax Machine
   ;
   
 syntax State
-  = @id{"name"} "state" Id name Trans* transitions "end"
+  = @id{name} "state" Id name Trans* transitions "end"
   ;
   
   
 syntax Trans
-  = @ref{target:State:/states[name=$target]} 
-  "on" {Id ","}+ events "=\>" Id target 
+  = @ref{target:State:/states[name=$target]} Trans: "on" {Id ","}+ events "=\>" Id target
+  | @ref{target:State:/states[name=$target]} Guarded: "on" {Id ","}+ events "when" Str guard "=\>" Id target
   ;
   
+
+lexical Str
+  = [\"] ![\"]* [\"];
 
 // for testing purposes
 lexical Id

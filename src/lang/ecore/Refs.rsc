@@ -27,6 +27,15 @@ Id getId(&T<:node t) {
   return getId(getChildren(t)[0]);  // injection
 } 
   
+bool isInjection(node t) = !(t has uid) && arity(t) > 0 && hasId(getChildren(t)[0]);
+
+node uninject(node t) {
+  while (isInjection(t)) {
+    t = getChildren(t)[0];
+  }
+  return t;
+}  
+  
 bool hasId(node t) {
   if (t has uid) {
     return true;
