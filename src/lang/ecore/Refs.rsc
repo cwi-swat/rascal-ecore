@@ -11,39 +11,28 @@ data Ref[&T]
   ; 
 
 &T<:node lookup(node root, type[&T<:node] typ, Ref[&T] r) = aNode
-  when /&T<:node aNode := root,
-  //, getId(aNode) == r.uid;  
-  //aNode.uid == r.uid;
-  getId(aNode) == r.uid;
+  when /&T<:node aNode := root, getId(aNode) == r.uid;
 
 default &T<:node lookup(node root, type[&T<:node] typ, Ref[&T] r) {
   throw "Could not find ref <r> to type <typ> in: \n<root>";
 }
-
     
 Ref[&T] referTo(type[&T<:node] typ, &T t) = ref(getId(t));
-
-//Id getId(str _(uid = Id x)) = x;
-//Id getId(str _(_, uid = Id x)) = x;
-//Id getId(str _(_, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, _, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, _, _, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, _, _, _, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, _, _, _, _, _, uid = Id x)) = x;
-//Id getId(str _(_, _, _, _, _, _, _, _, _, uid = Id x)) = x;
 
 Id getId(&T<:node t) {
   kws = getKeywordParameters(t);;
   if ("uid" in kws, Id x := kws["uid"]) {
     return x;
   }
-  // injection
-  return getId(getChildren(t)[0]);
+  return getId(getChildren(t)[0]);  // injection
 } 
   
-bool hasId(node t) = t has uid;
+bool hasId(node t) {
+  if (t has uid) {
+    return true;
+  }
+  return hasId(getChilderen(t)[0]); // injection
+}
 
 bool isRef(Ref[void] _) = true;
 

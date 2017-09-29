@@ -156,7 +156,8 @@ list[EClass] directSubclassesOf(EClass class, EPackage pkg)
 Symbol type2symbol(Ref[EClassifier] typeRef, EPackage pkg, bool xref, bool req, bool many) 
   = classifier2symbol(lookup(pkg, #EClassifier, typeRef), xref, req, many);
   
-Symbol classifier2symbol(EClassifier(EDataType(name = str name)), bool xref, bool req, bool many) = prim2symbol(name);
+Symbol classifier2symbol(EClassifier(EDataType(name = str name)), bool xref, bool req, bool many) 
+  = prim2symbol(name);
 
 Symbol classifier2symbol(EClassifier(EClass(name = str name)), bool xref, bool req, bool many) 
   = xref ? adt("Ref", [adt(name, [])]) : ((req || many) ? adt(name, []) : adt("Maybe", [adt(name, [])]));
@@ -178,31 +179,22 @@ Symbol prim2symbol("EEnumerator") = \tuple([label("literal", \str()), label("nam
 default Symbol prim2symbol(str d) { throw "Unsupported primitive <d>"; }
 
 
-Symbol feature2symbol(EAttribute f, EClass c, EPackage pkg, bool req) {
+Symbol feature2symbol(EStructuralFeature f, EClass c, EPackage pkg, bool req) {
   Symbol t = type2symbol(f.eType, pkg, f has containment ==> !f.containment, req, isMany(f));
   return isMany(f) ? \list(t) : t;
 }
 
-Symbol feature2symbol(EReference f, EClass c, EPackage pkg, bool req) {
-  Symbol t = type2symbol(f.eType, pkg, f has containment ==> !f.containment, req, isMany(f));
-  return isMany(f) ? \list(t) : t;
-}
 
-Symbol feature2arg(EStructuralFeature(EAttribute f), EClass c, EPackage pkg, bool req) 
-  = label(fieldName(f.name), feature2symbol(f, c, pkg, req));
-
-Symbol feature2arg(EStructuralFeature(EReference f), EClass c, EPackage pkg, bool req) 
+Symbol feature2arg(EStructuralFeature f, EClass c, EPackage pkg, bool req) 
   = label(fieldName(f.name), feature2symbol(f, c, pkg, req));
 
 
-bool isRequired(EStructuralFeature(EAttribute f)) = (f.lowerBound == 1 && f.upperBound >= 1);
-bool isRequired(EStructuralFeature(EReference f)) = (f.lowerBound == 1 && f.upperBound >= 1);
 
-bool isDerived(EStructuralFeature(EAttribute f)) = f.derived;
-bool isDerived(EStructuralFeature(EReference f)) = f.derived;
+bool isRequired(EStructuralFeature f) = (f.lowerBound == 1 && f.upperBound >= 1);
 
-bool isMany(EAttribute f) = f.upperBound > 1 || f.upperBound == -1;
-bool isMany(EReference f) = f.upperBound > 1 || f.upperBound == -1;
+bool isDerived(EStructuralFeature f) = f.derived;
+
+bool isMany(EStructuralFeature f) = f.upperBound > 1 || f.upperBound == -1;
 
 
 Production class2prod(EClass class, EPackage pkg) {
@@ -227,20 +219,3 @@ Production classifier2choice(EClassifier(EClass class), EPackage pkg) {
 
 str fieldName(str x) = "\\<uncapitalize(x)>";
 
-  
-
-
-//void flattenSamples() {
-//  ecores = |file:///Users/tvdstorm/CWI/rascal-ecore/src/lang/ecore/samples|.ls;
-//  for (loc e <- ecores) {
-//    try {
-//      EPackage pkg = load(#EPackage, e);
-//      println("Successfully loaded <e>");
-//      flattenInheritance(newRealm(), pkg);
-//      println("Successfully flattenend <e>");
-//    }
-//    catch value x: {
-//      println("Exception: <x> for <e>"); 
-//    }
-//  }
-//}
