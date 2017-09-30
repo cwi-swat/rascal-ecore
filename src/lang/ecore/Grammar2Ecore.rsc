@@ -79,32 +79,32 @@ bool hasConcreteProds(str nt, set[Production] prods) {
 }
 
 //NB: prods *must be labeled*;
-map[str, EClass] grammar2classMap(type[&T<:Tree] g, Realm realm) {
-  map[str, EClass] classMap = ();
+map[str, EClassifier] grammar2classMap(type[&T<:Tree] g, Realm realm) {
+  map[str, EClassifier] classMap = ();
   
   
   for (s:sort(str nt) <- g.definitions) {
     assert nt notin classMap : "class <nt> already defined";
     super = realm.new(#EClass, EClass(name = nt));
-    classMap[nt] = super;
+    classMap[nt] = EClassifier(super);
 
     prods = g.definitions[s].alternatives;
 
     if (!hasConcreteProds(nt, prods)) {
-      classMap[nt].abstract = true;
+      classMap[nt].eClass.abstract = true;
     }
     
     for (Production p <- prods, label(str cls, _) := p.def, cls != nt, cls notin classMap) {
       class = realm.new(#EClass, EClass(name = cls));
-      class.eSuperTypes += [referTo(#EClass, classMap[nt])];
-      classMap[cls] = class;
+      class.eSuperTypes += [referTo(#EClass, classMap[nt].eClass)];
+      classMap[cls] = EClassifier(class);
     }
   }
 
   return classMap;
 }
 
-rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str path] classAndPath] prods2fieldMap(map[str, EClass] classMap, set[Production] prods) {
+rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str path] classAndPath] prods2fieldMap(map[str, EClassifier] classMap, set[Production] prods) {
 
   bool isRequired(str cls, str fld) {
     for (Production p <- prods, p.def.name == cls) {
@@ -143,13 +143,55 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
   fact.ePackage = referTo(#EPackage, pkg);
   
   strType = EClassifier(realm.new(#EDataType, EDataType(name = "EString")));
-
   boolType = EClassifier(realm.new(#EDataType, EDataType(name = "EBool")));
   
-  map[str, EClass] classMap = grammar2classMap(g, realm);
+  map[str, EClassifier] classMap = grammar2classMap(g, realm)
+    + ("EString": strType, "EBool": boolType);
   
       
-  EStructuralFeature toField(str fld, Symbol s, bool req, bool id, str target, str path) {
+  allProds = ( {} | it + g.definitions[s].alternatives | Symbol s <- g.definitions );
+  fieldMap = prods2fieldMap(classMap, allProds);
+  
+
+
+  inh = { <sub.name, sup.name> | str class <- classMap, EClassifier(EClass sub) := classMap[class],
+     Ref[EClass] refSup <- sub.eSuperTypes, EClassifier(EClass sup) <- classMap<1>, sup.uid == refSup.uid };
+
+  for (str class <- reverse(order(inh)) + [ c | str c <- classMap, EClassifier(EClass e) := classMap[c], e.eSuperTypes == [] ]) {
+    for (<class, str field, bool req, bool id, Symbol symbol, <str target, str path>> <- fieldMap) {
+      if (!anySuperClassHasFeature(classMap, class, field)) {
+        classMap[class].eClass.eStructuralFeatures += [ symbol2feature(classMap, realm, field, symbol, req, id, target, path) ];
+      }
+    }
+  }
+    
+  pkg.eClassifiers = [ classMap[k] | k <- classMap ];
+  
+  return pkg;
+}
+
+
+EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool id, str target, str path) {
+    if (s is \iter-star-seps || s is \iter-star) {
+      return makeOpt(makeMany(toField(classMap, realm, fld, s.symbol, req, id, target, path)));
+    }
+    
+    if (s is \iter-seps || s is \iter) {
+      return makeMany(toField(classMap, realm, fld, s.symbol, req, id, target, path));
+    }
+
+    if (s is \opt, s.symbol is lit) {
+      return toField(classMap, realm, fld, s.symbol, req, id, target, path);
+    }
+    
+    if (s is \opt) {
+      return makeOpt(toField(classMap, realm, fld, s.symbol, req, id, target, path));
+    }
+    
+    return toField(classMap, realm, fld, s, req, id, target, path);
+ }  
+ 
+ EStructuralFeature toField(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool id, str target, str path) {
     //println("fld = <fld>, sym = <s>, req = <req>, id= <id>, path = <path>");
     
     // cross references
@@ -157,7 +199,7 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
       f = EStructuralFeature(realm.new(#EReference, EReference(
         name = fld, 
         upperBound = 1,
-        eType = referTo(#EClassifier, EClassifier(classMap[target])))
+        eType = referTo(#EClassifier, classMap[target]))
       ));
       
       if (req) {
@@ -172,7 +214,7 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
       f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
-        eType = referTo(#EClassifier, boolType))
+        eType = referTo(#EClassifier, classMap["EBool"]))
       ));
       
       if (req) {
@@ -187,7 +229,7 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
       f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
-        eType = referTo(#EClassifier, strType))
+        eType = referTo(#EClassifier, classMap["EString"]))
       ));
         
       if (id) {
@@ -203,7 +245,7 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     // containment
     f = EStructuralFeature(realm.new(#EReference, EReference(
       name = fld, 
-      eType = referTo(#EClassifier, EClassifier(classMap[s.name])),
+      eType = referTo(#EClassifier, classMap[s.name]),
       upperBound = 1,
       containment = true)
     ));
@@ -213,56 +255,16 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
     }
     
     return f;
-  }  
+}  
   
       
-  EStructuralFeature symbol2feature(str fld, Symbol s, bool req, bool id, str target, str path) {
-    if (s is \iter-star-seps || s is \iter-star) {
-      return makeOpt(makeMany(toField(fld, s.symbol, req, id, target, path)));
-    }
-    
-    if (s is \iter-seps || s is \iter) {
-      return makeMany(toField(fld, s.symbol, req, id, target, path));
-    }
 
-    if (s is \opt, s.symbol is lit) {
-      return toField(fld, s.symbol, req, id, target, path);
-    }
-    
-    if (s is \opt) {
-      return makeOpt(toField(fld, s.symbol, req, id, target, path));
-    }
-    
-    return toField(fld, s, req, id, target, path);
-  }  
-    
-  allProds = ( {} | it + g.definitions[s].alternatives | Symbol s <- g.definitions );
-  fieldMap = prods2fieldMap(classMap, allProds);
-  
-
-
-  inh = { <sub.name, sup.name> | str class <- classMap, EClass sub := classMap[class],
-     Ref[EClass] refSup <- sub.eSuperTypes, EClass sup <- classMap<1>, sup.uid == refSup.uid };
-
-  for (str class <- reverse(order(inh)) + [ c | str c <- classMap, classMap[c].eSuperTypes == [] ]) {
-    for (<class, str field, bool req, bool id, Symbol symbol, <str target, str path>> <- fieldMap) {
-      if (!anySuperClassHasFeature(classMap, class, field)) {
-        classMap[class].eStructuralFeatures += [ symbol2feature(field, symbol, req, id, target, path) ];
-      }
-    }
-  }
-    
-  pkg.eClassifiers = [strType, boolType] + [ EClassifier(classMap[k]) | k <- classMap ];
-  
-  return pkg;
-}
-
-bool anySuperClassHasFeature(map[str, EClass] classMap, str class, str field) {
-  if (EStructuralFeature f <- classMap[class].eStructuralFeatures, f.name == field) {
+bool anySuperClassHasFeature(map[str, EClassifier] classMap, str class, str field) {
+  if (EStructuralFeature f <- classMap[class].eClass.eStructuralFeatures, f.name == field) {
     return true;
   }
   return ( false | it || anySuperClassHasFeature(classMap, sup.name, field) |
-       Ref[EClass] refSup <- classMap[class].eSuperTypes, EClass sup <- classMap<1>, 
+       Ref[EClass] refSup <- classMap[class].eClass.eSuperTypes, EClassifier(EClass sup) <- classMap<1>, 
           sup.uid == refSup.uid );
 }
 
