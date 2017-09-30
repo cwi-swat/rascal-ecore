@@ -143,23 +143,21 @@ EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pk
   fact.ePackage = referTo(#EPackage, pkg);
   
   strType = EClassifier(realm.new(#EDataType, EDataType(name = "EString")));
-  boolType = EClassifier(realm.new(#EDataType, EDataType(name = "EBool")));
+  boolType = EClassifier(realm.new(#EDataType, EDataType(name = "EBoolean")));
   
-  map[str, EClassifier] classMap = grammar2classMap(g, realm)
-    + ("EString": strType, "EBool": boolType);
+  map[str, EClassifier] classMap = grammar2classMap(g, realm) + ("EString": strType, "EBoolean": boolType);
   
       
   allProds = ( {} | it + g.definitions[s].alternatives | Symbol s <- g.definitions );
   fieldMap = prods2fieldMap(classMap, allProds);
   
-
-
   inh = { <sub.name, sup.name> | str class <- classMap, EClassifier(EClass sub) := classMap[class],
      Ref[EClass] refSup <- sub.eSuperTypes, EClassifier(EClass sup) <- classMap<1>, sup.uid == refSup.uid };
 
   for (str class <- reverse(order(inh)) + [ c | str c <- classMap, EClassifier(EClass e) := classMap[c], e.eSuperTypes == [] ]) {
     for (<class, str field, bool req, bool id, Symbol symbol, <str target, str path>> <- fieldMap) {
       if (!anySuperClassHasFeature(classMap, class, field)) {
+        // NB: we don't check that the feature has the same type etc, we assume: same name ==> same feature.
         classMap[class].eClass.eStructuralFeatures += [ symbol2feature(classMap, realm, field, symbol, req, id, target, path) ];
       }
     }
@@ -214,7 +212,7 @@ EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, s
       f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
-        eType = referTo(#EClassifier, classMap["EBool"]))
+        eType = referTo(#EClassifier, classMap["EBoolean"]))
       ));
       
       if (req) {
