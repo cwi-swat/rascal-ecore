@@ -5,17 +5,18 @@ extend lang::std::Id;
 
 start syntax Machine
   = @ref{initial:State:/states[name=$initial]} 
-  "machine" Id name "init" Id initial State* states "end"
+  Machine: "machine" Id name "init" Id initial State* states "end"
   ;
   
 syntax State
-  = @id{name} "state" Id name Trans* transitions "end"
+  = @id{name} State: "final"? final "state" Id name Trans* transitions "end"
+  | @id{name} Group: "group" Id name  "{" State* states "}"
   ;
   
   
 syntax Trans
-  = @ref{target:State:/states[name=$target]} Normal: "on" {Id ","}+ events "=\>" Id target
-  | @ref{target:State:/states[name=$target]} Guarded: "on" {Id ","}+ events "when" Str guard "=\>" Id target
+  = @ref{target:State:/states[name=$target]} Trans: "on" {Id ","}+ events "=\>" Id target
+  | @ref{target:State:/states[name=$target]} Trans: "on" {Id ","}+ events "when" Str guard "=\>" Id target
   ;
   
 
