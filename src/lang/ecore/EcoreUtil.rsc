@@ -26,6 +26,9 @@ list[EClass] directSubclassesOf(EClass class, EPackage pkg)
 list[EClass] superclassesOf(EClass class, EPackage pkg) 
   = [ lookup(pkg, #EClass, super) | Ref[EClass] super <- class.eSuperTypes ];
 
+set[EClass] allSuperclassesOf(EClass class, EPackage pkg)
+  = { sup, *allSuperclassesOf(sup, pkg) | sup <- superclassesOf(class, pkg) }; 
+
 
 bool isRequired(EStructuralFeature f) = f.lowerBound >= 1;
 

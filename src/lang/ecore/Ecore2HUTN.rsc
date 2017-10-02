@@ -14,7 +14,7 @@ import lang::rascal::format::Grammar;
 private Symbol myLayout = layouts("Standard");
 
 //writeHUTNModule("lang::ecore::EcoreHUTN", |project://rascal-ecore/src/lang/ecore/EcoreHUTN.rsc|, ec, "EPackage");
-void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root, str name = pkg.name, str ext = "<pkg.name>.hutn") {
+void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root, str name = pkg.name, str ext = "<pkg.name>_hutn") {
   src = ecore2rascal(pkg, root);
   m = "module <moduleName>
       '
@@ -38,6 +38,16 @@ str ecore2rascal(EPackage pkg, str root)
 Grammar ecore2grammar(EPackage pkg, str root) 
   = grammar({sort(root)}, ecore2rules(pkg, root));
 
+list[Symbol] nameFor(EClass c, EPackage pkg) = [label("name", lex("Str")), myLayout] 
+ when 
+   EClass sup <- [c, *allSuperclassesOf(c, pkg)], 
+   EStructuralFeature f <- sup.eStructuralFeatures, 
+   f.name == "name";
+
+default list[Symbol] nameFor(EClass c, EPackage pkg) = []; 
+
+//   [ lex("Str"), myLayout | any(EClass sup <- [c, *superclassesOf(c, pkg)], EStructuralFeature f <- sup.eStructuralFeatures, f.name == "name") ];
+
 map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
  
   map[Symbol, Production] defs = ();
@@ -46,8 +56,9 @@ map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
     nt = c.name == root ? \start(sort(c.name)) : sort(c.name);
     kw = lit(c.name);
     fieldNt = sort("<c.name>_Field");
-    fields = \iter-star-seps(fieldNt, [myLayout]);
-    alts = {prod(label(c.name, nt), [kw, myLayout, lit("{"), myLayout, fields, myLayout, lit("}")], {\tag("Foldable"())}) | !c.abstract };
+    fields = label("fields", \iter-star-seps(fieldNt, [myLayout]));
+    alts = {prod(label(c.name, nt), [kw, myLayout, *nameFor(c, pkg), 
+              lit("{"), myLayout, fields, myLayout, lit("}")], {\tag("Foldable"())}) | !c.abstract };
     alts += { prod(nt, [sort(sub.name)], {\tag("inject"())}) | EClass sub <- directSubclassesOf(c, pkg) };
     defs[nt] = choice(nt, alts); 
     
