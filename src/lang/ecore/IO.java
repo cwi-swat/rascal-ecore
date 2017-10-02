@@ -1,6 +1,8 @@
 package lang.ecore;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -368,7 +370,7 @@ public class IO {
 	
 	private static void saveModel(EObject model, ISourceLocation uri) throws IOException {
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.createResource(URI.createURI(uri.getURI().toString()));
+		Resource res = rs.createResource(URI.createURI(project2platform(uri.getURI().toString())));
 		URIResolverRegistry reg = URIResolverRegistry.getInstance();
 		res.getContents().add(model);
 		res.save(reg.getOutputStream(uri, false), Collections.emptyMap());
@@ -378,10 +380,15 @@ public class IO {
 	
 	private static EObject loadModel(ISourceLocation uri) throws IOException {
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.getResource(URI.createURI(uri.getURI().toString()), true);
+		java.net.URI x = uri.getURI();
+		Resource res = rs.getResource(URI.createURI(project2platform(x.toString())), true);
 		URIResolverRegistry reg = URIResolverRegistry.getInstance();
 		res.load(reg.getInputStream(uri), Collections.emptyMap());
 		return res.getContents().get(0);
+	}
+	
+	private static String project2platform(String uri) {
+		return uri.replaceAll("project://", "platform:/resource/");
 	}
 
 
