@@ -1,6 +1,6 @@
 module lang::ecore::Grammar2Ecore
 
-import lang::ecore::Ecore4;
+import lang::ecore::Ecore;
 import lang::ecore::Refs;
 
 import analysis::graphs::Graph;

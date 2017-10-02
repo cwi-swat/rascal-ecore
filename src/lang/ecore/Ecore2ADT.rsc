@@ -1,6 +1,6 @@
 module lang::ecore::Ecore2ADT
 
-import lang::ecore::Ecore4;
+import lang::ecore::Ecore;
 import lang::ecore::Refs;
 import lang::ecore::IO;
 import IO;
@@ -14,11 +14,10 @@ import analysis::graphs::Graph;
 // - annotations
 // - defaultValues from the metametamodel
 
-//writeEcoreADTModule("lang::ecore::Ecore3", |project://rascal-ecore/src/lang/ecore/Ecore3.rsc|, ec);
 
 void writeEcoreEcore() {
   ec = load(#EPackage, |file:///Users/tvdstorm/CWI/rascal-ecore/src/lang/ecore/Ecore.ecore|);
-  writeEcoreADTModule("lang::ecore::Ecore4", |project://rascal-ecore/src/lang/ecore/Ecore4.rsc|, ec);
+  writeEcoreADTModule("lang::ecore::Ecore", |project://rascal-ecore/src/lang/ecore/Ecore.rsc|, ec);
 }
 
 void writeEcoreADTModule(str moduleName, loc l, EPackage pkg) 
