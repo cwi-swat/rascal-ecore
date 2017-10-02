@@ -1,6 +1,7 @@
 module lang::ecore::Ecore2ADT
 
 import lang::ecore::Ecore;
+import lang::ecore::EcoreUtil;
 import lang::ecore::Refs;
 import lang::ecore::IO;
 import IO;
@@ -135,27 +136,6 @@ str default4sym(adt("Maybe", list[Symbol] ps))
 str default4sym(adt(str x, list[Symbol] ps))  { throw "No default for ADT <x> we don\'t know"; }
 
 
-
-EPackage flattenInheritance(Realm realm, EPackage mm) {
-  EClass flattenClass(EClass t) {
-    supers = [ flattenClass(lookup(mm, #EClass, sup)) | sup <- t.eSuperTypes ]; 
-    t.eStructuralFeatures  
-      = [ EStructuralFeature(realm.new(#EAttribute, f)) | s <- supers, EStructuralFeature(EAttribute f) <- s.eStructuralFeatures ]
-      + [ EStructuralFeature(realm.new(#EReference, f)) | s <- supers, EStructuralFeature(EReference f) <- s.eStructuralFeatures ]
-      + t.eStructuralFeatures; 
-   return t;
- }
- 
- EClassifier flatten(EClassifier(EClass c)) = EClassifier(flattenClass(c));
- default EClassifier flatten(EClassifier c) = c; 
-
- mm.eClassifiers = [ flatten(c) | EClassifier c <- mm.eClassifiers ];
- return mm;
-}
-
-list[EClass] directSubclassesOf(EClass class, EPackage pkg) 
-  = [ sub | EClassifier(EClass sub) <- pkg.eClassifiers, sup <- sub.eSuperTypes, lookup(pkg, #EClass, sup) == class ];
-
 Symbol type2symbol(Ref[EClassifier] typeRef, EPackage pkg, bool xref, bool req, bool many) 
   = classifier2symbol(lookup(pkg, #EClassifier, typeRef), xref, req, many);
   
@@ -192,10 +172,6 @@ Symbol feature2arg(EStructuralFeature f, EClass c, EPackage pkg, bool req)
   = label(fieldName(f.name), feature2symbol(f, c, pkg, req));
 
 
-
-bool isRequired(EStructuralFeature f) = f.lowerBound == 1;
-
-bool isMany(EStructuralFeature f) = f.upperBound > 1 || f.upperBound == -1;
 
 
 Production class2prod(EClass class, EPackage pkg) {

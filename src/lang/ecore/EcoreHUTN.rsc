@@ -41,8 +41,6 @@ syntax ETypedElementField
   | "unique" ":" Bool
   | "lowerBound" ":" Int
   | "upperBound" ":" Int
-  | "many" ":" Bool
-  | "required" ":" Bool
   | "eType" ":" Ref[EClassifier]
   | ENamedElementField
   ;
