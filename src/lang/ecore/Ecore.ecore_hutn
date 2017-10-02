@@ -5,8 +5,8 @@ EPackage "ecore" {
     EClass "EAttribute" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       eSuperTypes: [|project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EStructuralFeature|]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "ConsistentTransient"
           key: "constraints"
         }]
@@ -32,8 +32,8 @@ EPackage "ecore" {
     EClass "EAnnotation" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       eSuperTypes: [|project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EModelElement|]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "WellFormed WellFormedSourceURI"
           key: "constraints"
         }]
@@ -150,8 +150,8 @@ EPackage "ecore" {
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EGenericType|
         }
       ]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "InterfaceIsAbstract AtMostOneID UniqueFeatureNames UniqueOperationSignatures NoCircularSuperTypes WellFormedMapEntryClass ConsistentSuperTypes DisjointFeatureAndOperationSignatures"
           key: "constraints"
         }]
@@ -172,13 +172,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClass|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClass|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -291,13 +291,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClass|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EGenericType|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -335,8 +335,8 @@ EPackage "ecore" {
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EInt|
         }
       ]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "WellFormedInstanceTypeName UniqueTypeParameterNames"
           key: "constraints"
         }]
@@ -349,13 +349,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClassifier|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EString|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -366,9 +366,9 @@ EPackage "ecore" {
         }
         EAttribute "instanceClass" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClassifier|
-          eGenericType: EGenericType  {
+          eGenericType: EGenericType {
             eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EJavaClass|
-            eTypeArguments: [EGenericType  {
+            eTypeArguments: [EGenericType {
               
             }]
           }
@@ -390,13 +390,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClassifier|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EString|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -458,8 +458,8 @@ EPackage "ecore" {
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EEnumLiteral|
         }
       ]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "UniqueEnumeratorNames UniqueEnumeratorLiterals"
           key: "constraints"
         }]
@@ -576,8 +576,8 @@ EPackage "ecore" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       abstract: true
       eSuperTypes: [|project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EModelElement|]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "WellFormedName"
           key: "constraints"
         }]
@@ -618,27 +618,27 @@ EPackage "ecore" {
         }
         EOperation "eContents" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject|
-          eGenericType: EGenericType  {
+          eGenericType: EGenericType {
             eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EEList|
-            eTypeArguments: [EGenericType  {
+            eTypeArguments: [EGenericType {
               eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject|
             }]
           }
         }
         EOperation "eAllContents" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject|
-          eGenericType: EGenericType  {
+          eGenericType: EGenericType {
             eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//ETreeIterator|
-            eTypeArguments: [EGenericType  {
+            eTypeArguments: [EGenericType {
               eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject|
             }]
           }
         }
         EOperation "eCrossReferences" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject|
-          eGenericType: EGenericType  {
+          eGenericType: EGenericType {
             eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EEList|
-            eTypeArguments: [EGenericType  {
+            eTypeArguments: [EGenericType {
               eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject|
             }]
           }
@@ -703,9 +703,9 @@ EPackage "ecore" {
             }
             EParameter "arguments" {
               eOperation: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EObject/eInvoke|
-              eGenericType: EGenericType  {
+              eGenericType: EGenericType {
                 eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EEList|
-                eTypeArguments: [EGenericType  {
+                eTypeArguments: [EGenericType {
                   
                 }]
               }
@@ -732,8 +732,8 @@ EPackage "ecore" {
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EBoolean|
         }
       ]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "UniqueParameterNames UniqueTypeParameterNames NoRepeatingVoid"
           key: "constraints"
         }]
@@ -768,13 +768,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EOperation|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClassifier|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -790,13 +790,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EOperation|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EGenericType|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -818,8 +818,8 @@ EPackage "ecore" {
         }]
         eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClassifier|
       }]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "WellFormedNsURI WellFormedNsPrefix UniqueSubpackageNames UniqueClassifierNames UniqueNsURIs"
           key: "constraints"
         }]
@@ -881,8 +881,8 @@ EPackage "ecore" {
     EClass "EReference" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       eSuperTypes: [|project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EStructuralFeature|]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "ConsistentOpposite SingleContainer ConsistentKeys ConsistentUnique ConsistentContainer"
           key: "constraints"
         }]
@@ -938,16 +938,16 @@ EPackage "ecore" {
         }
         EOperation "getContainerClass" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EStructuralFeature|
-          eGenericType: EGenericType  {
+          eGenericType: EGenericType {
             eClassifier: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EJavaClass|
-            eTypeArguments: [EGenericType  {
+            eTypeArguments: [EGenericType {
               
             }]
           }
         }
       ]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "ValidDefaultValueLiteral"
           key: "constraints"
         }]
@@ -1002,8 +1002,8 @@ EPackage "ecore" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       abstract: true
       eSuperTypes: [|project://rascal-ecore/src/lang/ecore/Ecore.ecore#//ENamedElement|]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "ValidLowerBound ValidUpperBound ConsistentBounds ValidType"
           key: "constraints"
         }]
@@ -1051,13 +1051,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//ETypedElement|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EClassifier|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -1073,13 +1073,13 @@ EPackage "ecore" {
           eContainingClass: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//ETypedElement|
           unsettable: true
           eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EGenericType|
-          eAnnotations: [EAnnotation  {
+          eAnnotations: [EAnnotation {
             details: [
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedIsSetVisibility"
               }
-              EStringToStringMapEntry  {
+              EStringToStringMapEntry {
                 value: "true"
                 key: "suppressedUnsetVisibility"
               }
@@ -1093,8 +1093,8 @@ EPackage "ecore" {
     EDataType "EBigDecimal" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.math.BigDecimal"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#decimal"
           key: "baseType"
         }]
@@ -1105,8 +1105,8 @@ EPackage "ecore" {
     EDataType "EBigInteger" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.math.BigInteger"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#integer"
           key: "baseType"
         }]
@@ -1117,8 +1117,8 @@ EPackage "ecore" {
     EDataType "EBoolean" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "boolean"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#boolean"
           key: "baseType"
         }]
@@ -1129,13 +1129,13 @@ EPackage "ecore" {
     EDataType "EBooleanObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Boolean"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EBoolean"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EBoolean:Object"
             key: "name"
           }
@@ -1147,8 +1147,8 @@ EPackage "ecore" {
     EDataType "EByte" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "byte"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#byte"
           key: "baseType"
         }]
@@ -1159,8 +1159,8 @@ EPackage "ecore" {
     EDataType "EByteArray" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "byte[]"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#hexBinary"
           key: "baseType"
         }]
@@ -1171,13 +1171,13 @@ EPackage "ecore" {
     EDataType "EByteObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Byte"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EByte"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EByte:Object"
             key: "name"
           }
@@ -1193,13 +1193,13 @@ EPackage "ecore" {
     EDataType "ECharacterObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Character"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EChar"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EChar:Object"
             key: "name"
           }
@@ -1220,8 +1220,8 @@ EPackage "ecore" {
     EDataType "EDouble" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "double"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#double"
           key: "baseType"
         }]
@@ -1232,13 +1232,13 @@ EPackage "ecore" {
     EDataType "EDoubleObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Double"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EDouble"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EDouble:Object"
             key: "name"
           }
@@ -1273,8 +1273,8 @@ EPackage "ecore" {
     EDataType "EFloat" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "float"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#float"
           key: "baseType"
         }]
@@ -1285,13 +1285,13 @@ EPackage "ecore" {
     EDataType "EFloatObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Float"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EFloat"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EFloat:Object"
             key: "name"
           }
@@ -1303,8 +1303,8 @@ EPackage "ecore" {
     EDataType "EInt" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "int"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#int"
           key: "baseType"
         }]
@@ -1315,13 +1315,13 @@ EPackage "ecore" {
     EDataType "EIntegerObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Integer"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EInt"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EInt:Object"
             key: "name"
           }
@@ -1344,8 +1344,8 @@ EPackage "ecore" {
     EDataType "ELong" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "long"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#long"
           key: "baseType"
         }]
@@ -1356,13 +1356,13 @@ EPackage "ecore" {
     EDataType "ELongObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Long"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "ELong"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "ELong:Object"
             key: "name"
           }
@@ -1397,8 +1397,8 @@ EPackage "ecore" {
     EDataType "EShort" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "short"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#short"
           key: "baseType"
         }]
@@ -1409,13 +1409,13 @@ EPackage "ecore" {
     EDataType "EShortObject" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.Short"
-      eAnnotations: [EAnnotation  {
+      eAnnotations: [EAnnotation {
         details: [
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EShort"
             key: "baseType"
           }
-          EStringToStringMapEntry  {
+          EStringToStringMapEntry {
             value: "EShort:Object"
             key: "name"
           }
@@ -1427,8 +1427,8 @@ EPackage "ecore" {
     EDataType "EString" {
       ePackage: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#/|
       instanceClassName: "java.lang.String"
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "http://www.w3.org/2001/XMLSchema#string"
           key: "baseType"
         }]
@@ -1468,8 +1468,8 @@ EPackage "ecore" {
         }]
         eType: |project://rascal-ecore/src/lang/ecore/Ecore.ecore#//EBoolean|
       }]
-      eAnnotations: [EAnnotation  {
-        details: [EStringToStringMapEntry  {
+      eAnnotations: [EAnnotation {
+        details: [EStringToStringMapEntry {
           value: "ConsistentType ConsistentBounds ConsistentArguments"
           key: "constraints"
         }]

@@ -49,7 +49,7 @@ str obj2hutn(node n, type[node] meta, int ind) {
     
     str body = intercalate("\n<indent(ind + 1)>", props); 
 
-    return "<class> <name != "" ? name : ""> {\n<indent(ind + 1)><body>\n<indent(ind)>}";
+    return "<class> <name != "" ? name + " " : "">{\n<indent(ind + 1)><body>\n<indent(ind)>}";
   }
 }
 
