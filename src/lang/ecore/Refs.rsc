@@ -27,13 +27,22 @@ Id getId(&T<:node t) {
   return getId(getChildren(t)[0]);  // injection
 } 
   
-bool isInjection(node t) = !(t has uid) && arity(t) > 0 && hasId(getChildren(t)[0]);
+bool isInjection(node t) = !(t has uid);
+ // = !(t has uid) && (arity(t) > 0 && value v := getChildren(t)[0] && node n := v ==> isInjection(n));
 
 node uninject(node t) {
-  while (isInjection(t)) {
-    t = getChildren(t)[0];
+  println(getName(t));
+  if (t has uid) { // assumes uid is never *set* on injections
+    return t;
   }
-  return t;
+  return uninject(typeCast(#node, getChildren(t)[0])); 
+  
+  //value v = t;
+  //while (node n := v, isInjection(n)) {
+  //  v = getChildren(n)[0];
+  //  t = n;
+  //}
+  //return t;
 }  
   
 bool hasId(node t) {

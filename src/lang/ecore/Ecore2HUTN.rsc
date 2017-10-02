@@ -19,8 +19,15 @@ void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root) {
   m = "module <moduleName>
       '
       'extend lang::ecore::Base;
+      'import util::IDE;
+      'import ParseTree;
       '
-      '<src>";
+      '<src>
+      'void main() {
+      '  registerLanguage(\"<pkg.name>\", \"<pkg.name>.hutn\", start[<root>](str src, loc org) {
+      '    return parse(#start[<root>], src, org);
+      '  });
+      '}";
       
   writeFile(path, m);
 }
@@ -41,14 +48,12 @@ map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
     fieldNt = sort("<c.name>_Field");
     fields = \iter-star-seps(fieldNt, [myLayout]);
     alts = {prod(label(c.name, nt), [kw, myLayout, lit("{"), myLayout, fields, myLayout, lit("}")], {}) | !c.abstract };
-    alts += { prod(label(sub.name, nt), [sort(sub.name)], {\tag("inject"())}) | EClass sub <- directSubclassesOf(c, pkg) };
+    alts += { prod(nt, [sort(sub.name)], {\tag("inject"())}) | EClass sub <- directSubclassesOf(c, pkg) };
     defs[nt] = choice(nt, alts); 
     
-    if (!c.abstract) {
-      fieldAlts = { feature2prod(f, fieldNt, lookup(pkg, #EClassifier, f.eType)) | EStructuralFeature f <- c.eStructuralFeatures, !f.derived, f.eType != null() /* ??? */ };
-      fieldAlts += { prod(label("<sub.name>_Field", fieldNt), [sort("<sub.name>_Field")], {\tag("inject"())}) | EClass sub <- directSubclassesOf(c, pkg) };
-      defs[fieldNt] = choice(fieldNt, fieldAlts);
-    }
+    fieldAlts = { feature2prod(f, fieldNt, lookup(pkg, #EClassifier, f.eType)) | EStructuralFeature f <- c.eStructuralFeatures, !f.derived, f.eType != null() /* ??? */ };
+    fieldAlts += { prod(fieldNt, [sort("<sup.name>_Field")], {\tag("inject"())}) | EClass sup <- superclassesOf(c, pkg) };
+    defs[fieldNt] = choice(fieldNt, fieldAlts);
   } 
   
   return defs;

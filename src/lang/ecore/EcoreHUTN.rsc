@@ -1,13 +1,16 @@
 module lang::ecore::EcoreHUTN
 
 extend lang::ecore::Base;
+import util::IDE;
+import ParseTree;
 
 
 syntax EOperation_Field =
-   eParameters: "eParameters"  ":"  "["  EParameter*  "]" 
+   eContainingClass: "eContainingClass"  ":"  Ref[EClass] 
   |  eGenericExceptions: "eGenericExceptions"  ":"  "["  EGenericType*  "]" 
   |  eTypeParameters: "eTypeParameters"  ":"  "["  ETypeParameter*  "]" 
-  |  eContainingClass: "eContainingClass"  ":"  Ref[EClass] 
+  |  eParameters: "eParameters"  ":"  "["  EParameter*  "]" 
+  | @inject ETypedElement_Field 
   |  eExceptions: "eExceptions"  ":"  "["  Ref[EClassifier]*  "]" 
   ;
 
@@ -17,19 +20,16 @@ syntax EPackage_Field =
   |  eSuperPackage: "eSuperPackage"  ":"  Ref[EPackage] 
   |  eFactoryInstance: "eFactoryInstance"  ":"  Ref[EFactory] 
   |  nsPrefix: "nsPrefix"  ":"  Str 
+  | @inject ENamedElement_Field 
   |  eSubpackages: "eSubpackages"  ":"  "["  EPackage*  "]" 
   ;
 
-syntax EAttribute_Field =
-   iD: "iD"  ":"  Bool 
-  ;
-
 syntax ENamedElement =
-  @inject EPackage: EPackage 
-  | @inject ETypedElement: ETypedElement 
-  | @inject EEnumLiteral: EEnumLiteral 
-  | @inject ETypeParameter: ETypeParameter 
-  | @inject EClassifier: EClassifier 
+  @inject ETypeParameter 
+  | @inject ETypedElement 
+  | @inject EEnumLiteral 
+  | @inject EClassifier 
+  | @inject EPackage 
   ;
 
 syntax ETypeParameter =
@@ -40,25 +40,24 @@ syntax EGenericType =
    EGenericType: "EGenericType"  "{"  EGenericType_Field*  "}" 
   ;
 
-syntax EAnnotation_Field =
-   source: "source"  ":"  Str 
-  |  eModelElement: "eModelElement"  ":"  Ref[EModelElement] 
-  |  details: "details"  ":"  "["  EStringToStringMapEntry*  "]" 
-  |  references: "references"  ":"  "["  Ref[EObject]*  "]" 
-  |  contents: "contents"  ":"  "["  EObject*  "]" 
-  ;
-
 syntax EClass_Field =
-   abstract: "abstract"  ":"  Bool 
+   eGenericSuperTypes: "eGenericSuperTypes"  ":"  "["  EGenericType*  "]" 
   |  eOperations: "eOperations"  ":"  "["  EOperation*  "]" 
   |  interface: "interface"  ":"  Bool 
-  |  eSuperTypes: "eSuperTypes"  ":"  "["  Ref[EClass]*  "]" 
-  |  eGenericSuperTypes: "eGenericSuperTypes"  ":"  "["  EGenericType*  "]" 
+  |  abstract: "abstract"  ":"  Bool 
   |  eStructuralFeatures: "eStructuralFeatures"  ":"  "["  EStructuralFeature*  "]" 
+  | @inject EClassifier_Field 
+  |  eSuperTypes: "eSuperTypes"  ":"  "["  Ref[EClass]*  "]" 
   ;
 
 syntax EFactory_Field =
    ePackage: "ePackage"  ":"  Ref[EPackage] 
+  | @inject EModelElement_Field 
+  ;
+
+syntax ENamedElement_Field =
+  @inject EModelElement_Field 
+  |  name: "name"  ":"  Str 
   ;
 
 syntax EOperation =
@@ -66,10 +65,10 @@ syntax EOperation =
   ;
 
 syntax EGenericType_Field =
-   eTypeArguments: "eTypeArguments"  ":"  "["  EGenericType*  "]" 
+   eUpperBound: "eUpperBound"  ":"  EGenericType 
   |  eClassifier: "eClassifier"  ":"  Ref[EClassifier] 
   |  eLowerBound: "eLowerBound"  ":"  EGenericType 
-  |  eUpperBound: "eUpperBound"  ":"  EGenericType 
+  |  eTypeArguments: "eTypeArguments"  ":"  "["  EGenericType*  "]" 
   |  eTypeParameter: "eTypeParameter"  ":"  Ref[ETypeParameter] 
   ;
 
@@ -78,17 +77,22 @@ syntax EStringToStringMapEntry =
   ;
 
 syntax EModelElement =
-  @inject ENamedElement: ENamedElement 
-  | @inject EFactory: EFactory 
-  | @inject EAnnotation: EAnnotation 
+  @inject EAnnotation 
+  | @inject ENamedElement 
+  | @inject EFactory 
   ;
 
 syntax EParameter_Field =
-   eOperation: "eOperation"  ":"  Ref[EOperation] 
+  @inject ETypedElement_Field 
+  |  eOperation: "eOperation"  ":"  Ref[EOperation] 
   ;
 
 syntax EObject_Field =
   ...
+  ;
+
+syntax EModelElement_Field =
+   eAnnotations: "eAnnotations"  ":"  "["  EAnnotation*  "]" 
   ;
 
 syntax EStringToStringMapEntry_Field =
@@ -100,13 +104,28 @@ syntax EClass =
    EClass: "EClass"  "{"  EClass_Field*  "}" 
   ;
 
+syntax EAttribute_Field =
+   iD: "iD"  ":"  Bool 
+  | @inject EStructuralFeature_Field 
+  ;
+
+syntax ETypedElement_Field =
+   unique: "unique"  ":"  Bool 
+  |  ordered: "ordered"  ":"  Bool 
+  |  eType: "eType"  ":"  Ref[EClassifier] 
+  |  lowerBound: "lowerBound"  ":"  Int 
+  | @inject ENamedElement_Field 
+  |  upperBound: "upperBound"  ":"  Int 
+  |  eGenericType: "eGenericType"  ":"  EGenericType 
+  ;
+
 syntax EAnnotation =
    EAnnotation: "EAnnotation"  "{"  EAnnotation_Field*  "}" 
   ;
 
 syntax EStructuralFeature =
-  @inject EReference: EReference 
-  | @inject EAttribute: EAttribute 
+  @inject EAttribute 
+  | @inject EReference 
   ;
 
 syntax EAttribute =
@@ -118,9 +137,9 @@ start syntax EPackage =
   ;
 
 syntax ETypedElement =
-  @inject EStructuralFeature: EStructuralFeature 
-  | @inject EParameter: EParameter 
-  | @inject EOperation: EOperation 
+  @inject EStructuralFeature 
+  | @inject EOperation 
+  | @inject EParameter 
   ;
 
 syntax EEnumLiteral =
@@ -128,19 +147,49 @@ syntax EEnumLiteral =
   ;
 
 syntax EDataType =
-  @inject EEnum: EEnum 
-  |  EDataType: "EDataType"  "{"  EDataType_Field*  "}" 
+   EDataType: "EDataType"  "{"  EDataType_Field*  "}" 
+  | @inject EEnum 
+  ;
+
+syntax EStructuralFeature_Field =
+   unsettable: "unsettable"  ":"  Bool 
+  |  derived: "derived"  ":"  Bool 
+  |  volatile: "volatile"  ":"  Bool 
+  |  eContainingClass: "eContainingClass"  ":"  Ref[EClass] 
+  |  defaultValueLiteral: "defaultValueLiteral"  ":"  Str 
+  | @inject ETypedElement_Field 
+  |  transient: "transient"  ":"  Bool 
+  |  changeable: "changeable"  ":"  Bool 
+  ;
+
+syntax EAnnotation_Field =
+   details: "details"  ":"  "["  EStringToStringMapEntry*  "]" 
+  |  eModelElement: "eModelElement"  ":"  Ref[EModelElement] 
+  |  source: "source"  ":"  Str 
+  | @inject EModelElement_Field 
+  |  references: "references"  ":"  "["  Ref[EObject]*  "]" 
+  |  contents: "contents"  ":"  "["  EObject*  "]" 
   ;
 
 syntax EReference_Field =
-   eOpposite: "eOpposite"  ":"  Ref[EReference] 
+  @inject EStructuralFeature_Field 
   |  containment: "containment"  ":"  Bool 
   |  eKeys: "eKeys"  ":"  "["  Ref[EAttribute]*  "]" 
   |  resolveProxies: "resolveProxies"  ":"  Bool 
+  |  eOpposite: "eOpposite"  ":"  Ref[EReference] 
+  ;
+
+syntax EClassifier_Field =
+   instanceTypeName: "instanceTypeName"  ":"  Str 
+  | @inject ENamedElement_Field 
+  |  eTypeParameters: "eTypeParameters"  ":"  "["  ETypeParameter*  "]" 
+  |  ePackage: "ePackage"  ":"  Ref[EPackage] 
+  |  instanceClassName: "instanceClassName"  ":"  Str 
   ;
 
 syntax EEnum_Field =
-   eLiterals: "eLiterals"  ":"  "["  EEnumLiteral*  "]" 
+  @inject EDataType_Field 
+  |  eLiterals: "eLiterals"  ":"  "["  EEnumLiteral*  "]" 
   ;
 
 syntax EFactory =
@@ -149,6 +198,7 @@ syntax EFactory =
 
 syntax ETypeParameter_Field =
    eBounds: "eBounds"  ":"  "["  EGenericType*  "]" 
+  | @inject ENamedElement_Field 
   ;
 
 syntax EObject =
@@ -156,14 +206,15 @@ syntax EObject =
   ;
 
 syntax EDataType_Field =
-   serializable: "serializable"  ":"  Bool 
-  | @inject EEnum_Field: EEnum_Field 
+  @inject EClassifier_Field 
+  |  serializable: "serializable"  ":"  Bool 
   ;
 
 syntax EEnumLiteral_Field =
-   literal: "literal"  ":"  Str 
+  @inject ENamedElement_Field 
   |  \value: "value"  ":"  Int 
   |  instance: "instance"  ":"  "unsupported:EEnumerator" 
+  |  literal: "literal"  ":"  Str 
   |  eEnum: "eEnum"  ":"  Ref[EEnum] 
   ;
 
@@ -176,10 +227,16 @@ syntax EEnum =
   ;
 
 syntax EClassifier =
-  @inject EDataType: EDataType 
-  | @inject EClass: EClass 
+  @inject EDataType 
+  | @inject EClass 
   ;
 
 syntax EReference =
    EReference: "EReference"  "{"  EReference_Field*  "}" 
   ;
+
+void main() {
+  registerLanguage("ecore", "ecore.hutn", start[EPackage](str src, loc org) {
+    return parse(#start[EPackage], src, org);
+  });
+}

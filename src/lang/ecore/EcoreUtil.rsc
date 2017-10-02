@@ -23,6 +23,10 @@ EPackage flattenInheritance(Realm realm, EPackage mm) {
 list[EClass] directSubclassesOf(EClass class, EPackage pkg) 
   = [ sub | EClassifier(EClass sub) <- pkg.eClassifiers, sup <- sub.eSuperTypes, lookup(pkg, #EClass, sup) == class ];
 
+list[EClass] superclassesOf(EClass class, EPackage pkg) 
+  = [ lookup(pkg, #EClass, super) | Ref[EClass] super <- class.eSuperTypes ];
+
+
 bool isRequired(EStructuralFeature f) = f.lowerBound >= 1;
 
 bool isMany(EStructuralFeature f) = f.upperBound > 1 || f.upperBound == -1;
