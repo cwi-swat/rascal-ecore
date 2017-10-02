@@ -13,9 +13,9 @@ import lang::rascal::format::Grammar;
 
 private Symbol myLayout = layouts("Standard");
 
-//writeHUTNModule("lang::ecore::EcoreHUTN", |project://rascal-ecore/src/lang/ecore/EcoreHUTN2.rsc|, ec);
-void writeHUTNModule(str moduleName, loc path, EPackage pkg, EClassifier root = pkg.eClassifiers[0]) {
-  src = ecore2rascal(pkg, root = root);
+//writeHUTNModule("lang::ecore::EcoreHUTN", |project://rascal-ecore/src/lang/ecore/EcoreHUTN.rsc|, ec, "EPackage");
+void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root) {
+  src = ecore2rascal(pkg, root);
   m = "module <moduleName>
       '
       'extend lang::ecore::Base;
@@ -25,18 +25,18 @@ void writeHUTNModule(str moduleName, loc path, EPackage pkg, EClassifier root = 
   writeFile(path, m);
 }
 
-str ecore2rascal(EPackage pkg, EClassifier root = pkg.eClassifiers[0])
-  = grammar2rascal(ecore2grammar(pkg, root = root));
+str ecore2rascal(EPackage pkg, str root)
+  = grammar2rascal(ecore2grammar(pkg, root));
 
-Grammar ecore2grammar(EPackage pkg, EClassifier root = pkg.eClassifiers[0]) 
-  = grammar({sort(root.name)}, ecore2rules(pkg));
+Grammar ecore2grammar(EPackage pkg, str root) 
+  = grammar({sort(root)}, ecore2rules(pkg, root));
 
-map[Symbol, Production] ecore2rules(EPackage pkg) {
+map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
  
   map[Symbol, Production] defs = ();
  
   for (EClassifier(EClass c) <- pkg.eClassifiers) {
-    nt = sort(c.name);
+    nt = c.name == root ? \start(sort(c.name)) : sort(c.name);
     kw = lit(c.name);
     fieldNt = sort("<c.name>_Field");
     fields = \iter-star-seps(fieldNt, [myLayout]);

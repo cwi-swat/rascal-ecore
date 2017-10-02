@@ -3,172 +3,183 @@ module lang::ecore::EcoreHUTN
 extend lang::ecore::Base;
 
 
-start syntax EPackage
-  = "EPackage" "{" EPackageField* "}" ;
-
-syntax EPackageField
-  = "nsURI" ":" Str
-  | "nsPrefix" ":" Str
-  | "eClassifiers" ":" "[" EClassifier* "]"
-  | "eSubpackages" ":" "[" EPackage* "]"
-  | ENamedElementField
+syntax EOperation_Field =
+   eParameters: "eParameters"  ":"  "["  EParameter*  "]" 
+  |  eGenericExceptions: "eGenericExceptions"  ":"  "["  EGenericType*  "]" 
+  |  eTypeParameters: "eTypeParameters"  ":"  "["  ETypeParameter*  "]" 
+  |  eContainingClass: "eContainingClass"  ":"  Ref[EClass] 
+  |  eExceptions: "eExceptions"  ":"  "["  Ref[EClassifier]*  "]" 
   ;
 
-syntax EModelElement
-  = ENamedElement
-  | EAnnotation
-  ;
-  
-syntax EModelElementField
-  = "eAnnotations" ":" "[" EAnnotation* "]"
-  ;
-
-syntax ENamedElement
-  = ETypedElement
-  | EClassifier
-  | EPackage
-  | EEnumeLiteral
-  | EDataType
-  ;
-  
-syntax ENamedElementField
-  = "name" ":" Str
-  | EModelElementField
-  ;
-  
-syntax ETypedElementField
-  = "ordered" ":" Bool
-  | "unique" ":" Bool
-  | "lowerBound" ":" Int
-  | "upperBound" ":" Int
-  | "eType" ":" Ref[EClassifier]
-  | ENamedElementField
+syntax EPackage_Field =
+   nsURI: "nsURI"  ":"  Str 
+  |  eClassifiers: "eClassifiers"  ":"  "["  EClassifier*  "]" 
+  |  eSuperPackage: "eSuperPackage"  ":"  Ref[EPackage] 
+  |  eFactoryInstance: "eFactoryInstance"  ":"  Ref[EFactory] 
+  |  nsPrefix: "nsPrefix"  ":"  Str 
+  |  eSubpackages: "eSubpackages"  ":"  "["  EPackage*  "]" 
   ;
 
-syntax ETypedElement
-  = EOperation
-  | EParameter
-  | EStructuralFeature
+syntax EAttribute_Field =
+   iD: "iD"  ":"  Bool 
   ;
 
-syntax EClassifier
-  = EDataType
-  | EClass
-  ;
-  
-syntax EClassifierField
-  = ENamedElementField
-  ;  
-  
-syntax EClass
-  = "EClass" "{" EClassField* "}"
-  ;
-  
-syntax EClassField
-  = "abstract" ":" Bool
-  | "interface" ":" Bool
-  | "eStructuralFeatures" ":" "[" EStructuralFeature* "]"
-  | "eOperations" ":" "[" EOperation* "]"
-  | "eSuperTypes" ":" "[" Ref[EClass]* "]"
-  | EClassifierField
-  ;
-    
-syntax EDataType
-  = "EDataType" "{" EDataTypeField* "}"
-  | EEnum
+syntax ENamedElement =
+  @inject EPackage: EPackage 
+  | @inject ETypedElement: ETypedElement 
+  | @inject EEnumLiteral: EEnumLiteral 
+  | @inject ETypeParameter: ETypeParameter 
+  | @inject EClassifier: EClassifier 
   ;
 
-syntax EDataTypeField
-  = "serializable" ":" Bool
-  | EClassifierField
-  ;
-  
-syntax EEnum
-  = "EENum" "{" EENumField* "}"
-  ;
-  
-syntax EEnumField
-  = "eLiterals" ":" "[" EEnumLiteral* "]"
-  | EDataTypeField;
-  
-syntax EEnumLiteral
-  = "EEnumLiteral" "{" EEnumLiteralField* "}"
-  ;
-  
-syntax EEnumLiteralField
-  = "value" ":" Int
-  | ENamedElementField
-  ;    
-  
-syntax EStructuralFeature
-  = EReference
-  | EAttribute
-  ;
-  
-syntax EStructuralFeatureField
-  = "changeable" ":" Bool
-  | "unsettable" ":" Bool
-  | "derived" ":" Bool
-  | ETypedElementField
-  ;
-  
-syntax EReference
-  = "EReference" "{" EReferenceField* "}"
-  ;  
-  
-syntax EReferenceField
-  = "containment" ":" Bool
-  | "container" ":" Bool
-  | "resolveProxies" ":" Bool
-  | "eOpposite" ":" Ref[EReference]
-  | "eReferenceType" ":" Ref[EClass]
-  | EStructuralFeatureField
+syntax ETypeParameter =
+   ETypeParameter: "ETypeParameter"  "{"  ETypeParameter_Field*  "}" 
   ;
 
-syntax EAttribute
-  = "EAttribute" "{" EAttributeField* "}"
+syntax EGenericType =
+   EGenericType: "EGenericType"  "{"  EGenericType_Field*  "}" 
   ;
 
-syntax EAttributeField
-  = "iD" ":" Bool
-  | EStructuralFeatureField
-  ;  
-  
-syntax EOperation
-  = "EOperation" "{" EOperationField* "}"
+syntax EAnnotation_Field =
+   source: "source"  ":"  Str 
+  |  eModelElement: "eModelElement"  ":"  Ref[EModelElement] 
+  |  details: "details"  ":"  "["  EStringToStringMapEntry*  "]" 
+  |  references: "references"  ":"  "["  Ref[EObject]*  "]" 
+  |  contents: "contents"  ":"  "["  EObject*  "]" 
   ;
-  
-syntax EOperationField
-  = ETypedElementField
-  | "eExceptions" ":" "[" Ref[EClass] "]"
-  | "eParameters" ":" "[" EParameter* "]"
+
+syntax EClass_Field =
+   abstract: "abstract"  ":"  Bool 
+  |  eOperations: "eOperations"  ":"  "["  EOperation*  "]" 
+  |  interface: "interface"  ":"  Bool 
+  |  eSuperTypes: "eSuperTypes"  ":"  "["  Ref[EClass]*  "]" 
+  |  eGenericSuperTypes: "eGenericSuperTypes"  ":"  "["  EGenericType*  "]" 
+  |  eStructuralFeatures: "eStructuralFeatures"  ":"  "["  EStructuralFeature*  "]" 
   ;
-  
-syntax EParameter
-  = "EParameter" "{" EParameterField* "}"
+
+syntax EFactory_Field =
+   ePackage: "ePackage"  ":"  Ref[EPackage] 
   ;
-  
-syntax EParameterField
-  = ETypedElementField
+
+syntax EOperation =
+   EOperation: "EOperation"  "{"  EOperation_Field*  "}" 
   ;
-  
-syntax EAnnotation
-  = "EAnnotation" "{" EAnnotationField* "}"
+
+syntax EGenericType_Field =
+   eTypeArguments: "eTypeArguments"  ":"  "["  EGenericType*  "]" 
+  |  eClassifier: "eClassifier"  ":"  Ref[EClassifier] 
+  |  eLowerBound: "eLowerBound"  ":"  EGenericType 
+  |  eUpperBound: "eUpperBound"  ":"  EGenericType 
+  |  eTypeParameter: "eTypeParameter"  ":"  Ref[ETypeParameter] 
   ;
-  
-syntax EAnnotationField
-  = "source" ":" String
-  | "details" ":" EStringToMapEntry
-  | EModelElementField
+
+syntax EStringToStringMapEntry =
+   EStringToStringMapEntry: "EStringToStringMapEntry"  "{"  EStringToStringMapEntry_Field*  "}" 
   ;
-  
-syntax EStringToMapEntry
-  = "EStringToMapEntry" "{" EStringToMapEntryField* "}"
+
+syntax EModelElement =
+  @inject ENamedElement: ENamedElement 
+  | @inject EFactory: EFactory 
+  | @inject EAnnotation: EAnnotation 
   ;
-  
-syntax EStringToMapEntryField
-  = "key" ":" Str
-  | "value" ":" Str
+
+syntax EParameter_Field =
+   eOperation: "eOperation"  ":"  Ref[EOperation] 
   ;
-  
-  
+
+syntax EObject_Field =
+  ...
+  ;
+
+syntax EStringToStringMapEntry_Field =
+   key: "key"  ":"  Str 
+  |  \value: "value"  ":"  Str 
+  ;
+
+syntax EClass =
+   EClass: "EClass"  "{"  EClass_Field*  "}" 
+  ;
+
+syntax EAnnotation =
+   EAnnotation: "EAnnotation"  "{"  EAnnotation_Field*  "}" 
+  ;
+
+syntax EStructuralFeature =
+  @inject EReference: EReference 
+  | @inject EAttribute: EAttribute 
+  ;
+
+syntax EAttribute =
+   EAttribute: "EAttribute"  "{"  EAttribute_Field*  "}" 
+  ;
+
+start syntax EPackage =
+   EPackage: "EPackage"  "{"  EPackage_Field*  "}" 
+  ;
+
+syntax ETypedElement =
+  @inject EStructuralFeature: EStructuralFeature 
+  | @inject EParameter: EParameter 
+  | @inject EOperation: EOperation 
+  ;
+
+syntax EEnumLiteral =
+   EEnumLiteral: "EEnumLiteral"  "{"  EEnumLiteral_Field*  "}" 
+  ;
+
+syntax EDataType =
+  @inject EEnum: EEnum 
+  |  EDataType: "EDataType"  "{"  EDataType_Field*  "}" 
+  ;
+
+syntax EReference_Field =
+   eOpposite: "eOpposite"  ":"  Ref[EReference] 
+  |  containment: "containment"  ":"  Bool 
+  |  eKeys: "eKeys"  ":"  "["  Ref[EAttribute]*  "]" 
+  |  resolveProxies: "resolveProxies"  ":"  Bool 
+  ;
+
+syntax EEnum_Field =
+   eLiterals: "eLiterals"  ":"  "["  EEnumLiteral*  "]" 
+  ;
+
+syntax EFactory =
+   EFactory: "EFactory"  "{"  EFactory_Field*  "}" 
+  ;
+
+syntax ETypeParameter_Field =
+   eBounds: "eBounds"  ":"  "["  EGenericType*  "]" 
+  ;
+
+syntax EObject =
+   EObject: "EObject"  "{"  EObject_Field*  "}" 
+  ;
+
+syntax EDataType_Field =
+   serializable: "serializable"  ":"  Bool 
+  | @inject EEnum_Field: EEnum_Field 
+  ;
+
+syntax EEnumLiteral_Field =
+   literal: "literal"  ":"  Str 
+  |  \value: "value"  ":"  Int 
+  |  instance: "instance"  ":"  "unsupported:EEnumerator" 
+  |  eEnum: "eEnum"  ":"  Ref[EEnum] 
+  ;
+
+syntax EParameter =
+   EParameter: "EParameter"  "{"  EParameter_Field*  "}" 
+  ;
+
+syntax EEnum =
+   EEnum: "EEnum"  "{"  EEnum_Field*  "}" 
+  ;
+
+syntax EClassifier =
+  @inject EDataType: EDataType 
+  | @inject EClass: EClass 
+  ;
+
+syntax EReference =
+   EReference: "EReference"  "{"  EReference_Field*  "}" 
+  ;
