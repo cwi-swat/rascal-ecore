@@ -14,7 +14,7 @@ import lang::rascal::format::Grammar;
 private Symbol myLayout = layouts("Standard");
 
 //writeHUTNModule("lang::ecore::EcoreHUTN", |project://rascal-ecore/src/lang/ecore/EcoreHUTN.rsc|, ec, "EPackage");
-void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root) {
+void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root, str name = pkg.name, str ext = "<pkg.name>.hutn") {
   src = ecore2rascal(pkg, root);
   m = "module <moduleName>
       '
@@ -24,7 +24,7 @@ void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root) {
       '
       '<src>
       'void main() {
-      '  registerLanguage(\"<pkg.name>\", \"<pkg.name>.hutn\", start[<root>](str src, loc org) {
+      '  registerLanguage(\"<name>\", \"<ext>\", start[<root>](str src, loc org) {
       '    return parse(#start[<root>], src, org);
       '  });
       '}";
