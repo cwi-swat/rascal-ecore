@@ -9,17 +9,9 @@ import String;
 import Node;
 import util::Maybe;
 
-// NB: need reified ADT for order of parameters in constructors.
-str model2hutn(type[&T<:node] meta, &T<:node model) {
-  
-  // cases:
-  // list: [ (recurse) ]
-  // ref: output the loc
-  // node: uninject, lookup in meta, build class { ... }
-  //   for each field, output field: value2hutn(v)
-  // prim: yield
-  
-}
+// NB: need reified ADT for order of parameters in constructors (EPackage would not suffice)
+str model2hutn(type[&T<:node] meta, &T<:node model) 
+  = obj2hutn(model, meta);
 
 str obj2hutn(node n, type[node] meta) {
   println("******** OBJ2HUTN");
