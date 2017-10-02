@@ -47,7 +47,7 @@ map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
     kw = lit(c.name);
     fieldNt = sort("<c.name>_Field");
     fields = \iter-star-seps(fieldNt, [myLayout]);
-    alts = {prod(label(c.name, nt), [kw, myLayout, lit("{"), myLayout, fields, myLayout, lit("}")], {}) | !c.abstract };
+    alts = {prod(label(c.name, nt), [kw, myLayout, lit("{"), myLayout, fields, myLayout, lit("}")], {\tag("Foldable"())}) | !c.abstract };
     alts += { prod(nt, [sort(sub.name)], {\tag("inject"())}) | EClass sub <- directSubclassesOf(c, pkg) };
     defs[nt] = choice(nt, alts); 
     
