@@ -3,6 +3,11 @@ module lang::ecore::tests::Syntax
 extend lang::std::Layout;
 extend lang::std::Id;
 
+import lang::ecore::Grammar2Ecore;
+import lang::ecore::Ecore2HUTN;
+import lang::ecore::Ecore;
+
+
 start syntax Machine
   = @ref{initial:State:/states[name=$initial]} 
   Machine: "machine" Id name "init" Id initial State* states "end"
@@ -26,6 +31,13 @@ lexical Str
 // for testing purposes
 lexical Id
   = "\<" Id ":" "Id" "\>";
+
+
+void writeMyFsmHUTNGrammar() {
+  EPackage pkg =  grammar2ecore(#lang::ecore::tests::Syntax::Machine, "myfsm");
+  writeHUTNModule("lang::ecore::tests::StmHUTN"
+    , |project://rascal-ecore/src/lang/ecore/tests/StmHUTN.rsc|, pkg, "Machine");
+}
 
  Machine example() = (Machine)
 `machine Doors

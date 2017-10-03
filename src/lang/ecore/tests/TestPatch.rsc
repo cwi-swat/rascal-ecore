@@ -14,6 +14,13 @@ import ParseTree;
 import IO;
 import String;
 
+/*
+ * This module (implicitly) tests the following operations
+ * - tree2model
+ * - diff
+ * - patchTree
+ * - ptDiff
+ */
 
 
 str tester(str src, str key, lang::ecore::tests::MetaModel::Machine(lang::ecore::tests::MetaModel::Machine) trafo) {
@@ -493,9 +500,9 @@ test bool testMakeStateFinal()
   'end";  
   
 str makeStateNotFinalResult() = tester("machine Doors
-								   'init closed
-								   'final state closed end
-								   'end", "makeStateNotFinal", makeStateFinal("closed", false));
+								      'init closed
+								      'final state closed end
+								      'end", "makeStateNotFinal", makeStateFinal("closed", false));
 								   
 test bool testMakeStateNotFinal()
   = makeStateNotFinalResult()

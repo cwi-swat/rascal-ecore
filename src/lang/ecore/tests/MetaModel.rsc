@@ -2,6 +2,7 @@ module lang::ecore::tests::MetaModel
 
 import lang::ecore::Refs;
 
+
 // All "meta-adts" need to have uid, might have src, and root models must have pkgURI.
 
 data Machine(loc pkgURI = |http://www.example.org/myfsm|)

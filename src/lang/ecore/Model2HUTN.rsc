@@ -30,7 +30,8 @@ str obj2hutn(node n, type[node] meta, int ind) {
     name = "";
     props = for (int i <- [0..size(flds)]) {
       if (flds[i].name == "name") {
-        name = value2hutn(kids[i].name, meta, ind);
+        //println("NAME = <kids[i]>");
+        name = value2hutn(kids[i], meta, ind);
       }
       else if (kids[i] != nothing(), kids[i] != null()) {
         append  "<flds[i].name>: <value2hutn(kids[i], meta, ind + 1)>";

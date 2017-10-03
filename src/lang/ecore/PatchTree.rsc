@@ -247,14 +247,14 @@ default bool isEmpty(Tree _) = false;
 Tree addLoc(Tree t, Tree old) = (old has \loc) ? t[@\loc=old@\loc] : t;  
   
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
-  = addLoc(appl(p, demoteLastLayout(args[0..i], a) + [a] + promoteHeadLayout(args[i+1..], a)), t);
+  = addLoc(appl(p, args[0..i] + [a] + promoteHeadLayout(args[i+1..], a)), t);
   
-list[Tree] demoteLastLayout(list[Tree] args, Tree elt) {
-  if (size(args) > 0, args[-1].prod.def is layouts, "<args[-1]>" == "", isEmpty(elt)) {
-    return [*args[0..-1], appl(args[0].prod, [])];
-  }
-  return args;
-}
+//list[Tree] demoteLastLayout(list[Tree] args, Tree elt) {
+//  if (size(args) > 0, args[-1].prod.def is layouts, "<args[-1]>" == "", isEmpty(elt)) {
+//    return [*args[0..-1], appl(args[0].prod, [])];
+//  }
+//  return args;
+//}
   
 list[Tree] promoteHeadLayout(list[Tree] args, Tree elt) {
   //println("PROMOTING");
@@ -262,7 +262,7 @@ list[Tree] promoteHeadLayout(list[Tree] args, Tree elt) {
   if (size(args) > 0, args[0].prod.def is layouts, "<args[0]>" == "", !isEmpty(elt)) { 
     return [appl(args[0].prod, [ char(i) | int i <- chars(" ") ]), *args[1..]];
   }
-  if (isEmpty(elt)) { // remove it.
+  if (isEmpty(elt)) { // remove it; it should have layout before
     return [appl(args[0].prod, [ ]), *args[1..]];
   }
   
