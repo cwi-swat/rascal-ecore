@@ -8,7 +8,7 @@ data Machine(loc pkgURI = |http://www.example.org/myfsm|)
   = Machine(str name, list[State] states, Ref[State] initial = null(), Id uid = noId());
   
 data State
-  = State(str name, list[Trans] transitions, Id uid = noId())
+  = State(str name, list[Trans] transitions, bool final = false, Id uid = noId())
   ;
 
 data Trans
