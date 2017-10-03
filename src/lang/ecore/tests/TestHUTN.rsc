@@ -42,7 +42,7 @@ bool testToAndFromHUTN(loc stm) {
   hutnLoc = stm[extension="<stm.extension>_hutn"];
   writeFile(hutnLoc, src);
   hutn = parseMyfsm(src, hutnLoc);
-  m2 = hutn2model(#lang::ecore::tests::MetaModel::Machine, hutn);
+  m2 = hutn2model(#lang::ecore::tests::MetaModel::Machine, hutn, base = stm);
   iprintln(diff(#lang::ecore::tests::MetaModel::Machine, m, m2));
   return true;
 }

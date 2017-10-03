@@ -106,6 +106,9 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   if (str x <- prodIds(p), <x, str v> <- env) {
   	uri.fragment = v;
   }
+  else if (<"name", str v> <- env) {
+    uri.fragment = v;
+  }
   else {
   	uri.fragment = xmi;
   }
