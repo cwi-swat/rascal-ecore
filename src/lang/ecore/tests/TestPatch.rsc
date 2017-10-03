@@ -480,6 +480,20 @@ test bool testSetStateNameWithRef()
   'state CLOSED end
   'end";
   
+  
+str makeStateFinalResult() = tester("machine Doors
+								   'init closed
+								   'state closed end
+								   'end", "makeStateFinal", makeStateFinal("closed"));
+								   
+test bool testMakeStateFinal()
+  = makeStateFinalResult()
+  == 
+  "machine Doors
+  'init closed
+  'final state closed end
+  'end";  
+  
 /*
  * Cross references.
  */

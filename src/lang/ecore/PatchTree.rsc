@@ -250,7 +250,7 @@ Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   = addLoc(appl(p, args[0..i] + [a] + promoteHeadLayout(args[i+1..])), t);
   
 list[Tree] promoteHeadLayout(list[Tree] args) {
-  if (size(args) >  0, args[0].prod.def is layouts, args[0].args == []) { 
+  if (size(args) > 0, args[0].prod.def is layouts, "<args[0]>" == "") { 
     return [appl(args[0].prod, [ char(i) | int i <- chars(" ") ]), *args[1..]];
   }
   
@@ -410,6 +410,13 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
         return refer(path, x);
       }
       return contain(x);
+    }
+    
+    case bool b: {
+      if  (label(_, opt(lit(str l))) := s) {
+        return appl(prod(lit(l), [], {}), [ char(i) | b, int i <- chars(l) ]);
+      }
+      fail;
     }
     
     default: {

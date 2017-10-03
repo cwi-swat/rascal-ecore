@@ -108,6 +108,15 @@ Machine(Machine) setInitial(str name) {
   };
 }
 
+Machine(Machine) makeStateFinal(str name) {
+  return Machine(Machine m) {
+    if (int i <- [0..size(m.states)], m.states[i].name == name) {
+      m.states[i].final = true;
+    }
+    return m;
+  };
+}
+
 Machine arbitraryTrafo1(Machine m) {
   r = newRealm();
   newState = r.new(#State, State("NewState_<size(m.states)>", []));
