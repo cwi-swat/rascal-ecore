@@ -139,7 +139,6 @@ Edits diffKid(Id id, value oldKid, value newKid, str field) {
 }
 
 
-
 // also covers ref/null cases on both sides
 default bool refEq(value v1, value v2) = v1 == v2;
 

@@ -3,5 +3,5 @@ init NewState_3
 state BLA on bar => NewState_3 end
 state closed end
 state locked end
-state NewState_3  end
+state NewState_3 end
 end

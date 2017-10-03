@@ -15,12 +15,9 @@ Assumptions
 - refs are always primitives (i.e. lexicals)
 - ref paths are only along the containment hierarchy.
 - all regulars are mapped to lists (?)
-- production labels are unique (per sort)
-- no support for optional stuff (we might use S? for this, but not now)
 
-Todo
-- create templates from existing trees
-- save separator layout whenever encountered, so that it can be also used when adding to singletons.
+TODO
+- use meta model (EPackage, not type[&M<:node]...
 */
 
 
@@ -98,6 +95,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
     }
   }
   
+  // todo: also special case "name" attributes
   if (str x <- prodIds(p), <x, str v> <- env) {
   	uri.fragment = v;
   }

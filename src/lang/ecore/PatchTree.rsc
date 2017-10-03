@@ -28,13 +28,19 @@ TODOS
   }
   
  
-  rel[Id, loc] orgs = { <k, origins[k]> | k <- origins };
+  rel[Id, loc] orgs = { <k, origins[k]> | Id k <- origins };
   
-  // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
-  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs )
+  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, t.prod.def is label,  t@\loc?, loc l := t@\loc,
+    <Id obj, l> <- orgs )
 
   // note, we "just" create placeholders here, we don't know the exact prods yet, only after init.
         + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
+  
+  
+  //println("## TREES");
+  //for (Id x <- trees) {
+  //  println("<x>: `<trees[x]>`");
+  //}
   
   map[tuple[Id, str], list[Tree]] sepCache = ();
   
@@ -53,8 +59,9 @@ TODOS
      if (idx == -1) {
        assert t.prod is prod;
        
-       assignedFields = ( f: t.args[i] | int i <- [0..size(t.prod.symbols)], label(str f, _) := t.prod.symbols[i], 
-                                      !isPlaceholder(t.args[i]) );
+       //println("### PROMOTING PRODUCTION");
+       
+       assignedFields = ( f: t.args[i] | int i <- [0..size(t.prod.symbols)], label(str f, _) := t.prod.symbols[i], !isPlaceholder(t.args[i]) );
                                       
        newProd = findSmallestProdHavingFields(tt, prod.def.name, f<0> + {field});
        
@@ -74,6 +81,10 @@ TODOS
         
          lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse), 
                   seps);
+         
+         //println("### INSERTING");
+         //println("LST = `<lst>`"); 
+
 
          // check for empty layout & reuse layout that is before.
          if ("<t.args[idx+1]>" == "") {
@@ -81,6 +92,7 @@ TODOS
          }
 
          trees[obj] = setArg(t, idx, lst);
+         //println("T = `<trees[obj]>`");
        }
 
        case del(str field, int pos): {
@@ -96,13 +108,20 @@ TODOS
     assignedFields = ( f: old.args[i] | int i <- [0..size(old.prod.symbols)], label(str f, _) := old.prod.symbols[i], !isPlaceholder(old.args[i]) );
 
     newProd = findSmallestProdHavingFields(tt, old.prod.def.name, assignedFields<0>);
-    newTree = setArgs(prod2tree(newProd), assignedFields);
-    
-    trees[x] = newTree;    
+    if (newProd != old.prod) {
+      //println("### DEMOTING production");
+      template = prod2tree(newProd);
+      //println("TEMPLATE = <template>");
+      newTree = setArgs(template, assignedFields);
+      //println("NEWTREE = <newTree>");
+      trees[x] = newTree;
+    }    
   } 
    
   trees = unflatten(patch.root, trees);
   root = trees[patch.root];
+  //println("### ROOT is now");
+  //println("`<root>`");
   if (pt has top) {
     root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
   }
@@ -194,20 +213,49 @@ Production findProd(type[&T<:Tree] tt, str class) {
   throw "No production for <class>";
 }
 
-Tree prod2tree(Production p) = appl(p, [ symbol2tree(s) | Symbol s <- p.symbols ]);
+Tree prod2tree(Production p) 
+  = appl(p, symbols2args(p.symbols));
   
-Tree symbol2tree(label(str field, Symbol s)) = placeholder(s, field);
+list[Tree] symbols2args(list[Symbol] syms) {
+  args = [];
+  for (int i <- [0..size(syms)]) {
+    args += [symbol2tree(syms[i], i, args)];
+  }
+  return args;
+}
+  
+Tree symbol2tree(label(str field, Symbol s), int pos, list[Tree] prevs) 
+  = placeholder(s, field);
 
-Tree symbol2tree(lit(str x)) = appl(prod(lit(x), [], {}), [ char(i) | int i <- chars(x) ]);
+Tree symbol2tree(lit(str x), int pos, list[Tree] prevs) 
+  = appl(prod(lit(x), [], {}), [ char(i) | int i <- chars(x) ]);
 
-Tree symbol2tree(s:layouts(_)) = appl(prod(s, [], {}), [ char(i) | int i <- chars(" ") ]); 
+Tree symbol2tree(s:layouts(_), int pos, list[Tree] prevs)  {
+  if (pos > 0, isEmpty(prevs[pos - 1])) {
+    // no layout.
+    return appl(prod(s, [], {}), []);
+  }
+  return appl(prod(s, [], {}), [ char(i) | int i <- chars(" ") ]);
+}
 
+
+bool isEmpty(appl(regular(_), [])) = true;
+
+default bool isEmpty(Tree _) = false;
 
 
 Tree addLoc(Tree t, Tree old) = (old has \loc) ? t[@\loc=old@\loc] : t;  
   
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
-  = addLoc(appl(p, args[0..i] + [a] + args[i+1..]), t);
+  = addLoc(appl(p, args[0..i] + [a] + promoteHeadLayout(args[i+1..])), t);
+  
+list[Tree] promoteHeadLayout(list[Tree] args) {
+  if (size(args) >  0, args[0].prod.def is layouts, args[0].args == []) { 
+    return [appl(args[0].prod, [ char(i) | int i <- chars(" ") ]), *args[1..]];
+  }
+  
+  return args;
+}  
   
 Tree setArgs(Tree t, map[str, Tree] fields) 
   = ( t | setArg(it, getFieldIndex(t.prod, f), fields[f]) | str f <- fields );
@@ -222,7 +270,7 @@ list[Tree] getSeparators(Tree lst) {
   if (size(lst.args) > 1) {
      return sepSize > 0 ? lst.args[1..1+sepSize] : [];
   }
-  return [ symbol2tree(sep) | Symbol sep <- s.separators ]; 
+  return symbols2args(s.separators); 
 }
   
     
@@ -250,6 +298,7 @@ Tree insertList(Tree t, int pos, Tree x, list[Tree] seps) {
   if (idx >= size(t.args)) {
     return addLoc(appl(t.prod, t.args + seps + [x]), t);
   }
+  
   
   if (idx == 0) {
     return addLoc(appl(t.prod, [x] + seps + t.args), t);
@@ -332,7 +381,7 @@ map[str, Tree] unDeref(Tree tree, list[str] elts, map[str,Tree] env, map[Id, Tre
 Tree flatten(t:appl(Production p, list[Tree] args), Tree root, rel[Id, loc] orgs) 
   = addLoc(appl(p, [ flattenArg(args[i], t, root, p.symbols[i], orgs) | int i <- [0..size(args)] ]), t);
   
-Tree flattenArg(a:appl(prod(sort(_), _, _), _), Tree parent, Tree root, Symbol s, rel[Id, loc] orgs) 
+Tree flattenArg(a:appl(prod(label(_, _), _, _), _), Tree parent, Tree root, Symbol s, rel[Id, loc] orgs) 
   = contain(obj)
   when loc l := a@\loc, <Id obj, l> <- orgs;
 
@@ -468,8 +517,11 @@ Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
 }
 
 map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
+  //println("UNFLATTENING: `<objs[x]>`");
+  
   args = for (Tree a <- objs[x].args) {
     if (!(a has prod)) {
+      //println("<a> has no prod");
       append a;
       continue;
     }

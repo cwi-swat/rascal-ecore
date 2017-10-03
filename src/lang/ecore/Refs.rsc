@@ -31,7 +31,6 @@ bool isInjection(node t) = !(t has uid);
  // = !(t has uid) && (arity(t) > 0 && value v := getChildren(t)[0] && node n := v ==> isInjection(n));
 
 node uninject(node t) {
-  println(getName(t));
   if (t has uid) { // assumes uid is never *set* on injections
     return t;
   }

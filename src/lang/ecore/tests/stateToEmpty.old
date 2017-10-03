@@ -1,3 +1,3 @@
 machine Doors
-init closed
+init <initial:Id>
 end

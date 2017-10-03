@@ -1,4 +1,4 @@
 machine Doors
 init closed
-state NewState  end state closed end
+state NewState end state closed end
 end

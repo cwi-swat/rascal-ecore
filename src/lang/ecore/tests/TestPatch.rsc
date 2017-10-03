@@ -23,8 +23,21 @@ str tester(str src, str key, lang::ecore::tests::MetaModel::Machine(lang::ecore:
   writeFile(org, src);
   lang::ecore::tests::Syntax::Machine pt = parse(#start[Machine], src, org).top;
   <m, orgs> = tree2modelWithOrigins(#lang::ecore::tests::MetaModel::Machine, pt);
+  
+  //println("## ORGS");
+  //for (Id x <- orgs) {
+  //  println("<x>: <orgs[x]>");
+  //}
+  
   m2 = trafo(m);
+  
+  //println("## MODEL");
+  //iprintln(m2);
+  
   Patch patch = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
+  
+  //println("## PATCH");
+  //iprintln(patch);
   
   // and here it needs to be the non-start reified type...
   pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
@@ -103,14 +116,14 @@ test bool testCreateMachine()
  */
 
 str addStateToEmptyResult() = tester("machine Doors
-  									'init closed
+  									'init \<initial:Id\>
   									'end", "stateToEmpty", appendState);
 
 test bool testAddStateToEmpty() 
   = addStateToEmptyResult() == 
   "machine Doors
   'init \<initial:Id\>
-  'state NewState  end
+  'state NewState end
   'end";
 
 str addStateToSingletonResult() = tester("machine Doors
@@ -123,7 +136,7 @@ test bool testAddStateToSingleton()
   ==
   "machine Doors
   'init closed
-  'state closed end state NewState  end
+  'state closed end state NewState end
   'end";
   
 str addStateToManyResult() = tester("machine Doors
@@ -139,7 +152,7 @@ test bool testAddStateToMany()
   'init closed
   'state closed end
   'state opened end
-  'state NewState  end
+  'state NewState end
   'end";
   
   
@@ -153,7 +166,7 @@ test bool testPrependStateToSingleton()
   ==
   "machine Doors
   'init closed
-  'state NewState  end state closed end
+  'state NewState end state closed end
   'end";
   
 str prependStateToManyResult() = tester("machine Doors
@@ -167,7 +180,7 @@ test bool testPrependStateToMany()
   ==
   "machine Doors
   'init closed
-  'state NewState  end
+  'state NewState end
   'state closed end
   'state opened end
   'end";
@@ -522,7 +535,7 @@ str arbitraryTrafo1Result() = tester("machine Doors
    'state BLA on bar =\> NewState_3 end
    'state closed end
    'state locked end
-   'state NewState_3  end
+   'state NewState_3 end
    'end";
    
    
