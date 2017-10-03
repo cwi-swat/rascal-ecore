@@ -32,20 +32,36 @@ TODOS
   
   // NB: "is sort" is needed, because otherwise other trees have same loc because injections.
   trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, (t.prod.def is sort || t.prod.def is lex), t@\loc?, loc l := t@\loc, <Id obj, l> <- orgs )
+
+  // note, we "just" create placeholders here, we don't know the exact prods yet, only after init.
         + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
   map[tuple[Id, str], list[Tree]] sepCache = ();
   
   tuple[Tree,list[Tree]] getListAndSeps(Id obj, str field, Tree lst) {
-     if (<obj, field> notin sepCache) {
-       sepCache[<obj,field>] = getSeparators(lst);
-     }
-     return <lst, sepCache[<obj,field>]>;
+    if (<obj, field> notin sepCache) {
+      sepCache[<obj,field>] = getSeparators(lst);
+    }
+    return <lst, sepCache[<obj,field>]>;
   }
   
   for (<Id obj, Edit edit> <- patch.edits, edit has field) {
      Tree t = trees[obj];
      int idx = getFieldIndex(t.prod, edit.field);
+     
+     // if field is not found, we should promote trees[obj] to new production that has the field.
+     if (idx == -1) {
+       assert t.prod is prod;
+       
+       assignedFields = ( f: t.args[i] | int i <- [0..size(t.prod.symbols)], label(str f, _) := t.prod.symbols[i], 
+                                      !isPlaceholder(t.args[i]) );
+                                      
+       newProd = findSmallestProdHavingFields(tt, prod.def.name, f<0> + {field});
+       
+       newTree = setArgs(prod2tree(newProd), assignedFields);
+       
+       trees[obj] = newTree;                                
+     }
      
      switch (edit) {
        case put(str field, value v): {
@@ -75,6 +91,16 @@ TODOS
      }
    }
    
+  for (Id x <- trees) {
+    old = trees[x];
+    assignedFields = ( f: old.args[i] | int i <- [0..size(old.prod.symbols)], label(str f, _) := old.prod.symbols[i], !isPlaceholder(old.args[i]) );
+
+    newProd = findSmallestProdHavingFields(tt, old.prod.def.name, assignedFields<0>);
+    newTree = setArgs(prod2tree(newProd), assignedFields);
+    
+    trees[x] = newTree;    
+  } 
+   
   trees = unflatten(patch.root, trees);
   root = trees[patch.root];
   if (pt has top) {
@@ -86,7 +112,13 @@ TODOS
 
 Production placeholderProd(Symbol s, Symbol id = lex("Id"))
   = prod(s, [lit("\<"), id, lit(":"), lit(symbolName(s)), lit("\>") ], 
-       {\tag("category"("MetaAmbiguity"))});
+       {\tag("placholder"())});
+
+
+bool isPlaceholder(Production p)
+  = p has attributes && \tag("placholder"()) <- p.attributes;
+
+bool isPlaceholder(Tree t) = isPlaceholder(t.prod);
 
 
 // the result cannot be used to parse (yet; bug in Rascal)
@@ -131,13 +163,30 @@ str symbolName(\start(Symbol s)) = symbolName(s);
 map[str, Tree] templates(Tree t, set[str] classes) = ();
 
 
+Production findSmallestProdHavingFields(type[&T<:Tree] tt, str class, set[str] required) {
+  int lastSize = 100000;
+  list[Production] result = [];
+  
+  for (Symbol s <- tt.definitions, Production p <- tt.definitions[s].alternatives, p.def is label, p.def.name == class) {
+    set[str] supported = { f | label(str f, Symbol _) <- p.symbols };
+    if (required <= supported, size(supported) < lastSize) {
+      result += [p];
+      lastSize = size(supported);
+    }  
+  }
+  
+  return result[-1]; 
+}
+
+// todo: express in terms of above
 Production findProd(type[&T<:Tree] tt, str class) {
   srt = sort(class);
   
   if (srt in tt.definitions, size(tt.definitions[srt].alternatives) == 1, Production p <- tt.definitions[srt].alternatives) {
     return p;
   }
-  
+
+  // for now, we just pick one.  
   if (Symbol s <- tt.definitions, Production p <- tt.definitions[s].alternatives, p.def is label, p.def.name == class) {
     return p;
   }
@@ -159,6 +208,9 @@ Tree addLoc(Tree t, Tree old) = (old has \loc) ? t[@\loc=old@\loc] : t;
   
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   = addLoc(appl(p, args[0..i] + [a] + args[i+1..]), t);
+  
+Tree setArgs(Tree t, map[str, Tree] fields) 
+  = ( t | setArg(it, getFieldIndex(t.prod, f), fields[f]) | str f <- fields );
   
 list[Tree] getSeparators(Tree lst) {
   assert lst.prod is regular;
