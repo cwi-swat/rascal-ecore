@@ -108,10 +108,10 @@ Machine(Machine) setInitial(str name) {
   };
 }
 
-Machine(Machine) makeStateFinal(str name) {
+Machine(Machine) makeStateFinal(str name, bool b) {
   return Machine(Machine m) {
     if (int i <- [0..size(m.states)], m.states[i].name == name) {
-      m.states[i].final = true;
+      m.states[i].final = b;
     }
     return m;
   };

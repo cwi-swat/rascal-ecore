@@ -62,7 +62,6 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   largs = labeledAstArgs(t, p);
 
   if (p is regular) {
-    println(p);
     if (opt(lit(str _)) := p.def) {
       return t.args != [];
     }
@@ -87,8 +86,8 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   adtName = p.def is label ? p.def.symbol.name : p.def.name;
   tt = type(adt(adtName, []), meta.definitions);
   
-  println("ENV");
-  iprintln(env);
+  //println("ENV");
+  //iprintln(env);
   
   args = ();  
   kws = (); 
@@ -119,11 +118,11 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
     println("WARNING: no loc for <t>");
   }
   
-  println("## CREATING: <p.def.name>");
-  println("ARGS:");
-  for (int  i <- args) println("- <i>: <args[i]>");
-  println("KWS:");
-  for (str k <- kws) println("- <k>: <kws[k]>");
+  //println("## CREATING: <p.def.name>");
+  //println("ARGS:");
+  //for (int  i <- args) println("- <i>: <args[i]>");
+  //println("KWS:");
+  //for (str k <- kws) println("- <k>: <kws[k]>");
   
   obj = r.new(tt, make(tt, p.def.name, [ args[i] | int i <- [0..size(args)] ], kws), id = myId);
   fix(obj, fixes);

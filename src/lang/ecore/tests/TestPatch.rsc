@@ -271,7 +271,6 @@ test bool testRemoveSingleton()
   ==
   "machine Doors
   'init \<initial:Id\>
-  '
   'end";
 
 str removeFromFrontResult() = tester("machine Doors
@@ -332,7 +331,6 @@ test bool testRemoveAll()
   ==
   "machine Doors
   'init \<initial:Id\>
-  '
   'end";
   
 str removeEventAtEndFromTwoResult() = tester("machine Doors
@@ -484,7 +482,7 @@ test bool testSetStateNameWithRef()
 str makeStateFinalResult() = tester("machine Doors
 								   'init closed
 								   'state closed end
-								   'end", "makeStateFinal", makeStateFinal("closed"));
+								   'end", "makeStateFinal", makeStateFinal("closed", true));
 								   
 test bool testMakeStateFinal()
   = makeStateFinalResult()
@@ -492,6 +490,19 @@ test bool testMakeStateFinal()
   "machine Doors
   'init closed
   'final state closed end
+  'end";  
+  
+str makeStateNotFinalResult() = tester("machine Doors
+								   'init closed
+								   'final state closed end
+								   'end", "makeStateNotFinal", makeStateFinal("closed", false));
+								   
+test bool testMakeStateNotFinal()
+  = makeStateNotFinalResult()
+  == 
+  "machine Doors
+  'init closed
+  'state closed end
   'end";  
   
 /*

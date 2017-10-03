@@ -247,11 +247,23 @@ default bool isEmpty(Tree _) = false;
 Tree addLoc(Tree t, Tree old) = (old has \loc) ? t[@\loc=old@\loc] : t;  
   
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
-  = addLoc(appl(p, args[0..i] + [a] + promoteHeadLayout(args[i+1..])), t);
+  = addLoc(appl(p, demoteLastLayout(args[0..i], a) + [a] + promoteHeadLayout(args[i+1..], a)), t);
   
-list[Tree] promoteHeadLayout(list[Tree] args) {
-  if (size(args) > 0, args[0].prod.def is layouts, "<args[0]>" == "") { 
+list[Tree] demoteLastLayout(list[Tree] args, Tree elt) {
+  if (size(args) > 0, args[-1].prod.def is layouts, "<args[-1]>" == "", isEmpty(elt)) {
+    return [*args[0..-1], appl(args[0].prod, [])];
+  }
+  return args;
+}
+  
+list[Tree] promoteHeadLayout(list[Tree] args, Tree elt) {
+  //println("PROMOTING");
+  //println("LAYOUT: `<args[0]>` `<elt.args>`");
+  if (size(args) > 0, args[0].prod.def is layouts, "<args[0]>" == "", !isEmpty(elt)) { 
     return [appl(args[0].prod, [ char(i) | int i <- chars(" ") ]), *args[1..]];
+  }
+  if (isEmpty(elt)) { // remove it.
+    return [appl(args[0].prod, [ ]), *args[1..]];
   }
   
   return args;
@@ -414,7 +426,7 @@ Tree valToTree(value v, type[&T<:Tree] tt, Production p, str field, Symbol s, Tr
     
     case bool b: {
       if  (label(_, opt(lit(str l))) := s) {
-        return appl(prod(lit(l), [], {}), [ char(i) | b, int i <- chars(l) ]);
+        return appl(regular(s), [ char(i) | b, int i <- chars(l) ]);
       }
       fail;
     }
