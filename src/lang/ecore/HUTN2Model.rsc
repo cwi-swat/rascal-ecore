@@ -17,7 +17,7 @@ bool isInjection(Production p)
 
 &T<:node hutn2model(type[&T<:node] meta, Tree hutn, loc base = hutn@\loc,  Realm realm = newRealm()) 
   = m
-  when &T<:node m := hutn2obj(hutn has top ? hutn.top : hutn, "", meta, base, realm);
+  when &T<:node m := hutn2obj(hutn has top ? hutn.top : hutn, "/", meta, base, realm);
 
 
 bool hasName(Tree t) = prod(_, [lit(_), _, label("name", _), _, lit("{"), _, _, _, lit("}")], _) := t.prod;
@@ -47,9 +47,10 @@ node hutn2obj(Tree t, str path, type[node] meta, loc base, Realm realm) {
         
   tt = type(s, meta.definitions);
   
-  myKey = "name" in fieldVals ? fieldVals["name"] : path;
+  // todo: id attributes
+  //myKey = "name" in fieldVals ? fieldVals["name"] : path;
   
-  model = realm.new(tt, make(tt, p.def.name, args, kws), id = id(base[fragment="<myKey>"]));
+  model = realm.new(tt, make(tt, p.def.name, args, kws), id = id(base[fragment=path]));
   //println("model = <model>");
   return typeCast(#node, model);
 }
@@ -94,8 +95,9 @@ value value2value(t:appl(prod(\parameterized-sort("Ref", _), _, _), _), str path
 default value value2value(t:appl(prod(\parameterized-sort("Ref", _), _, _), _), str path, type[node] meta, loc base, Realm realm)
   = null();
 
+// NB: i skips layout nodes, i / 2 corrects for it wrt the collection index
 value value2value(t:appl(regular(\iter-star-seps(_, _)), list[Tree] args), str path, type[node] meta, loc base, Realm realm)
-  = [ value2value(args[i], "<path>.<i>", meta, base, realm) | int i <- [0, 2..size(args)] ];
+  = [ value2value(args[i], "<path>.<i / 2>", meta, base, realm) | int i <- [0, 2..size(args)] ];
   
   
 default value value2value(Tree t, str path, type[node] meta, loc base, Realm realm)

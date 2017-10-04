@@ -21,5 +21,5 @@ Machine "Doors" {
       final: false
     }
   ]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/reverseStates.new#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/reverseStates.new#//@states.4|
 }

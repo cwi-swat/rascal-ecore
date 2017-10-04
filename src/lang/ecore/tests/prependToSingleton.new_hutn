@@ -9,5 +9,5 @@ Machine "Doors" {
       final: false
     }
   ]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/prependToSingleton.new#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/prependToSingleton.new#//@states.1|
 }

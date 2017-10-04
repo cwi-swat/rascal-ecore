@@ -14,8 +14,8 @@ start syntax Machine
   ;
   
 syntax State
-  = @id{name} State: "final"? final "state" Id name Trans* transitions "end"
-  | @id{name} Group: "group" Id name  "{" State* states "}"
+  = State: "final"? final "state" Id name Trans* transitions "end"
+  | Group: "group" Id name  "{" State* states "}"
   ;
   
   

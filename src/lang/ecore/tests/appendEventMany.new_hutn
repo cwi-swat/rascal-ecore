@@ -6,9 +6,9 @@ Machine "Doors" {
         "foo"
         "newEvent"
       ]
-      target: |project://rascal-ecore/src/lang/ecore/tests/appendEventMany.new#closed|
+      target: |project://rascal-ecore/src/lang/ecore/tests/appendEventMany.new#//@states.0|
     }]
     final: false
   }]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/appendEventMany.new#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/appendEventMany.new#//@states.0|
 }

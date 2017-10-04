@@ -3,5 +3,5 @@ Machine "Doors" {
     transitions: []
     final: true
   }]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/makeStateFinal.new#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/makeStateFinal.new#//@states.0|
 }

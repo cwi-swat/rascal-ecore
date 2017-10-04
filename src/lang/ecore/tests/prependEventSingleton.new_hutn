@@ -5,9 +5,9 @@ Machine "Doors" {
         "newEvent"
         "bar"
       ]
-      target: |project://rascal-ecore/src/lang/ecore/tests/prependEventSingleton.new#closed|
+      target: |project://rascal-ecore/src/lang/ecore/tests/prependEventSingleton.new#//@states.0|
     }]
     final: false
   }]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/prependEventSingleton.new#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/prependEventSingleton.new#//@states.0|
 }

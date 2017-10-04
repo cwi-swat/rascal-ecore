@@ -3,7 +3,7 @@ Machine "Doors_" {
     State "BLA" {
       transitions: [Trans {
         events: ["bar"]
-        target: |project://rascal-ecore/src/lang/ecore/tests/arbitraryTrafo1.new#NewState_3|
+        target: |project://rascal-ecore/src/lang/ecore/tests/arbitraryTrafo1.new#//@states.3|
       }]
       final: false
     }
@@ -20,5 +20,5 @@ Machine "Doors_" {
       final: false
     }
   ]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/arbitraryTrafo1.new#NewState_3|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/arbitraryTrafo1.new#//@states.3|
 }

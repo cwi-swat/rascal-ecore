@@ -3,5 +3,5 @@ Machine "Doors" {
     transitions: []
     final: false
   }]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/prependToSingleton.old#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/prependToSingleton.old#//@states.0|
 }

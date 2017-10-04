@@ -6,9 +6,9 @@ Machine "Doors" {
         "removed"
         "foo"
       ]
-      target: |project://rascal-ecore/src/lang/ecore/tests/removeEventMid.old#closed|
+      target: |project://rascal-ecore/src/lang/ecore/tests/removeEventMid.old#//@states.0|
     }]
     final: false
   }]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/removeEventMid.old#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/removeEventMid.old#//@states.0|
 }

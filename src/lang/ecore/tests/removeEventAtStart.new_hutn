@@ -2,9 +2,9 @@ Machine "Doors" {
   states: [State "closed" {
     transitions: [Trans {
       events: ["foo"]
-      target: |project://rascal-ecore/src/lang/ecore/tests/removeEventAtStart.new#closed|
+      target: |project://rascal-ecore/src/lang/ecore/tests/removeEventAtStart.new#//@states.0|
     }]
     final: false
   }]
-  initial: |project://rascal-ecore/src/lang/ecore/tests/removeEventAtStart.new#closed|
+  initial: |project://rascal-ecore/src/lang/ecore/tests/removeEventAtStart.new#//@states.0|
 }
