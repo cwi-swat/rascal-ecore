@@ -18,8 +18,12 @@ import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
+import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.IBool;
@@ -48,11 +52,60 @@ class Convert {
 
 	private static TypeFactory tf = TypeFactory.getInstance();
 	
+	interface IFix {
+		void apply(Map<IConstructor, EObject> uids);
+	}
+	
+	static class FixField implements IFix {
+		private EObject owner;
+		private EStructuralFeature field;
+		private IConstructor id;
+
+		FixField(EObject owner, EStructuralFeature field, IConstructor id) {
+			this.owner = owner;
+			this.field = field;
+			this.id = id;
+		}
+		
+		@Override
+		public void apply(Map<IConstructor, EObject> uids) {
+			EObject target = uids.get(id);
+			if (target != null) {
+				owner.eSet(field, target);
+			}
+			else {
+				ResourceSet rs = new ResourceSetImpl();
+				ISourceLocation loc = (ISourceLocation)id.get("uri");
+				java.net.URI x = loc.getURI();
+				String noFrag = x.toString().substring(0, x.toString().indexOf("#")); 
+				Resource res = rs.getResource(URI.createURI(noFrag), true);
+				owner.eSet(field, res.getEObject(x.getFragment()));
+			}
+		}
+	}
+	
+	static class FixList implements IFix {
+		private EList<Object> owner;
+		private int pos;
+		private IConstructor id;
+
+		FixList(EList<Object> owner, int pos, IConstructor id) {
+			this.owner = owner;
+			this.pos = pos;
+			this.id = id;
+		}
+		
+		@Override
+		public void apply(Map<IConstructor, EObject> uids) {
+			owner.set(pos, uids.get(id));
+		}
+	}
+	
 	public static EObject value2obj(EPackage pkg, IConstructor model, TypeStore ts) {
 		ModelBuilder builder = new ModelBuilder(pkg, ts);
 		EObject obj = (EObject) model.accept(builder);
-		for (EObject x: builder.fixes.keySet()) {
-			builder.fixes.get(x).apply(x, builder.uids);
+		for (IFix fix: builder.fixes) {
+			fix.apply(builder.uids);
 		}
 		return obj;
 	}
@@ -79,23 +132,8 @@ class Convert {
 	private static class ModelBuilder implements IValueVisitor<Object, RuntimeException> {
 		private EPackage pkg;
 		private Map<IConstructor, EObject> uids = new HashMap<>();
-		private Map<EObject, Fix> fixes = new HashMap<>();
+		private List<IFix> fixes = new ArrayList<>();
 		private TypeStore ts;
-		
-		static class Fix {
-			private EStructuralFeature field;
-			private IConstructor id;
-
-			Fix(EStructuralFeature field, IConstructor id) {
-				this.field = field;
-				this.id = id;
-			}
-			
-			void apply(EObject owner, Map<IConstructor, EObject> uids) {
-				owner.eSet(field, uids.get(id));
-			}
-			
-		}
 		
 		
 		private ModelBuilder(EPackage pkg, TypeStore ts) {
@@ -106,10 +144,10 @@ class Convert {
 		@Override
 		public Object visitConstructor(IConstructor o) throws RuntimeException {
 			
-			if (isRef(o)) {
-				// in later resolve phase
-				return null;
-			}
+//			if (isRef(o)) {
+//				// in later resolve phase
+//				return null;
+//			}
 			
 			if (o.getType().isSubtypeOf(ts.lookupAbstractDataType("Maybe"))) {
 				if (o.getConstructorType().getName().equals("just")) {
@@ -143,7 +181,7 @@ class Convert {
 				String fieldName = o.getChildrenTypes().getFieldName(i);
 				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
 				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
-					fixes.put(newObj, new Fix(toSet, (IConstructor)((IConstructor)v).get("uid")));
+					fixes.add(new FixField(newObj, toSet, getUID((IConstructor)v)));
 				}
 				else {
 					Object newVal = v.accept(this);
@@ -159,10 +197,13 @@ class Convert {
 				if (fieldName.equals("uid")) {
 					continue;
 				}
+				if (fieldName.equals("eType")) {
+					System.out.println();
+				}
 				IValue v = e.getValue();
 				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
 				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
-					fixes.put(newObj, new Fix(toSet, (IConstructor)((IConstructor)v).asWithKeywordParameters().getParameter("uid")));
+					fixes.add(new FixField(newObj, toSet, getUID((IConstructor)v)));
 				}
 				else {
 					Object newVal = v.accept(this);
@@ -184,10 +225,24 @@ class Convert {
 		@Override
 		public Object visitList(IList o) throws RuntimeException {
 			EList<Object> l = new BasicEList<>();
-			o.forEach(e ->
-				l.add(e.accept(this))
-			);
+			
+			int i = 0;
+			for (IValue e: o) {
+				if (e.getType().isAbstractData() && isRef((IConstructor)e)) {
+					fixes.add(new FixList(l, i, getUID((IConstructor)e)));
+					l.add(null);
+				}
+				else {
+					l.add(e.accept(this));
+				}
+				i++;
+			}
+
 			return l;
+		}
+		
+		private static IConstructor getUID(IConstructor node) {
+			return (IConstructor) node.get("uid");
 		}
 		
 		@Override
@@ -546,8 +601,22 @@ class Convert {
 		Type idCons = ts.lookupConstructor(idType, "id", tf.tupleType(tf.sourceLocationType()));
 		URI eUri = EcoreUtil.getURI(obj);
 		
+		String scheme = eUri.scheme();
+		String auth = eUri.authority();
+		String path = eUri.path();
+		String query = eUri.query();
+		String fragment = eUri.fragment();
+		
+		if (eUri.authority() == null) { // ???
+			scheme = src.getScheme();
+			auth = src.getAuthority();
+			path = src.getPath();
+			query = src.getQuery();
+			//NOT: fragment = src.getFragment();
+		}
+		
 		try {
-			java.net.URI uriId = URIUtil.create(src.getScheme(), src.getAuthority(), src.getPath(), src.getQuery(), eUri.fragment());
+			java.net.URI uriId = URIUtil.create(scheme, auth, path, query, fragment);
 			return vf.constructor(idCons, vf.sourceLocation(uriId));
 		} catch (URISyntaxException e) {
 			throw RuntimeExceptionFactory.malformedURI(eUri.toString(), null, null);

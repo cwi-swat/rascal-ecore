@@ -5,9 +5,15 @@ import lang::ecore::Diff;
 import lang::ecore::Refs;
 import util::Maybe;
 
-@doc{Load a model resource `uri` and "parse" it according to `meta`.} 
+@doc{Load a model resource `uri` and "parse" it according to `meta`.}
+&T<:node load(type[&T<:node] meta, loc uri) = load(meta, uri, uri);
+
+
+@doc{Load a model resource `uri` and "parse" it according to `meta`.
+The parameter `refBase` will be used as the base of identities.
+} 
 @javaClass{lang.ecore.IO}
-java &T<:node load(type[&T<:node] meta, loc uri);
+java &T<:node load(type[&T<:node] meta, loc uri, loc refBase);
 
 
 @doc{Load an Ecore meta model (an EPackage), identified by its `pkgURI` with which it's registered.}

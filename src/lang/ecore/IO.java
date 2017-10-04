@@ -342,7 +342,7 @@ public class IO {
 		}
 	}
 	
-	public IValue load(IValue reifiedType, ISourceLocation uri) {
+	public IValue load(IValue reifiedType, ISourceLocation uri, ISourceLocation refBase) {
 		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
@@ -350,7 +350,7 @@ public class IO {
 		Convert.declareMaybeType(ts);
 		try {
 			EObject root = loadModel(uri);
-			return Convert.obj2value(root, rt, vf, ts, uri);
+			return Convert.obj2value(root, rt, vf, ts, refBase);
 		} catch (IOException e) {
 			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
 		}
