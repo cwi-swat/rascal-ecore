@@ -29,9 +29,8 @@ str obj2hutn(node n, type[node] meta, int ind) {
   if (cons(label(class, _), flds, _, _) <- meta.definitions[typeOf(n)].alternatives, size(flds) == size(kids)) {
     name = "";
     props = for (int i <- [0..size(flds)]) {
-      if (flds[i].name == "name") {
-        //println("NAME = <kids[i]>");
-        name = value2hutn(kids[i], meta, ind);
+      if (flds[i].name == "name", str x := kids[i]) {
+        name = x;
       }
       else if (kids[i] != nothing(), kids[i] != null()) {
         append  "<flds[i].name>: <value2hutn(kids[i], meta, ind + 1)>";

@@ -78,6 +78,9 @@ value value2value(t:appl(prod(lex("Bool"), _, _), _), str path, type[node] meta,
 // todo: unescape
 value value2value(t:appl(prod(lex("Str"), _, _), _), str path, type[node] meta, loc base, Realm realm)
   = "<t>"[1..-1];
+
+value value2value(t:appl(prod(lex("Name"), _, _), _), str path, type[node] meta, loc base, Realm realm)
+  = "<t>";
   
 value value2value(t:appl(prod(lex("Int"), _, _), _), str path, type[node] meta, loc base, Realm realm)
   = toInt("<t>");

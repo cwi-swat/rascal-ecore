@@ -6,12 +6,12 @@ import ParseTree;
 
 
 syntax Group_Field =
-   states: "states"  ":"  "["  State*  "]" 
-  | @inject State_Field 
+  @inject State_Field 
+  |  states: "states"  ":"  "["  State*  "]" 
   ;
 
 syntax Group =
-  @Foldable Group: "Group"  Str name  "{"  Group_Field* fields  "}" 
+  @Foldable Group: "Group"  Name name  "{"  Group_Field* fields  "}" 
   ;
 
 syntax Trans =
@@ -19,30 +19,30 @@ syntax Trans =
   ;
 
 syntax State_Field =
-   final: "final"  ":"  Bool 
-  |  transitions: "transitions"  ":"  "["  Trans*  "]" 
+   transitions: "transitions"  ":"  "["  Trans*  "]" 
+  |  final: "final"  ":"  Bool 
   |  name: "name"  ":"  Str 
   ;
 
 syntax Trans_Field =
-   target: "target"  ":"  Ref[State] 
+   guard: "guard"  ":"  Str 
+  |  target: "target"  ":"  Ref[State] 
   |  events: "events"  ":"  "["  Str*  "]" 
-  |  guard: "guard"  ":"  Str 
   ;
 
 syntax Machine_Field =
-   initial: "initial"  ":"  Ref[State] 
-  |  states: "states"  ":"  "["  State*  "]" 
+   states: "states"  ":"  "["  State*  "]" 
+  |  initial: "initial"  ":"  Ref[State] 
   |  name: "name"  ":"  Str 
   ;
 
 start syntax Machine =
-  @Foldable Machine: "Machine"  Str name  "{"  Machine_Field* fields  "}" 
+  @Foldable Machine: "Machine"  Name name  "{"  Machine_Field* fields  "}" 
   ;
 
 syntax State =
   @inject Group 
-  | @Foldable State: "State"  Str name  "{"  State_Field* fields  "}" 
+  | @Foldable State: "State"  Name name  "{"  State_Field* fields  "}" 
   ;
 
 

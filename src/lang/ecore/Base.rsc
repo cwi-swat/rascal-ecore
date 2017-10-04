@@ -16,6 +16,9 @@ lexical PathChars = URLChars [|] ;
 
 lexical URLChars = ![\t-\n \r \  \< |]* ;
 
+
+lexical Name 
+  = @category="Type" ![{]* ![\n\t\r\ {] ;
   
 syntax Nav
   = root: "/"

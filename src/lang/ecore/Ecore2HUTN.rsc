@@ -43,7 +43,7 @@ str ecore2rascal(EPackage pkg, str root)
 Grammar ecore2grammar(EPackage pkg, str root) 
   = grammar({sort(root)}, ecore2rules(pkg, root));
 
-list[Symbol] nameFor(EClass c, EPackage pkg) = [label("name", lex("Str")), myLayout] 
+list[Symbol] nameFor(EClass c, EPackage pkg) = [label("name", lex("Name")), myLayout] 
  when 
    EClass sup <- [c, *allSuperclassesOf(c, pkg)], 
    EStructuralFeature f <- sup.eStructuralFeatures, 
