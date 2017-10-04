@@ -23,7 +23,6 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
-import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.IBool;
@@ -74,8 +73,12 @@ class Convert {
 				owner.eSet(field, target);
 			}
 			else {
-				ResourceSet rs = new ResourceSetImpl();
 				ISourceLocation loc = (ISourceLocation)id.get("uri");
+				if (loc.getScheme().equals("project")) {
+					// dangling ref
+					return;
+				}
+				ResourceSet rs = new ResourceSetImpl();
 				java.net.URI x = loc.getURI();
 				String noFrag = x.toString().substring(0, x.toString().indexOf("#")); 
 				Resource res = rs.getResource(URI.createURI(noFrag), true);
@@ -97,7 +100,7 @@ class Convert {
 		
 		@Override
 		public void apply(Map<IConstructor, EObject> uids) {
-			owner.set(pos, uids.get(id));
+			owner.add(pos, uids.get(id));
 		}
 	}
 	
@@ -230,7 +233,7 @@ class Convert {
 			for (IValue e: o) {
 				if (e.getType().isAbstractData() && isRef((IConstructor)e)) {
 					fixes.add(new FixList(l, i, getUID((IConstructor)e)));
-					l.add(null);
+					//l.add(null);
 				}
 				else {
 					l.add(e.accept(this));
