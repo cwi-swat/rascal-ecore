@@ -39,23 +39,35 @@ test bool testLoadMyFSMEcore() {
 }
 
 bool testLoadSaveIsEqual(loc uri) {
-  EPackage mm = load(#EPackage, uri);
-  iprintln(mm);
-  
-  save(#EPackage, mm, uri[extension="saved"], |http://www.eclipse.org/emf/2002/Ecore|);
 
-  EPackage mmSaved = load(#EPackage, uri[extension="saved"]);
+  try {
+    EPackage mm = load(#EPackage, uri);
+    //iprintln(mm);
   
-  d = diff(#EPackage, mm, mmSaved);
-  if (d.edits != []) {
-    iprintln(d);
-  }  
+    save(#EPackage, mm, uri[extension="saved"], |http://www.eclipse.org/emf/2002/Ecore|);
+
+    EPackage mmSaved = load(#EPackage, uri[extension="saved"], uri);
+    
+    d = diff(#EPackage, mm, mmSaved);
+    if (d.edits != []) {
+      iprintln(d);
+    }  
   
-  return d.edits == [];
+    return d.edits == [];
+  }
+  catch value v: {
+    println("Exception for <uri>: <v>");
+    return false;
+  }
+  
+  //iprintln(mmSaved);
+  //return mm == mmSaved;
+  
+  
 }
 
 void testLoadSaveSamples() {
   ecores = |project://rascal-ecore/src/lang/ecore/samples|.ls;
   int success = ( 0 | it + (testLoadSaveIsEqual(e) ? 1 : 0) | loc e <- ecores );
-  println("<size(ecores) - success - errs> failed; <errs> exceptions; <success> success");
+  println("<size(ecores) - success> failed/error; <success> success");
 }
