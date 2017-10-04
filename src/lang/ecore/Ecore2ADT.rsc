@@ -177,8 +177,8 @@ Symbol feature2arg(EStructuralFeature f, EClass c, EPackage pkg, bool req)
 Production class2prod(EClass class, EPackage pkg) {
   // assumes flattened inheritance
   
-  ps =  [ feature2arg(f, class, pkg, true) | f <- class.eStructuralFeatures, isRequired(f), !f.derived ];
-  kws = [ feature2arg(f, class, pkg, false) | f <- class.eStructuralFeatures, !isRequired(f), !f.derived ]
+  ps =  [ feature2arg(f, class, pkg, true) | f <- class.eStructuralFeatures, isRequired(f), !f.derived, !f.transient ];
+  kws = [ feature2arg(f, class, pkg, false) | f <- class.eStructuralFeatures, !isRequired(f), !f.derived, !f.transient ]
     + [ label("uid", adt("Id", [])) ];
   return cons(label(class.name, adt(class.name, [])), ps, kws, {});
 }
@@ -187,7 +187,7 @@ Production classifier2choice(EClassifier(EClass class), EPackage pkg) {
   Symbol a = adt(class.name, []);
   set[Production] alts = { class2prod(class, pkg) | !class.abstract }
     + { cons(label(class.name, a), [label(fieldName(sub.name), adt(sub.name, []))], 
-          [ feature2arg(f, sub, pkg, true)  | f <- sub.eStructuralFeatures, !f.derived ]
+          [ feature2arg(f, sub, pkg, true)  | f <- sub.eStructuralFeatures, !f.derived, !f.transient ]
           + [label("uid", adt("Id", [])), label("_inject", \bool())]
           , {})  
           | EClass sub <- directSubclassesOf(class, pkg) };

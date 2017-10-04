@@ -8,7 +8,6 @@ data EClass
       , str \instanceClassName = ""
       , str \instanceTypeName = ""
       , list[EAnnotation] \eAnnotations = []
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = null()
       , list[ETypeParameter] \eTypeParameters = []
       , bool \abstract = false
       , bool \interface = false
@@ -27,16 +26,7 @@ data ETypeParameter
   ;
 
 data ENamedElement
-  = ENamedElement(EEnumLiteral \eEnumLiteral
-      , str \name = \eEnumLiteral.\name
-      , list[EAnnotation] \eAnnotations = \eEnumLiteral.\eAnnotations
-      , int \value = \eEnumLiteral.\value
-      , tuple[str literal, str name, int \value] \instance = \eEnumLiteral.\instance
-      , str \literal = \eEnumLiteral.\literal
-      , lang::ecore::Refs::Ref[EEnum] \eEnum = \eEnumLiteral.\eEnum
-      , Id uid = \eEnumLiteral.uid
-      , bool _inject = true)
-  | ENamedElement(ETypedElement \eTypedElement
+  = ENamedElement(ETypedElement \eTypedElement
       , str \name = \eTypedElement.\name
       , list[EAnnotation] \eAnnotations = \eTypedElement.\eAnnotations
       , bool \ordered = \eTypedElement.\ordered
@@ -47,31 +37,35 @@ data ENamedElement
       , EGenericType \eGenericType = \eTypedElement.\eGenericType
       , Id uid = \eTypedElement.uid
       , bool _inject = true)
-  | ENamedElement(ETypeParameter \eTypeParameter
-      , str \name = \eTypeParameter.\name
-      , list[EAnnotation] \eAnnotations = \eTypeParameter.\eAnnotations
-      , list[EGenericType] \eBounds = \eTypeParameter.\eBounds
-      , Id uid = \eTypeParameter.uid
+  | ENamedElement(EPackage \ePackage
+      , str \name = \ePackage.\name
+      , list[EAnnotation] \eAnnotations = \ePackage.\eAnnotations
+      , str \nsURI = \ePackage.\nsURI
+      , str \nsPrefix = \ePackage.\nsPrefix
+      , list[EClassifier] \eClassifiers = \ePackage.\eClassifiers
+      , list[EPackage] \eSubpackages = \ePackage.\eSubpackages
+      , Id uid = \ePackage.uid
       , bool _inject = true)
   | ENamedElement(EClassifier \eClassifier
       , str \name = \eClassifier.\name
       , list[EAnnotation] \eAnnotations = \eClassifier.\eAnnotations
       , str \instanceClassName = \eClassifier.\instanceClassName
       , str \instanceTypeName = \eClassifier.\instanceTypeName
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = \eClassifier.\ePackage
       , list[ETypeParameter] \eTypeParameters = \eClassifier.\eTypeParameters
       , Id uid = \eClassifier.uid
       , bool _inject = true)
-  | ENamedElement(EPackage \ePackage
-      , str \name = \ePackage.\name
-      , list[EAnnotation] \eAnnotations = \ePackage.\eAnnotations
-      , str \nsURI = \ePackage.\nsURI
-      , str \nsPrefix = \ePackage.\nsPrefix
-      , lang::ecore::Refs::Ref[EFactory] \eFactoryInstance = \ePackage.\eFactoryInstance
-      , list[EClassifier] \eClassifiers = \ePackage.\eClassifiers
-      , list[EPackage] \eSubpackages = \ePackage.\eSubpackages
-      , lang::ecore::Refs::Ref[EPackage] \eSuperPackage = \ePackage.\eSuperPackage
-      , Id uid = \ePackage.uid
+  | ENamedElement(ETypeParameter \eTypeParameter
+      , str \name = \eTypeParameter.\name
+      , list[EAnnotation] \eAnnotations = \eTypeParameter.\eAnnotations
+      , list[EGenericType] \eBounds = \eTypeParameter.\eBounds
+      , Id uid = \eTypeParameter.uid
+      , bool _inject = true)
+  | ENamedElement(EEnumLiteral \eEnumLiteral
+      , str \name = \eEnumLiteral.\name
+      , list[EAnnotation] \eAnnotations = \eEnumLiteral.\eAnnotations
+      , int \value = \eEnumLiteral.\value
+      , str \literal = \eEnumLiteral.\literal
+      , Id uid = \eEnumLiteral.uid
       , bool _inject = true)
   ;
 
@@ -93,7 +87,6 @@ data EOperation
       , list[EAnnotation] \eAnnotations = []
       , lang::ecore::Refs::Ref[EClassifier] \eType = null()
       , util::Maybe::Maybe[EGenericType] \eGenericType = nothing()
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = null()
       , list[ETypeParameter] \eTypeParameters = []
       , list[EParameter] \eParameters = []
       , list[lang::ecore::Refs::Ref[EClassifier]] \eExceptions = []
@@ -102,39 +95,34 @@ data EOperation
   ;
 
 data EPackage
-  = EPackage(lang::ecore::Refs::Ref[EFactory] \eFactoryInstance
-      , str \name = ""
+  = EPackage(str \name = ""
       , list[EAnnotation] \eAnnotations = []
       , str \nsURI = ""
       , str \nsPrefix = ""
       , list[EClassifier] \eClassifiers = []
       , list[EPackage] \eSubpackages = []
-      , lang::ecore::Refs::Ref[EPackage] \eSuperPackage = null()
       , lang::ecore::Refs::Id uid = noId())
   ;
 
 data EFactory
-  = EFactory(lang::ecore::Refs::Ref[EPackage] \ePackage
-      , list[EAnnotation] \eAnnotations = []
+  = EFactory(list[EAnnotation] \eAnnotations = []
       , lang::ecore::Refs::Id uid = noId())
   ;
 
 data EModelElement
-  = EModelElement(EFactory \eFactory
-      , list[EAnnotation] \eAnnotations = \eFactory.\eAnnotations
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = \eFactory.\ePackage
-      , Id uid = \eFactory.uid
-      , bool _inject = true)
-  | EModelElement(ENamedElement \eNamedElement
+  = EModelElement(ENamedElement \eNamedElement
       , list[EAnnotation] \eAnnotations = \eNamedElement.\eAnnotations
       , str \name = \eNamedElement.\name
       , Id uid = \eNamedElement.uid
+      , bool _inject = true)
+  | EModelElement(EFactory \eFactory
+      , list[EAnnotation] \eAnnotations = \eFactory.\eAnnotations
+      , Id uid = \eFactory.uid
       , bool _inject = true)
   | EModelElement(EAnnotation \eAnnotation
       , list[EAnnotation] \eAnnotations = \eAnnotation.\eAnnotations
       , str \source = \eAnnotation.\source
       , list[EStringToStringMapEntry] \details = \eAnnotation.\details
-      , lang::ecore::Refs::Ref[EModelElement] \eModelElement = \eAnnotation.\eModelElement
       , list[EObject] \contents = \eAnnotation.\contents
       , list[lang::ecore::Refs::Ref[EObject]] \references = \eAnnotation.\references
       , Id uid = \eAnnotation.uid
@@ -148,19 +136,7 @@ data EStringToStringMapEntry
   ;
 
 data ETypedElement
-  = ETypedElement(EParameter \eParameter
-      , str \name = \eParameter.\name
-      , bool \ordered = \eParameter.\ordered
-      , bool \unique = \eParameter.\unique
-      , int \lowerBound = \eParameter.\lowerBound
-      , int \upperBound = \eParameter.\upperBound
-      , list[EAnnotation] \eAnnotations = \eParameter.\eAnnotations
-      , lang::ecore::Refs::Ref[EClassifier] \eType = \eParameter.\eType
-      , EGenericType \eGenericType = \eParameter.\eGenericType
-      , lang::ecore::Refs::Ref[EOperation] \eOperation = \eParameter.\eOperation
-      , Id uid = \eParameter.uid
-      , bool _inject = true)
-  | ETypedElement(EOperation \eOperation
+  = ETypedElement(EOperation \eOperation
       , str \name = \eOperation.\name
       , bool \ordered = \eOperation.\ordered
       , bool \unique = \eOperation.\unique
@@ -169,12 +145,22 @@ data ETypedElement
       , list[EAnnotation] \eAnnotations = \eOperation.\eAnnotations
       , lang::ecore::Refs::Ref[EClassifier] \eType = \eOperation.\eType
       , EGenericType \eGenericType = \eOperation.\eGenericType
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = \eOperation.\eContainingClass
       , list[ETypeParameter] \eTypeParameters = \eOperation.\eTypeParameters
       , list[EParameter] \eParameters = \eOperation.\eParameters
       , list[lang::ecore::Refs::Ref[EClassifier]] \eExceptions = \eOperation.\eExceptions
       , list[EGenericType] \eGenericExceptions = \eOperation.\eGenericExceptions
       , Id uid = \eOperation.uid
+      , bool _inject = true)
+  | ETypedElement(EParameter \eParameter
+      , str \name = \eParameter.\name
+      , bool \ordered = \eParameter.\ordered
+      , bool \unique = \eParameter.\unique
+      , int \lowerBound = \eParameter.\lowerBound
+      , int \upperBound = \eParameter.\upperBound
+      , list[EAnnotation] \eAnnotations = \eParameter.\eAnnotations
+      , lang::ecore::Refs::Ref[EClassifier] \eType = \eParameter.\eType
+      , EGenericType \eGenericType = \eParameter.\eGenericType
+      , Id uid = \eParameter.uid
       , bool _inject = true)
   | ETypedElement(EStructuralFeature \eStructuralFeature
       , str \name = \eStructuralFeature.\name
@@ -191,7 +177,6 @@ data ETypedElement
       , str \defaultValueLiteral = \eStructuralFeature.\defaultValueLiteral
       , bool \unsettable = \eStructuralFeature.\unsettable
       , bool \derived = \eStructuralFeature.\derived
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = \eStructuralFeature.\eContainingClass
       , Id uid = \eStructuralFeature.uid
       , bool _inject = true)
   ;
@@ -211,7 +196,6 @@ data EAttribute
       , list[EAnnotation] \eAnnotations = []
       , lang::ecore::Refs::Ref[EClassifier] \eType = null()
       , util::Maybe::Maybe[EGenericType] \eGenericType = nothing()
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = null()
       , bool \iD = false
       , lang::ecore::Refs::Id uid = noId())
   ;
@@ -220,7 +204,6 @@ data EAnnotation
   = EAnnotation(list[EAnnotation] \eAnnotations = []
       , str \source = ""
       , list[EStringToStringMapEntry] \details = []
-      , lang::ecore::Refs::Ref[EModelElement] \eModelElement = null()
       , list[EObject] \contents = []
       , list[lang::ecore::Refs::Ref[EObject]] \references = []
       , lang::ecore::Refs::Id uid = noId())
@@ -242,7 +225,6 @@ data EStructuralFeature
       , list[EAnnotation] \eAnnotations = \eAttribute.\eAnnotations
       , lang::ecore::Refs::Ref[EClassifier] \eType = \eAttribute.\eType
       , EGenericType \eGenericType = \eAttribute.\eGenericType
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = \eAttribute.\eContainingClass
       , bool \iD = \eAttribute.\iD
       , Id uid = \eAttribute.uid
       , bool _inject = true)
@@ -261,7 +243,6 @@ data EStructuralFeature
       , list[EAnnotation] \eAnnotations = \eReference.\eAnnotations
       , lang::ecore::Refs::Ref[EClassifier] \eType = \eReference.\eType
       , EGenericType \eGenericType = \eReference.\eGenericType
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = \eReference.\eContainingClass
       , bool \containment = \eReference.\containment
       , bool \resolveProxies = \eReference.\resolveProxies
       , lang::ecore::Refs::Ref[EReference] \eOpposite = \eReference.\eOpposite
@@ -275,7 +256,6 @@ data EDataType
       , str \instanceClassName = ""
       , str \instanceTypeName = ""
       , list[EAnnotation] \eAnnotations = []
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = null()
       , list[ETypeParameter] \eTypeParameters = []
       , bool \serializable = false
       , lang::ecore::Refs::Id uid = noId())
@@ -285,7 +265,6 @@ data EDataType
       , str \instanceTypeName = \eEnum.\instanceTypeName
       , bool \serializable = \eEnum.\serializable
       , list[EAnnotation] \eAnnotations = \eEnum.\eAnnotations
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = \eEnum.\ePackage
       , list[ETypeParameter] \eTypeParameters = \eEnum.\eTypeParameters
       , list[EEnumLiteral] \eLiterals = \eEnum.\eLiterals
       , Id uid = \eEnum.uid
@@ -296,9 +275,7 @@ data EEnumLiteral
   = EEnumLiteral(str \name = ""
       , list[EAnnotation] \eAnnotations = []
       , int \value = 0
-      , tuple[str literal, str name, int \value] \instance = <"", "", 0>
       , str \literal = ""
-      , lang::ecore::Refs::Ref[EEnum] \eEnum = null()
       , lang::ecore::Refs::Id uid = noId())
   ;
 
@@ -308,7 +285,6 @@ data EClassifier
       , str \instanceClassName = \eDataType.\instanceClassName
       , str \instanceTypeName = \eDataType.\instanceTypeName
       , list[EAnnotation] \eAnnotations = \eDataType.\eAnnotations
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = \eDataType.\ePackage
       , list[ETypeParameter] \eTypeParameters = \eDataType.\eTypeParameters
       , bool \serializable = \eDataType.\serializable
       , Id uid = \eDataType.uid
@@ -318,7 +294,6 @@ data EClassifier
       , str \instanceClassName = \eClass.\instanceClassName
       , str \instanceTypeName = \eClass.\instanceTypeName
       , list[EAnnotation] \eAnnotations = \eClass.\eAnnotations
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = \eClass.\ePackage
       , list[ETypeParameter] \eTypeParameters = \eClass.\eTypeParameters
       , bool \abstract = \eClass.\abstract
       , bool \interface = \eClass.\interface
@@ -345,7 +320,6 @@ data EReference
       , list[EAnnotation] \eAnnotations = []
       , lang::ecore::Refs::Ref[EClassifier] \eType = null()
       , util::Maybe::Maybe[EGenericType] \eGenericType = nothing()
-      , lang::ecore::Refs::Ref[EClass] \eContainingClass = null()
       , bool \containment = false
       , bool \resolveProxies = false
       , lang::ecore::Refs::Ref[EReference] \eOpposite = null()
@@ -359,7 +333,6 @@ data EEnum
       , str \instanceTypeName = ""
       , bool \serializable = false
       , list[EAnnotation] \eAnnotations = []
-      , lang::ecore::Refs::Ref[EPackage] \ePackage = null()
       , list[ETypeParameter] \eTypeParameters = []
       , list[EEnumLiteral] \eLiterals = []
       , lang::ecore::Refs::Id uid = noId())
@@ -374,7 +347,6 @@ data EParameter
       , list[EAnnotation] \eAnnotations = []
       , lang::ecore::Refs::Ref[EClassifier] \eType = null()
       , util::Maybe::Maybe[EGenericType] \eGenericType = nothing()
-      , lang::ecore::Refs::Ref[EOperation] \eOperation = null()
       , lang::ecore::Refs::Id uid = noId())
   ;
 

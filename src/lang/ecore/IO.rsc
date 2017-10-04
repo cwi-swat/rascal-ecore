@@ -21,7 +21,7 @@ java EPackage load(loc pkgURI, type[EPackage] ecore = #EPackage);
 @doc{Save a model to resource `uri`. 
 pkgURI is needed to obtain a factory from the meta model registry.}
 @javaClass{lang.ecore.IO}
-java void save(&T<:node model, loc uri, loc pkgURI);
+java void save(type[&T<:node] meta, &T<:node model, loc uri, loc pkgURI);
 
 @javaClass{lang.ecore.IO}
 @reflect{Eval}

@@ -39,7 +39,6 @@ import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
 import io.usethesource.vallang.IWithKeywordParameters;
-import io.usethesource.vallang.io.binary.message.IValueIDs.ConstructorType;
 import io.usethesource.vallang.type.Type;
 import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
@@ -49,8 +48,8 @@ class Convert {
 
 	private static TypeFactory tf = TypeFactory.getInstance();
 	
-	public static EObject value2obj(EPackage pkg, IConstructor model) {
-		ModelBuilder builder = new ModelBuilder(pkg);
+	public static EObject value2obj(EPackage pkg, IConstructor model, TypeStore ts) {
+		ModelBuilder builder = new ModelBuilder(pkg, ts);
 		EObject obj = (EObject) model.accept(builder);
 		for (EObject x: builder.fixes.keySet()) {
 			builder.fixes.get(x).apply(x, builder.uids);
@@ -81,6 +80,7 @@ class Convert {
 		private EPackage pkg;
 		private Map<IConstructor, EObject> uids = new HashMap<>();
 		private Map<EObject, Fix> fixes = new HashMap<>();
+		private TypeStore ts;
 		
 		static class Fix {
 			private EStructuralFeature field;
@@ -98,8 +98,9 @@ class Convert {
 		}
 		
 		
-		private ModelBuilder(EPackage pkg) {
+		private ModelBuilder(EPackage pkg, TypeStore ts) {
 			this.pkg  = pkg;
+			this.ts = ts;
 		}
 
 		@Override
@@ -110,6 +111,14 @@ class Convert {
 				return null;
 			}
 			
+			if (o.getType().isSubtypeOf(ts.lookupAbstractDataType("Maybe"))) {
+				if (o.getConstructorType().getName().equals("just")) {
+					return o.get(0).accept(this);
+				}
+				return null;
+			}
+			
+			o = uninject(o, ts);
 			String clsName = o.getName();
 			EClass eCls = (EClass) pkg.getEClassifier(clsName);
 			
@@ -138,7 +147,9 @@ class Convert {
 				}
 				else {
 					Object newVal = v.accept(this);
-					newObj.eSet(toSet, newVal);
+					if (newVal != null) {
+						newObj.eSet(toSet, newVal);
+					}
 				}
 				i++;
 			}
@@ -155,7 +166,9 @@ class Convert {
 				}
 				else {
 					Object newVal = v.accept(this);
-					newObj.eSet(toSet, newVal);
+					if (newVal != null) {
+						newObj.eSet(toSet, newVal);
+					}
 				}
 			}
 			
@@ -378,6 +391,12 @@ class Convert {
 		return makePrimitive(obj, type, vf);
 	}
 	
+	private static IConstructor uninject(IConstructor c, TypeStore ts) {
+		if (ts.getKeywordParameters(c.getConstructorType()).containsKey("_inject")) {
+			return uninject((IConstructor)c.get(0), ts);
+		}
+		return c;
+	}
 	
 	private static IValue inject(Type type, TypeStore ts, IValueFactory vf, IValue x) {
 		/*

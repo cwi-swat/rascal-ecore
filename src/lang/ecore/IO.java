@@ -358,9 +358,15 @@ public class IO {
 
 	
 	
-	public void save(INode model, ISourceLocation uri, ISourceLocation pkgUri) {
+	public void save(IValue reifiedType, INode model, ISourceLocation uri, ISourceLocation pkgUri) {
+		TypeStore ts = new TypeStore(); // start afresh
+
+		tr.valueToType((IConstructor) reifiedType, ts);
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
-		EObject root = Convert.value2obj(pkg, (IConstructor) model);
+		EObject root = Convert.value2obj(pkg, (IConstructor) model, ts);
 		try {
 			saveModel(root, uri);
 		} catch (IOException e) {
