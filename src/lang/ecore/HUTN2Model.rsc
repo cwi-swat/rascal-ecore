@@ -47,11 +47,8 @@ node hutn2obj(Tree t, str path, type[node] meta, loc base, Realm realm) {
         
   tt = type(s, meta.definitions);
   
-  // todo: id attributes
-  //myKey = "name" in fieldVals ? fieldVals["name"] : path;
-  
   model = realm.new(tt, make(tt, p.def.name, args, kws), id = id(base[fragment=path]));
-  //println("model = <model>");
+
   return typeCast(#node, model);
 }
 
@@ -60,17 +57,13 @@ Tree uninjectField(Tree t) = isInjection(t) ? uninjectField(t.args[0]) : t;
  
 
 map[str, value] hutnFields(Tree t, str path, type[node] meta, loc base, Realm realm) 
-  = ( "<t.args[i].args[0]>" : field2value(uninjectField(t.args[i]), path, meta, base, realm) | int i <- [0,2..size(t.args)] )
-  when
-    true; //bprintln("FIELDS: <t.prod>");
+  = ( "<t.args[i].args[0]>" : field2value(uninjectField(t.args[i]), path, meta, base, realm) | int i <- [0,2..size(t.args)] );
 
 value field2value(t:appl(prod(_, [lit(str field), _, lit(":"), _, Symbol val], _), list[Tree] args), str path, type[node] meta, loc base, Realm realm)
-  =  value2value(args[4], field == "name" ? "<args[4]>" : "<path>/@<field>", meta, base, realm)
-  when true; // bprintln("ARGS[4] prod = <args[4].prod>");
+  =  value2value(args[4], field == "name" ? "<args[4]>" : "<path>/@<field>", meta, base, realm);
   
 value field2value(t:appl(prod(_, [lit(str field), _, lit(":"), _, lit("["), _, Symbol val, _, lit("]")], _), list[Tree] args), str path, type[node] meta, loc base, Realm realm)
-  =  value2value(args[6], "<path>/@<field>", meta, base, realm)
-  when true; //bprintln("ARGS[6] prod = <args[6].prod>");
+  =  value2value(args[6], "<path>/@<field>", meta, base, realm);
 
 value value2value(t:appl(prod(lex("Bool"), _, _), _), str path, type[node] meta, loc base, Realm realm)
   = "<t>" == "true";
@@ -104,7 +97,6 @@ value value2value(t:appl(regular(\iter-star-seps(_, _)), list[Tree] args), str p
   
   
 default value value2value(Tree t, str path, type[node] meta, loc base, Realm realm)
-  = hutn2obj(t, path, meta, base, realm)
-  when true; //bprintln("OBJ prod: <t.prod>");
+  = hutn2obj(t, path, meta, base, realm);
   
   

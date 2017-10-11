@@ -4,11 +4,21 @@ import Type;
 import Node;
 import IO;
 
-// refs are optional by default.
+
+// "Object spaces"
+alias Realm = tuple[&T(type[&T<:node], &T) new];
+
+// Object identities
+data Id 
+  = id(int n)
+  | id(loc uri);
+
+// References to objects (possibly null)
 data Ref[&T]
   = ref(Id uid)
   | null()
   ; 
+  
 
 &T<:node lookup(node root, type[&T<:node] typ, Ref[&T] r) = aNode
   when /&T<:node aNode := root, getId(aNode) == r.uid;
@@ -28,20 +38,12 @@ Id getId(&T<:node t) {
 } 
   
 bool isInjection(node t) = !(t has uid);
- // = !(t has uid) && (arity(t) > 0 && value v := getChildren(t)[0] && node n := v ==> isInjection(n));
 
 node uninject(node t) {
   if (t has uid) { // assumes uid is never *set* on injections
     return t;
   }
   return uninject(typeCast(#node, getChildren(t)[0])); 
-  
-  //value v = t;
-  //while (node n := v, isInjection(n)) {
-  //  v = getChildren(n)[0];
-  //  t = n;
-  //}
-  //return t;
 }  
   
 bool hasId(node t) {
@@ -60,17 +62,7 @@ bool isId(node n) = (Id _ := n);
 
 bool isObj(node n) = !isRef(n) && !isId(n) && hasId(n);
 
-data Id 
-  = id(int n)
-  | id(loc uri);
- 
-alias Realm = tuple[&T(type[&T<:node], &T) new];
-
-&T update(&T t, type[&U<:node] u, &U x) = bottom-up-break visit (t) {
-     case &U y => x when getKeywordParameters(y)["uid"] == getKeywordParameters(x)["uid"]  
-   };
-
-
+// this currently does not care about injections...
 &T<:node setId(&T<:node x, Id id) = 
   setKeywordParameters(x, getKeywordParameters(x) + ("uid": id));
 
@@ -94,7 +86,7 @@ Realm newRealm() {
 }
 
 Id noId() {
-  throw "You should have used new to make things with ids.";
+  throw "You should have used `new` on a Realm to make things with ids.";
 }
 
 loc noLoc() {

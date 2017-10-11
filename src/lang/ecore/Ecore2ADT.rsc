@@ -10,6 +10,7 @@ import Type;
 import List;
 import String;
 import analysis::graphs::Graph;
+import DateTime;
 
 // TODO: 
 // - annotations
@@ -24,19 +25,23 @@ void writeEcoreEcore() {
 void writeEcoreADTModule(str moduleName, loc l, EPackage pkg) 
   = writeFile(l, "module <moduleName>
                  '
+                 '// Generated code; do not edit.
+                 '// Date: <now()>
+                 '
                  'import util::Maybe;
                  'import lang::ecore::Refs;
+                 'import DateTime;
                  '
                  '<ecore2rsc(flattenInheritance(newRealm(), pkg))>");
 
-// assumes flattening
+// assumes flattening of inheritance
 str ecore2rsc(EPackage pkg) 
   = intercalate("\n\n", [ choice2rsc(defs[s]) | Symbol s <- orderADTs(defs) ])
   when 
     defs := package2definitions(pkg);
 
 
-// assumes flattening
+// assumes flattening of inheritance
 map[Symbol, Production] package2definitions(EPackage pkg) 
   = ( p.def: p | EClassifier c <- pkg.eClassifiers, EClassifier(EDataType _) !:= c, p := classifier2choice(c, pkg) );
 
@@ -115,7 +120,7 @@ str default4sym(\real()) = "0.0";
 
 str default4sym(\str()) = "\"\"";
 
-str default4sym(\datetime()) = "$2017-09-27T23:23:51.343+00:00$"; // ???
+str default4sym(\datetime()) = "DateTime::now()"; // ???
 
 str default4sym(\list(Symbol s)) = "[]";
 
@@ -133,7 +138,7 @@ str default4sym(adt("Id", list[Symbol] ps))
 str default4sym(adt("Maybe", list[Symbol] ps)) 
   = "nothing()";
 
-str default4sym(adt(str x, list[Symbol] ps))  { throw "No default for ADT <x> we don\'t know"; }
+default str default4sym(adt(str x, list[Symbol] ps))  { throw "No default for ADT <x> we don\'t know"; }
 
 
 Symbol type2symbol(Ref[EClassifier] typeRef, EPackage pkg, bool xref, bool req, bool many) 
@@ -148,17 +153,29 @@ Symbol classifier2symbol(EClassifier(EClass(name = str name)), bool xref, bool r
 Symbol classifier2symbol(EClassifier(EEnum(name = str name)), bool xref, bool req, bool many) = adt(name, []);
 
 Symbol prim2symbol("EBigDecimal") = \real();
+
 Symbol prim2symbol("EDouble") = \real();
+
 Symbol prim2symbol("EFloat") = \real();
+
 Symbol prim2symbol("EBigInteger") = \int();
+
 Symbol prim2symbol("EByte") = \int();
+
 Symbol prim2symbol("EShort") = \int();
+
 Symbol prim2symbol("EInt") = \int();
+
 Symbol prim2symbol("ELong") = \int();
+
 Symbol prim2symbol("EBoolean") = \bool();
+
 Symbol prim2symbol("EString") = \str();
+
 Symbol prim2symbol("EDate") = \datetime();
+
 Symbol prim2symbol("EEnumerator") = \tuple([label("literal", \str()), label("name", \str()), label("\\value", \int())]);
+
 default Symbol prim2symbol(str d) { throw "Unsupported primitive <d>"; }
 
 
@@ -170,8 +187,6 @@ Symbol feature2symbol(EStructuralFeature f, EClass c, EPackage pkg, bool req) {
 
 Symbol feature2arg(EStructuralFeature f, EClass c, EPackage pkg, bool req) 
   = label(fieldName(f.name), feature2symbol(f, c, pkg, req));
-
-
 
 
 Production class2prod(EClass class, EPackage pkg) {

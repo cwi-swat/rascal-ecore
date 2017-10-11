@@ -1,6 +1,7 @@
 module lang::ecore::Grammar2Ecore
 
 import lang::ecore::Ecore;
+import lang::ecore::EcoreUtil;
 import lang::ecore::Refs;
 
 import analysis::graphs::Graph;
@@ -265,15 +266,6 @@ bool anySuperClassHasFeature(map[str, EClassifier] classMap, str class, str fiel
        Ref[EClass] refSup <- classMap[class].eClass.eSuperTypes, EClassifier(EClass sup) <- classMap<1>, 
           sup.uid == refSup.uid );
 }
-
-
-EStructuralFeature makeOpt(EStructuralFeature(EAttribute a)) = EStructuralFeature(a[lowerBound=0]);
-
-EStructuralFeature makeOpt(EStructuralFeature(EReference r)) = EStructuralFeature(r[lowerBound=0]);
-
-EStructuralFeature makeMany(EStructuralFeature(EAttribute a)) = EStructuralFeature(a[upperBound=-1]);
-
-EStructuralFeature makeMany(EStructuralFeature(EReference r)) = EStructuralFeature(r[upperBound=-1]);
 
 set[str] prodIds(Production p) 
   = { id[1..-1] | p has attributes, \tag("id"(str id)) <- p.attributes };

@@ -80,7 +80,7 @@ str value2hutn(value v, type[node] meta, int i) {
     case node n:
       return obj2hutn(uninject(n), meta, i);
 
-    case str x:
+    case str x: // todo: unescape
       return "\"<x>\"";
       
     default:

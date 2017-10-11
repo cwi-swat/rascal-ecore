@@ -7,9 +7,6 @@ import List;
 import IO;
 import Type;
 
-// todo: move elsewhere
-alias Loader[&T] = (&T<:node)(type[&T<:node]);
-
 alias Patch
   = tuple[Id root, Edits edits];
 
@@ -76,8 +73,8 @@ default Edits initKid(Id id, value v, str field)
 // assumptions: all nodes have a uid, except ref/null
 Edits diff(type[&T<:node] meta, Id id, node old, node new) {
   assert getClass(old) == getClass(new);
-  assert old.uid == id;
-  assert new.uid == id;
+  //assert old.uid == id;
+  //assert new.uid == id;
   
   Symbol s = getType(old);
   str c = getName(old);

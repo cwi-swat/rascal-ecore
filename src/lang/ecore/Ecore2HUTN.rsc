@@ -5,6 +5,7 @@ import lang::ecore::EcoreUtil;
 import lang::ecore::Refs;
 
 import Type;
+import DateTime;
 import ParseTree;
 import Grammar;
 import IO;
@@ -23,15 +24,16 @@ void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root, str name 
       'import util::IDE;
       'import ParseTree;
       '
+      '// Generated code; do not edit.
+      '// Date: <now()>
+      '
       '<src>
       '
       'start[<root>] parse<capitalize(name)>(str src, loc l)
       '  = parse(#start[<root>], src, l);
       '
       'void main() {
-      '  registerLanguage(\"<name>\", \"<ext>\", start[<root>](str src, loc org) {
-      '    return parse<capitalize(name)>(src, org);
-      '  });
+      '  registerLanguage(\"<name>\", \"<ext>\", parse<capitalize(name)>);
       '}";
       
   writeFile(path, m);
@@ -50,8 +52,6 @@ list[Symbol] nameFor(EClass c, EPackage pkg) = [label("name", lex("Name")), myLa
    f.name == "name";
 
 default list[Symbol] nameFor(EClass c, EPackage pkg) = []; 
-
-//   [ lex("Str"), myLayout | any(EClass sup <- [c, *superclassesOf(c, pkg)], EStructuralFeature f <- sup.eStructuralFeatures, f.name == "name") ];
 
 map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
  
@@ -96,14 +96,23 @@ list[Symbol] prim2sym(str prim, bool many)
   = many ? [lit("["), myLayout, \iter-star-seps(prim2sym(prim), [myLayout]), myLayout, lit("]")] : [prim2sym(prim)]; 
 
 Symbol prim2sym("EBigDecimal") = lex("Real");
+
 Symbol prim2sym("EDouble") = lex("Real");
+
 Symbol prim2sym("EFloat") = lex("Real");
+
 Symbol prim2sym("EBigInteger") = lex("Int");
+
 Symbol prim2sym("EByte") = lex("Int");
+
 Symbol prim2sym("EShort") = lex("Int");
+
 Symbol prim2sym("EInt") = lex("Int");
+
 Symbol prim2sym("ELong") = lex("Int");
+
 Symbol prim2sym("EBoolean") = lex("Bool");
+
 Symbol prim2sym("EString") = lex("Str");
 
-default Symbol prim2sym(str s) = lit("unsupported:<s>");
+default Symbol prim2sym(str s) { throw "Unsupported Ecore type: <s>"; }

@@ -20,6 +20,7 @@ str patch(str src, loc newLoc, lrel[loc, str] diff) {
     <l, s> = diff[i];
 
     // todo: not good if both src's come fom the same loc...
+    // Idea is that inserts refer to target state, so should not correct with offset.
     if (l.top == newLoc.top) {
       src = src[0..l.offset] + s + src[l.offset + l.length..];
     }
@@ -88,8 +89,6 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
     return diff;
   }
   
-  
-  
   assert size(old.args) == size(new.args);
   
   for (int i <- [0..size(old.args)]) {
@@ -118,10 +117,15 @@ bool realEq(char(int i), char(int j)) = i == j;
 default bool realEq(Tree _, Tree _) = false; 
 
 bool isToken(label(_, Symbol s)) = isToken(s);
+
 bool isToken(lex(_)) = true;
+
 bool isToken(layouts(_)) = true;
+
 bool isToken(lit(_)) = true;
+
 bool isToken(cilit(_)) = true;
+
 default bool isToken(Symbol _) = false;
 
 

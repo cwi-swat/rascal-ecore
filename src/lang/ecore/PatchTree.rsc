@@ -15,11 +15,12 @@ import IO;
 TODOS
 
 - use original tree to find class prototypes and separator prototypes if not found in list itself
-- support mutliple production with same class
 - implement "create" by factoring out the flattened tree from patch tree.
 - fix locs during the unflatten phase.
 */
 
+
+bool mapsToObject(Tree t) = t has prod && t.prod.def is label && t@\loc?;
 
 &T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
   Tree old = pt;
@@ -30,17 +31,11 @@ TODOS
  
   rel[Id, loc] orgs = { <k, origins[k]> | Id k <- origins };
   
-  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, t has prod, t.prod.def is label,  t@\loc?, loc l := t@\loc,
-    <Id obj, l> <- orgs )
-
+  // turn the tree into a flat map indexed by Id. 
+  trees = ( obj: flatten(t, old, orgs) | /Tree t := old, mapsToObject(t),  loc l := t@\loc, <Id obj, l> <- orgs )
   // note, we "just" create placeholders here, we don't know the exact prods yet, only after init.
         + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
-  
-  //println("## TREES");
-  //for (Id x <- trees) {
-  //  println("<x>: `<trees[x]>`");
-  //}
   
   map[tuple[Id, str], list[Tree]] sepCache = ();
   
@@ -55,11 +50,9 @@ TODOS
      Tree t = trees[obj];
      int idx = getFieldIndex(t.prod, edit.field);
      
-     // if field is not found, we should promote trees[obj] to new production that has the field.
+     // if field is not found, we  promote trees[obj] to new production that has the field.
      if (idx == -1) {
        assert t.prod is prod;
-       
-       //println("### PROMOTING PRODUCTION");
        
        assignedFields = ( f: t.args[i] | int i <- [0..size(t.prod.symbols)], label(str f, _) := t.prod.symbols[i], !isPlaceholder(t.args[i]) );
                                       
@@ -82,10 +75,6 @@ TODOS
          lst = insertList(lst, pos, valToTree(v, tt, t.prod, field, lst.prod.def.symbol, parse), 
                   seps);
          
-         //println("### INSERTING");
-         //println("LST = `<lst>`"); 
-
-
          // check for empty layout & reuse layout that is before.
          if ("<t.args[idx+1]>" == "") {
            t = setArg(t, idx + 1, t.args[idx-1]);
@@ -101,27 +90,30 @@ TODOS
        }
 
      }
-   }
+  }
    
+  // due to promotion/template picking, some trees might have fewer assigned
+  // fields after applying the patch, so could be better represented using
+  // different productions of the same type. So here we demote productions
+  // if possible.
   for (Id x <- trees) {
     old = trees[x];
     assignedFields = ( f: old.args[i] | int i <- [0..size(old.prod.symbols)], label(str f, _) := old.prod.symbols[i], !isPlaceholder(old.args[i]) );
 
     newProd = findSmallestProdHavingFields(tt, old.prod.def.name, assignedFields<0>);
+    
     if (newProd != old.prod) {
-      //println("### DEMOTING production");
       template = prod2tree(newProd);
-      //println("TEMPLATE = <template>");
       newTree = setArgs(template, assignedFields);
-      //println("NEWTREE = <newTree>");
       trees[x] = newTree;
     }    
   } 
    
+  // connect all containment references to get proper trees again
   trees = unflatten(patch.root, trees);
   root = trees[patch.root];
-  //println("### ROOT is now");
-  //println("`<root>`");
+  
+  // restore layout around the top
   if (pt has top) {
     root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
   }

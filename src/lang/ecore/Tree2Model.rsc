@@ -24,12 +24,16 @@ TODO
 
 alias Fix = void(node, lrel[str field, str path]);
 alias Track = void(Id, loc);
+
+// the cross references for an object identified by Id
 alias FixUps = map[Id, lrel[str field, str path]];
 
 
 &M<:node tree2model(type[&M<:node] meta, Tree t, loc uri = t@\loc) 
   = tree2modelWithOrigins(meta, t, uri = uri)[0];
 
+// origins map object ids to source locations
+// (all trees with grammar productions should be in here)
 alias Org = map[Id id, loc src];
 
 tuple[&M<:node, Org] tree2modelWithOrigins(type[&M<:node] meta, Tree t, loc uri = t@\loc)  {
@@ -56,38 +60,48 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   p = t.prod;
   
   if (p.def is lex) {
-    return "<t>"; // for now, just strings
+    return "<t>"; // for now, lexical map to just strings
   }
   
   largs = labeledAstArgs(t, p);
 
   if (p is regular) {
+    // optional literals are special cased to booleans
     if (opt(lit(str _)) := p.def) {
       return t.args != [];
     }
+    
+    // other wise they end up as lists in the model
     return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>", track) | int i <- [0..size(largs)] ];
   }
 
+  // for an ordinary production we create an environment mapping field names to values
+  // based on the labeled argument trees of the current tree.
   lrel[str, value] env = [ <fld, tree2model(meta, r, a, fix, uri, xmi + "/@<fld>", track)> 
      | int i <- [0..size(largs)], <str fld, Tree a> := largs[i] ];
 
 
   lrel[str, str] fixes = [];
+  
+  // if some of the values in the environments should be interpreted
+  // as cross references, we move them to `fixes` here.
   env = for (<str fld, value v> <- env) {
     if (<fld, _, str path> <- prodRefs(p)) {
+      // NB: assumption is refs are always on the spine
+      // so it is safe to use env here, even though we're building it.
       fixes += [<fld, substBindings(path, env)>];
+      
+      // cross refs are resolved later, so for now assign to null
       append <fld, null()>;
     }
     else {
       append <fld, v>;
     }      
   }  
-  
+
+  // start constructing the ADT value...  
   adtName = p.def is label ? p.def.symbol.name : p.def.name;
   tt = type(adt(adtName, []), meta.definitions);
-  
-  //println("ENV");
-  //iprintln(env);
   
   args = ();  
   kws = (); 
@@ -102,13 +116,16 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
     }
   }
   
+  // if a production has @id{x} the value of field x is used
+  // as a globally unique identifier of the object
   if (str x <- prodIds(p), <x, str v> <- env) {
   	uri.fragment = v;
   }
-  else {
+  else { // else it's the XMI path
   	uri.fragment = xmi;
   }
   
+  // communicate the origin to tree2modelWithOrigins
   Id myId = id(uri.top);
   if (t@\loc?) {
     track(myId, t@\loc);
@@ -116,19 +133,17 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   else {
     println("WARNING: no loc for <t>");
   }
-  
-  //println("## CREATING: <p.def.name>");
-  //println("ARGS:");
-  //for (int  i <- args) println("- <i>: <args[i]>");
-  //println("KWS:");
-  //for (str k <- kws) println("- <k>: <kws[k]>");
-  
+
+  // build the object with the explicitly constructed Id  
   obj = r.new(tt, make(tt, p.def.name, [ args[i] | int i <- [0..size(args)] ], kws), id = myId);
+  
+  // and fix all cross references.
   fix(obj, fixes);
   
   return obj;
 }
 
+@doc{Given a model, and a set of fixups resolve the cross references}
 &M<:node fixUp(type[&M<:node] meta, &M model, FixUps fixes) {
   // The stuff with typeOf etc is truly horrible here.
   // It works now, but I'd like it to be simpler.
@@ -141,10 +156,13 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
     for (<str fld, str path> <- fixes[getId(obj)]) {
       kids = getChildren(obj);
       target = deref(meta, model, path);
+      
+      // if the cross is an ordinary parameter...
       if (cons(label(c, _), ps:[*_, p:label(fld, rt:adt("Ref", _)), *_], _, _) <- alts) {
         int i = indexOf(ps, p);
         obj = make(t, c, kids[0..i] + [target is null ? target : referTo(type(rt, meta.definitions), target)] + kids[i+1..], kws);
       }
+      // or if it is a keyword parameter...
       else if (cons(label(c, _), _, [*_, p:label(fld, rt:adt("Ref", _)), *_], _) <- alts) {
         obj = setKeywordParameters(obj, kws + (fld: target is null ? target : referTo(type(rt, meta.definitions), target))); 
       }
@@ -156,6 +174,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
     return typeCast(t, obj);
   }
   
+  // for each node in the model that is an object, fix its cross references
   return typeCast(meta, visit(model) {
     case node n => fixup(type(typeOf(n), meta.definitions), n) when isObj(n)
   });
@@ -181,20 +200,23 @@ int getFieldIndex(type[&M<:node] meta, Symbol t, str c, str fld) {
 
 list[str] splitPath(str path) = split("/", path)[1..];
 
+@doc{Dereference the path `path`, starting at `root`}
 node deref(type[&M<:node] meta, &M root, str path) 
   = deref(meta, root, splitPath(path)); 
 
 node deref(type[&M<:node] meta, node obj, list[str] elts) {
   if (elts == []) {
-    return obj;
+    return obj; // found it
   }
   
   cur = elts[0];
   
+  // a field dereference (e.g. /states)
   if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
     return deref(meta, typeCast(#node, getField(meta, obj, fld)), elts[1..]);
   }
 
+  // a collection index (e.g. /states[n])
   if (/^<fld:[a-zA-Z0-9_]+>\[<idx:[0-9_]+>$/ := cur) {
     if (list[node] l := getField(meta, obj, fld)) {
       int i = toInt(idx);
@@ -206,6 +228,7 @@ node deref(type[&M<:node] meta, node obj, list[str] elts) {
     throw "Cannot index on non-list property: <getField(meta, obj, fld)>";
   }
   
+  // a collection query (e.g. /states[name=...])
   if (/^<fld:[a-zA-Z0-9_]+>\[<key:[a-zA-Z0-9_]+>=<val:[^\]]*>\]$/ := cur) {
     if (list[node] l := getField(meta, obj, fld)) {
       if (node v <- l, getField(meta, v, key) == val) {

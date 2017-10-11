@@ -38,6 +38,7 @@ java void(lrel[loc,str]) termEditor(loc src);
 @reflect{Sync}
 java void observeEditor(type[&T<:node] meta, loc uri, void(&T<:node) callback);
 
+
 @doc{Obtain and "editor" function to dynamically patch model editor contents of type `meta`.
 Basic operation:
 
