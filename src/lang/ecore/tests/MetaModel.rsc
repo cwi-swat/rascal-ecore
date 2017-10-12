@@ -10,7 +10,7 @@ data Machine(loc pkgURI = |http://www.example.org/myfsm|)
   
 data State
   = State(str name, list[Trans] transitions, bool final = false, Id uid = noId())
-  | Group(Group group
+  | State(Group group
      , str name = group.name
      , list[Trans] transitions = group.transitions
      , bool final = group.final
@@ -25,7 +25,7 @@ data Group
 
 data Trans
   = Trans(list[str] events, Ref[State] target, Id uid = noId())
-  | Guarded(Guarded guarded
+  | Trans(Guarded guarded
      , list[str] events = guarded.events
      , Ref[State] target = guarded.target
      , Id uid = guarded.uid
