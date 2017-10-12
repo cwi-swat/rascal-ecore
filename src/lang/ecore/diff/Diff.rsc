@@ -97,6 +97,7 @@ Edits diff(type[&T<:node] meta, Id id, node old, node new) {
   Edits edits = [];
   
   ps = getParams(meta, s, c);
+  
   oldKids = getChildren(old);
   newKids = getChildren(new);
   edits += [ *diffKid(id, oldKids[i], newKids[i], ps[i]) | int i <- [0..size(ps)] ];  
@@ -158,10 +159,12 @@ value primOrId(value v) {
   }
   return v;
 }
+
+bool isInjectionProd(Production p) = label("_inject", _) <- p.kwTypes;
   
 list[str] getParams(type[&T<:node] meta, Symbol s, str c)
-  = [ fld | cons(label(c, s), list[Symbol] ps, _, _) <- meta.definitions[s].alternatives, label(str fld, _) <- ps ];
+  = [ fld | p:cons(label(c, s), list[Symbol] ps, _, _) <- meta.definitions[s].alternatives, label(str fld, _) <- ps, !isInjectionProd(p) ];
 
 set[str] getKwParams(type[&T<:node] meta, Symbol s, str c)
-  = { fld | cons(label(c, s), _, list[Symbol] kws, _) <- meta.definitions[s].alternatives, label(str fld, _) <- kws };
+  = { fld | p:cons(label(c, s), _, list[Symbol] kws, _) <- meta.definitions[s].alternatives, label(str fld, _) <- kws, !isInjectionProd(p) };
   
