@@ -30,10 +30,16 @@ alias RefErr = tuple[set[Ref[value]] danglingRefs, lrel[Id, node] duplicateIds];
 RefErr checkReferentialIntegrity(node model)
   = <danglingRefs(model), duplicateIds(model)>;
 
+@doc{Find the set of Refs for which no target exists in the model}
 set[Ref[value]] danglingRefs(node model) 
-  = { r | /Ref[void] r := model,  !any(/node x := model, isObj(x), getId(x) == r.uid) };
+  = { r | /Ref[void] r:ref(_) := model, !any(/node x := model, isObj(x), getId(x) == r.uid) };
 
+@doc{Find the list of Id-element pairs which share Id with another.
+NB: we use list, because the nodes maybe Rascal-equal.}
 lrel[Id, node] duplicateIds(node model) {
+  // NB: elements on the containment hierarchy
+  // in collections should always be unique (as per Ecore).
+  // IOW: no sharing on the containment hierarchy is allowed anywhere.
   r = [ <getId(elt), elt> | /node elt := model, isObj(elt) ];
   return [ <x, elt> | <Id x, node elt> <- r, size(r[x]) > 1 ]; 
 }
@@ -124,3 +130,24 @@ Id noId() {
 loc noLoc() {
   throw "No location has been set";
 }
+
+str getClass(node n) = getName(uninject(n));
+
+Symbol getType(node n) = typeOf(uninject(n));
+
+
+@doc{Referential equality predicate: nodes are also equal if their identities are equal} 
+bool refEq(node n, ref(Id x)) = getId(n) == x when !isRef(n);
+
+bool refEq(ref(Id x), node n) = getId(n) == x when !isRef(n);
+
+bool refEq(node n1, node n2) = getId(n1) == getId(n2) 
+  when !isRef(n1), !isRef(n2);
+   
+bool refEq(list[value] vs1, list[value] vs2)
+  = size(vs1) == size(vs2)  
+  && ( true | it && refEq(vs1[i], vs2[i]) | i <- [0..size(vs1)] ); 
+
+// also covers ref/null cases on both sides
+default bool refEq(value v1, value v2) = v1 == v2;
+

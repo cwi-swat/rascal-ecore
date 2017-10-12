@@ -9,25 +9,16 @@ import util::Math;
 
 import IO;
 
-bool isInjection(Tree t) = isInjection(t.prod);
-
-bool isInjection(Production p)
-  = p has attributes && \tag("inject"()) in p.attributes;
-
 
 &T<:node hutn2model(type[&T<:node] meta, Tree hutn, loc base = hutn@\loc,  Realm realm = newRealm()) 
   = m
   when &T<:node m := hutn2obj(hutn has top ? hutn.top : hutn, "/", meta, base, realm);
 
 
-bool hasName(Tree t) = prod(_, [lit(_), _, label("name", _), _, lit("{"), _, _, _, lit("}")], _) := t.prod;
-
 node hutn2obj(Tree t, str path, type[node] meta, loc base, Realm realm) {
   if (isInjection(t)) {
     return make(type(adt(p.def.name, []), meta.definitions), p.symbols[0].name, [hutn2obj(t.args[0], path, meta, realm)], ());
   }
-  
-  //println("Make <t.prod.def.name> at <path> (hasname = <hasName(t)>)");
   
   fieldVals = hasName(t) 
     ? hutnFields(t.args[6], path, meta, base, realm) : hutnFields(t.args[4], path, meta, base, realm);
@@ -52,6 +43,12 @@ node hutn2obj(Tree t, str path, type[node] meta, loc base, Realm realm) {
   return typeCast(#node, model);
 }
 
+bool isInjection(Tree t) = isInjection(t.prod);
+
+bool isInjection(Production p)
+  = p has attributes && \tag("inject"()) in p.attributes;
+
+bool hasName(Tree t) = prod(_, [lit(_), _, label("name", _), _, lit("{"), _, _, _, lit("}")], _) := t.prod;
 
 Tree uninjectField(Tree t) = isInjection(t) ? uninjectField(t.args[0]) : t; 
  

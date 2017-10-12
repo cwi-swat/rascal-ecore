@@ -58,7 +58,16 @@ test bool testLookupRefOverInjections() {
   Realm r = newRealm();
   Guarded g = r.new(#Guarded, Guarded(["opened"], null(), "exp"));
   Trans t = Guarded(g); 
+  // referring to Trans, looking up Guarded, produces Guarded.
   return check(lookup(t, #Guarded, referTo(#Trans, t)), g);   
+}
+
+test bool testGetClassOverInjections() {
+  Realm r = newRealm();
+  Guarded g = r.new(#Guarded, Guarded(["opened"], null(), "exp"));
+  Trans t = Guarded(g);
+  // TODO: this doesn't test anything except if Guarded has an injection again... 
+  return check(getClass(t), "Guarded");   
 }
 
 test bool testLookupNull() {

@@ -47,8 +47,9 @@ bool testToAndFromHUTN(loc stm) {
   hutn = parseMyfsm(src, hutnLoc);
   m2 = hutn2model(#lang::ecore::tests::MetaModel::Machine, hutn, base = stm);
   //iprintln(m2);
-  iprintln(diff(#lang::ecore::tests::MetaModel::Machine, m, m2));
-  return true;
+  d = diff(#lang::ecore::tests::MetaModel::Machine, m, m2);
+  iprintln(d);
+  return d.edits == [];
 }
 
 

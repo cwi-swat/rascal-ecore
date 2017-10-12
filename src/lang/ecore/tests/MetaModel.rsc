@@ -10,7 +10,7 @@ data Machine(loc pkgURI = |http://www.example.org/myfsm|)
   
 data State
   = State(str name, list[Trans] transitions, bool final = false, Id uid = noId())
-  | Group(str name, list[State] states)
+  | Group(str name, list[State] states) // todo: should be injections
   ;
 
 data Trans

@@ -1,7 +1,6 @@
 module lang::ecore::diff::Diff
 
 import lang::ecore::diff::LCS;
-
 import lang::ecore::Refs;
 
 import Node;
@@ -9,9 +8,18 @@ import List;
 import IO;
 import Type;
 
+/*
+ * TODO
+ * - deal with injections properly
+ */
+
+@doc{A patch consists of a new root and a sequences of edits}
 alias Patch
   = tuple[Id root, Edits edits];
 
+@doc{Edits are operations attached to object identities.
+This list should always contain all create()'s at the start,
+destroy()'s at the end, and the rest in between.}
 alias Edits
   = lrel[Id obj, Edit edit];
 
@@ -26,6 +34,7 @@ data Edit
   
 map[Id, node] objectMap(node x) = ( getId(n): n | /node n := x, isObj(n) ); 
 
+@doc{Construct a patch to (re)create the model `new`}
 Patch create(type[&T<:node] meta, &T<:node new) {
   m = objectMap(new);
   
@@ -35,6 +44,7 @@ Patch create(type[&T<:node] meta, &T<:node new) {
   return <getId(new), edits>;
 }
 
+@doc{Compute the difference between `old` and `new` in the form of a patch}
 Patch diff(type[&T<:node] meta, &T old, &T new) {
   // TODO: we can save some traversals through fusion.
   m1 = objectMap(old);
@@ -48,6 +58,7 @@ Patch diff(type[&T<:node] meta, &T old, &T new) {
   return <getId(new), edits>;
 }
 
+@doc{Compute the required edits to initialize `id` according to `new`}
 Edits init(type[&T<:node] meta, Id id, node new) {
   Symbol s = getType(new);
   str c = getName(new);
@@ -65,18 +76,18 @@ Edits init(type[&T<:node] meta, Id id, node new) {
   return edits;
 }
 
+@doc{Lists are initialized using a sequence of inserts.}
 Edits initKid(Id id, list[value] v, str field) 
   = [ <id, ins(field, i, primOrId(v[i]))> | int i <- [0..size(v)] ];
 
+@doc{Other attributes are mapped to `put` edits}
 default Edits initKid(Id id, value v, str field)
   = [<id, put(field, primOrId(v))>];
 
 
-// assumptions: all nodes have a uid, except ref/null
+@doc{Compute the set of differences for two identified model elements of the same type}
 Edits diff(type[&T<:node] meta, Id id, node old, node new) {
   assert getClass(old) == getClass(new);
-  //assert old.uid == id;
-  //assert new.uid == id;
   
   Symbol s = getType(old);
   str c = getName(old);
@@ -106,6 +117,7 @@ Edits diff(type[&T<:node] meta, Id id, node old, node new) {
   return edits;
 }
 
+@doc{Compute the difference between two "kids" (features, fields, properties, ...) of `id`}
 Edits diffKid(Id id, value oldKid, value newKid, str field) {
   if (refEq(newKid, oldKid)) {
     return [];
@@ -129,54 +141,12 @@ Edits diffKid(Id id, value oldKid, value newKid, str field) {
       }
     }
   }
-  
-  if (set[value] l1 := oldKid, set[value] l2 := newKid) {
-    return []; // todo
-  }
+
    // attributes and refs
   return [<id, put(field, primOrId(newKid))>];
 }
 
-
-// also covers ref/null cases on both sides
-default bool refEq(value v1, value v2) = v1 == v2;
-
-bool refEq(node n, ref(Id x)) = getId(n) == x when !isRef(n);
-
-bool refEq(ref(Id x), node n) = getId(n) == x when !isRef(n);
-
-bool refEq(node n1, node n2) = getId(n1) == getId(n2) 
-  when !isRef(n1), !isRef(n2);
-   
-bool refEq(list[value] vs1, list[value] vs2)
-  = size(vs1) == size(vs2)  
-  && ( true | it && refEq(vs1[i], vs2[i]) | i <- [0..size(vs1)] ); 
-
-bool refEq(set[value] s1, set[value] s2) {
-  outer: for (value x <- s1) {
-    for (value y <- s2) {
-      if (refEq(x, y)) {
-        continue outer;
-      }
-    }
-    return false;
-  }
-  outer: for (value x <- s2) {
-    for (value y <- s1) {
-      if (refEq(x, y)) {
-        continue outer;
-      }
-    }
-    return false;
-  }
-  return true;
-}
-  
-// for some reason refs still end up in the second case...
-//value primOrId(ref(Id x)) = x;
-//value primOrId(node n) = getId(n) when hasId(n), !isRef(n);
-//default value primOrId(value v) = v;
-
+@doc{Convert an arbitrary value to either an Id or a primitive value}
 value primOrId(value v) {
   if (ref(Id x) := v) {
     return x;
@@ -187,10 +157,6 @@ value primOrId(value v) {
   return v;
 }
   
-str getClass(node n) = getName(uninject(n));
-
-Symbol getType(node n) = typeOf(uninject(n));
-
 list[str] getParams(type[&T<:node] meta, Symbol s, str c)
   = [ fld | cons(label(c, s), list[Symbol] ps, _, _) <- meta.definitions[s].alternatives, label(str fld, _) <- ps ];
 

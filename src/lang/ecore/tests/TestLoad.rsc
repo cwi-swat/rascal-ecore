@@ -43,7 +43,6 @@ bool testLoadSaveIsEqual(loc uri) {
 
   try {
     EPackage mm = load(#EPackage, uri);
-    //iprintln(mm);
   
     save(#EPackage, mm, uri[extension="saved"], |http://www.eclipse.org/emf/2002/Ecore|);
 
@@ -60,9 +59,6 @@ bool testLoadSaveIsEqual(loc uri) {
     println("Exception for <uri>: <v>");
     return false;
   }
-  
-  //iprintln(mmSaved);
-  //return mm == mmSaved;
   
   
 }
