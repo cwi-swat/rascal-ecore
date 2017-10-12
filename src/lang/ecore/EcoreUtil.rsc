@@ -47,3 +47,20 @@ EStructuralFeature makeMany(EStructuralFeature(EAttribute a)) = EStructuralFeatu
 EStructuralFeature makeMany(EStructuralFeature(EReference r)) = EStructuralFeature(r[upperBound=-1]);
 
 EStructuralFeature makeId(EStructuralFeature(EAttribute a)) = EStructuralFeature(a[iD=true]);
+
+
+bool isEcoreRef(ref(id(loc l))) = "<l.authority><l.path>" == "www.eclipse.org/emf/2002/Ecore";
+
+default bool isEcoreRef(Ref[EClassifier] _) = false;
+
+str ecoreRefClassifierName(ref(id(loc l))) = l.fragment[2..]; 
+
+// fake lookups to Ecore externals;
+// we assume meta models only ever refer to data types not classes 
+EClassifier lookupClassifier(EPackage pkg, Ref[EClassifier] r)
+  = EClassifier(EDataType(name=ecoreRefClassifierName(r), uid=r.uid))
+  when isEcoreRef(r);
+  
+default EClassifier lookupClassifier(EPackage pkg, Ref[EClassifier] r)
+  = lookup(pkg, #EClassifier, r);
+

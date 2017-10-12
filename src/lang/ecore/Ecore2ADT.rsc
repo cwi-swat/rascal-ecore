@@ -41,7 +41,7 @@ str ecore2rsc(EPackage pkg)
 @doc{Order the definitions in `def` by topological sort wrt dependency}
 list[Symbol] orderADTs(map[Symbol, Production] defs) {
   deps = { <s1, s2> | s1 <- defs, /s2:adt(str x, _) := defs[s1], x != "Ref", x != "Id", x != "Maybe" };
-  return reverse(order(deps));
+  return order(deps);
 }
 
 /*
@@ -93,7 +93,7 @@ Symbol feature2symbol(EStructuralFeature f, EClass c, EPackage pkg, bool req) {
 
 
 Symbol type2symbol(Ref[EClassifier] typeRef, EPackage pkg, bool xref, bool req, bool many) 
-  = classifier2symbol(lookup(pkg, #EClassifier, typeRef), xref, req, many);
+  = classifier2symbol(lookupClassifier(pkg, typeRef), xref, req, many);
   
 Symbol classifier2symbol(EClassifier(EDataType(name = str name)), bool xref, bool req, bool many) 
   = prim2symbol(name);
