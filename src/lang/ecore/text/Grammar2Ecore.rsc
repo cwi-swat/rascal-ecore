@@ -159,9 +159,17 @@ rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str
   return result;
 }
 
-@doc{A field is required on class `cls` if all productions labeled `cls` have it} 
+str sortName(sort(str x)) = x;
+
+str sortName(lex(str x)) = x;
+
+str sortName(layouts(str x)) = x;
+
+str sortName(label(_, Symbol s)) = sortName(s);
+
+@doc{A field is required on class `cls` if all productions for nt `cls` have it} 
 bool isRequired(str cls, str fld, set[Production] prods) {
-  for (Production p <- prods, p.def.name == cls) {
+  for (Production p <- prods, sortName(p.def)  == cls) {
     if (label(fld, Symbol _) <- p.symbols) {
       continue;
     }

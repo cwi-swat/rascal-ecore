@@ -8,10 +8,6 @@ import List;
 import IO;
 import Type;
 
-/*
- * TODO
- * - deal with injections properly
- */
 
 @doc{A patch consists of a new root and a sequences of edits}
 alias Patch
