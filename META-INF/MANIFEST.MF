@@ -14,6 +14,6 @@ Require-Bundle: org.eclipse.emf.ecore.xmi,
  org.eclipse.ui.editors;bundle-version="3.11.0",
  org.eclipse.emf.ecore.change.edit;bundle-version="2.6.0"
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
-Export-Package: lang.ecore
+Export-Package: lang.ecore.bridge
 Import-Package: io.usethesource.impulse.editor,
  io.usethesource.impulse.parser
