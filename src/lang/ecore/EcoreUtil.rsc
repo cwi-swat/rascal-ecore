@@ -38,7 +38,12 @@ EStructuralFeature makeOpt(EStructuralFeature(EAttribute a)) = EStructuralFeatur
 
 EStructuralFeature makeOpt(EStructuralFeature(EReference r)) = EStructuralFeature(r[lowerBound=0]);
 
+EStructuralFeature makeRequired(EStructuralFeature(EAttribute a)) = EStructuralFeature(a[lowerBound=1]);
+
+EStructuralFeature makeRequired(EStructuralFeature(EReference r)) = EStructuralFeature(r[lowerBound=1]);
+
 EStructuralFeature makeMany(EStructuralFeature(EAttribute a)) = EStructuralFeature(a[upperBound=-1]);
 
 EStructuralFeature makeMany(EStructuralFeature(EReference r)) = EStructuralFeature(r[upperBound=-1]);
 
+EStructuralFeature makeId(EStructuralFeature(EAttribute a)) = EStructuralFeature(a[iD=true]);

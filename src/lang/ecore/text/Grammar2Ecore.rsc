@@ -101,15 +101,19 @@ map[str, EClassifier] grammar2classMap(type[&T<:Tree] g, Realm realm) {
   
   for (s:sort(str nt) <- g.definitions) {
     assert nt notin classMap : "class <nt> already defined";
+
     super = realm.new(#EClass, EClass(name = nt));
     classMap[nt] = EClassifier(super);
 
     prods = g.definitions[s].alternatives;
 
+    // if there are no production with the same name as the nonterminal
+    // the class corresponding to the nonterminal will be an abstract base class.
     if (!hasConcreteProds(nt, prods)) {
       classMap[nt].eClass.abstract = true;
     }
     
+    // create class classifiers for any remaining productions for this nonterminal
     for (Production p <- prods, label(str cls, _) := p.def, cls != nt, cls notin classMap) {
       class = realm.new(#EClass, EClass(name = cls));
       class.eSuperTypes += [referTo(#EClass, classMap[nt].eClass)];
@@ -135,17 +139,6 @@ bool hasConcreteProds(str nt, set[Production] prods) {
 
 rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str path] classAndPath] prods2fieldMap(map[str, EClassifier] classMap, set[Production] prods) {
 
-  @doc{A field is required on class `cls` if all productions labeled `cls` have it} 
-  bool isRequired(str cls, str fld) {
-    for (Production p <- prods, p.def.name == cls) {
-      if (label(fld, Symbol _) <- p.symbols) {
-        continue;
-      }
-      return false;
-    }
-    return true;
-  }
-    
   bool idFor(str cls, str fld) 
     = Production p <- prods &&  p.def.name == cls && fld in prodIds(p);
     
@@ -160,13 +153,23 @@ rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str
   
   for (str cls <- classMap) {
     flds = { <fld, sym> | Production p <- prods, p.def.name == cls, label(str fld, Symbol sym) <- p.symbols };
-    result += {<cls, fld, isRequired(cls, fld), idFor(cls, fld), sym, pathFor(cls, fld)> | <str fld, Symbol sym> <- flds };
+    result += {<cls, fld, isRequired(cls, fld, prods), idFor(cls, fld), sym, pathFor(cls, fld)> | <str fld, Symbol sym> <- flds };
   }
 
   return result;
 }
 
-
+@doc{A field is required on class `cls` if all productions labeled `cls` have it} 
+bool isRequired(str cls, str fld, set[Production] prods) {
+  for (Production p <- prods, p.def.name == cls) {
+    if (label(fld, Symbol _) <- p.symbols) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+    
 
 EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool id, str target, str path) {
     if (s is \iter-star-seps || s is \iter-star) {
@@ -189,69 +192,37 @@ EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, s
  }  
  
  EStructuralFeature toField(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool isId, str target, str path) {
-    //println("fld = <fld>, sym = <s>, req = <req>, id= <id>, path = <path>");
-    
-    // cross references
-    if (path != "") {
-      f = EStructuralFeature(realm.new(#EReference, EReference(
+    f = if (path != "") { // cross references
+      EStructuralFeature(realm.new(#EReference, EReference(
         name = fld, 
         upperBound = 1,
         eType = referTo(#EClassifier, classMap[target]))
       ));
-      
-      if (req) {
-        f.eReference.lowerBound = 1;
-      }
-      
-      return f;
     }
-    
-    // bool attributes
-    if (s is lit || s is cilit) { // only in opt
-      f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
+    else if (s is lit || s is cilit) { // only in opt; bool attributes
+      EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
         eType = ref(id(|http://www.eclipse.org/emf/2002/Ecore#//EBoolean|))) 
       ));
-      
-      if (req) {
-        f.eAttribute.lowerBound = 1;      
-      }
-      
-      return f;
     }
-    
-    // string attributes
-    if (s is lex) {
-      f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
+    else if (s is lex) {  // string attributes
+      EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
         eType = ref(id(|http://www.eclipse.org/emf/2002/Ecore#//EString|))) 
       ));
-        
-      if (isId) {
-        f.eAttribute.iD = true;
-      }
-      
-      if (req) {
-        f.eAttribute.lowerBound = 1;
-      }
-      return f;
     }
-    
-    // containment
-    f = EStructuralFeature(realm.new(#EReference, EReference(
-      name = fld, 
-      eType = referTo(#EClassifier, classMap[s.name]),
-      upperBound = 1,
-      containment = true)
-    ));
-    
-    if (req) {
-      f.eReference.lowerBound = 1;
+    else { // containment
+      EStructuralFeature(realm.new(#EReference, EReference(
+        name = fld, 
+        eType = referTo(#EClassifier, classMap[s.name]),
+        upperBound = 1,
+        containment = true)
+      ));
     }
-    
-    return f;
+    f = isId ? makeId(f) : f;
+    return req ? makeRequired(f) : f;
 }  
   
       
