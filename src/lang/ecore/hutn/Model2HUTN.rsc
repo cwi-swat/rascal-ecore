@@ -10,10 +10,6 @@ import Node;
 import util::Maybe;
 import ParseTree;
 
-&T hutn2model(type[&T<:node] meta, &U<:Tree hutn, Realm realm = newRealm()) {
-  // todo
-}
-
 // NB: need reified ADT for order of parameters in constructors (EPackage would not suffice)
 str model2hutn(type[&T<:node] meta, &T<:node model) 
   = obj2hutn(model, meta, 0);

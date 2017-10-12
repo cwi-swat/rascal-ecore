@@ -1,8 +1,6 @@
 package lang.ecore;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

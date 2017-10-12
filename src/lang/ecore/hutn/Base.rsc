@@ -1,4 +1,4 @@
-module lang::ecore::Base
+module lang::ecore::hutn::Base
 
 extend lang::std::Layout;
 extend lang::std::Id;

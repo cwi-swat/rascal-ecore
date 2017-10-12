@@ -1,4 +1,4 @@
-module lang::ecore::Ecore2HUTN
+module lang::ecore::hutn::Ecore2HUTN
 
 import lang::ecore::Ecore;
 import lang::ecore::EcoreUtil;

@@ -74,8 +74,9 @@ class Convert {
 			}
 			else {
 				ISourceLocation loc = (ISourceLocation)id.get("uri");
+				// FIXME: just use loadModel here, and it should also work for other cross model refs
 				if (loc.getScheme().equals("project")) {
-					// dangling ref
+					// dangling ref, for now do nothing
 					return;
 				}
 				ResourceSet rs = new ResourceSetImpl();
@@ -497,18 +498,7 @@ class Convert {
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 
-			if (ref.isUnique()) {
-				if (ref.isOrdered()) {            // M & U & O = ?
-					return vf.list(valuesArray);
-				}
-				return vf.set(valuesArray); // M & U & !O = Set[T]
-			} 
-			
-			if (ref.isOrdered()) {            // M & !U & O = list[T]
-				return vf.list(valuesArray);
-			}                           
-			// M & !U & !O = map[T, int]
-			throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
+			return vf.list(valuesArray);
 		}
 		
 		return makePrimitive(refValue, fieldType, vf);
@@ -520,10 +510,6 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		//ctx.getStdErr().println("Visiting containment ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
-
-		//System.out.println("visitCont("+ref.getName()+","+refValue+","+fieldType+")");
-		
 		if (ref.isMany()) {
 			List<Object> refValues = (List<Object>) refValue;
 			Type elemType = fieldType.getElementType();
@@ -531,16 +517,8 @@ class Convert {
 			IValue[] arr = new IValue[values.size()];
 			IValue[] valuesArray = values.toArray(arr);
 			return vf.list(values.toArray(valuesArray));
-		} else {
-			IValue val = obj2value(refValue, fieldType, vf, ts, src);
-			if (val == null) {
-				System.out.println("");
-			}
-			return val;
-//			Type t = ts.lookupConstructor(fieldType, fieldType.getName(), tf.tupleType(val));
-//			return vf.constructor(t, val);
 		}
-		
+		return obj2value(refValue, fieldType, vf, ts, src);
 	}
 	
 	/**
@@ -548,48 +526,14 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitReference(EReference ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		//ctx.getStdErr().println("Visiting reference ref " + ref.getName() + " to " + refValue + " (" + fieldType + ")");
-		
-		//System.out.println("visitRef("+ref.getName()+","+refValue+","+fieldType+")");
 		if (ref.isMany()) {
 			List<EObject> refValues = (List<EObject>) refValue;
 			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, vf, ts, src)).collect(Collectors.toList());
-			//ctx.getStdErr().println("The list is: " + valuesToRef);
 			IValue[] arr = new IValue[valuesToRef.size()];
 			IValue[] valuesArray = valuesToRef.toArray(arr);
-
-			if (ref.isUnique()) {
-				//ctx.getStdErr().println("Unique!");
-				if (ref.isOrdered()) {            // M & U & O = ?
-					//ctx.getStdErr().println("Ordered!");
-					// why no value in the exception???
-					//throw RuntimeExceptionFactory.illegalArgument(vf.string("Unique ordered: " + ref.toString()), null, null);
-					return vf.list(valuesArray);
-				} else {                          // M & U & !O = set[Ref[T]]
-					//for (IValue x: valuesArray) {
-						//ctx.getStdErr().println("The set element is: " + x);
-					//}
-					return vf.set(valuesArray);
-				}
-			} else {
-				//ctx.getStdErr().println("Non-Unique!");
-				if (ref.isOrdered()) {            // M & !U & O = list[Ref[T]]
-					//ctx.getStdErr().println("Ordered!");
-					//for (IValue x: valuesArray) {
-						//ctx.getStdErr().println("The list element is: " + x);
-					//}
-					return vf.list(valuesArray);
-				} else {                          // M & !U & !O = Map[Ref[T], int]
-					//throw RuntimeExceptionFactory.illegalArgument(vf.string("Multiset: " + ref.toString()), null, null);
-					return vf.list(valuesArray);
-				}
-			}
-		} else {
-			IValue x = makeRefTo((EObject) refValue, vf, ts, src);
-			//ctx.getStdErr().println("The ref is: " + x);
-			return x;
+			return vf.list(valuesArray);
 		}
-
+		return makeRefTo((EObject) refValue, vf, ts, src);
 	}
 	
 	/**
@@ -598,8 +542,6 @@ class Convert {
 	 * TODO: refactor this to be reusable in patch.
 	 */
 	private static IValue getIdFor(EObject obj, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		//ctx.getStdErr().println("Making id for " + obj);
-		
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type idCons = ts.lookupConstructor(idType, "id", tf.tupleType(tf.sourceLocationType()));
 		URI eUri = EcoreUtil.getURI(obj);
@@ -615,6 +557,8 @@ class Convert {
 			auth = src.getAuthority();
 			path = src.getPath();
 			query = src.getQuery();
+			// the fragment should always come from the EcoreUtil.getURI result.
+			// but all other info is relative to the src location
 			//NOT: fragment = src.getFragment();
 		}
 		
@@ -631,7 +575,6 @@ class Convert {
 	 * Return ref(id(Num)) or null() if {@link eObj} is null
 	 */
 	private static IValue makeRefTo(EObject eObj, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		//ctx.getStdErr().println("Making ref to " + eObj);
 		Type genRefType = ts.lookupAbstractDataType("Ref");
 		
 		if (eObj == null) {
@@ -643,7 +586,7 @@ class Convert {
 		Type idType = ts.lookupAbstractDataType("Id");
 		Type refCons = ts.lookupConstructor(genRefType,  "ref", tf.tupleType(idType));
 		IValue id = getIdFor(eObj, vf, ts, src);
-		//ctx.getStdErr().println("Id = " + id);
+
 		return vf.constructor(refCons, id);
 	}
 	
@@ -670,25 +613,25 @@ class Convert {
 		if (obj instanceof Boolean) {
 			return vf.bool((Boolean) obj);
 		}
-		else if (obj instanceof Byte) { // FIXME: Rascal's byte?
+		else if (obj instanceof Byte) { 
 			return vf.integer((Byte) obj);
 		}
-		else if (obj instanceof Character) { // FIXME: Rascal's char?
+		else if (obj instanceof Character) { 
 			return vf.string(Character.toString((Character) obj));
 		}
-		else if (obj instanceof Double) { // FIXME: Rascal's double?
+		else if (obj instanceof Double) { 
 			return vf.real((Double) obj);
 		}
 		else if (obj instanceof Integer) {
 			return vf.integer((Integer) obj);
 		}
-		else if (obj instanceof Long) { // FIXME: Rascal's long?
+		else if (obj instanceof Long) {
 			return vf.integer((Long) obj);
 		}
-		else if (obj instanceof Short) { // FIXME: Rascal's short?
+		else if (obj instanceof Short) { 
 			return vf.integer((Short) obj);
 		}
-		else if (obj instanceof Float) { // FIXME: Rascal's float?
+		else if (obj instanceof Float) { 
 			return vf.real((Float) obj);
 		}
 		else if (obj instanceof String) {
@@ -696,7 +639,6 @@ class Convert {
 		}
 		// FIXME: Enums?
 		// FIXME: Datatypes?
-		
 		
 		throw RuntimeExceptionFactory.illegalArgument(vf.string("Unsupported prim: " + obj.toString()), null, null);
 	}
