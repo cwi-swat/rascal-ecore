@@ -15,7 +15,6 @@ import lang::rascal::format::Grammar;
 
 private Symbol myLayout = layouts("Standard");
 
-//writeHUTNModule("lang::ecore::EcoreHUTN", |project://rascal-ecore/src/lang/ecore/EcoreHUTN.rsc|, ec, "EPackage");
 void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root, str name = pkg.name, str ext = "<pkg.name>_hutn") {
   src = ecore2rascal(pkg, root);
   m = "module <moduleName>
@@ -71,13 +70,28 @@ map[Symbol, Production] ecore2rules(EPackage pkg, str root) {
     defs[nt] = choice(nt, alts); 
     
     // ... and for the field nts we inject the super class fields :-)
-    fieldAlts = { feature2prod(f, fieldNt, lookup(pkg, #EClassifier, f.eType)) | EStructuralFeature f <- c.eStructuralFeatures, !f.derived, f.eType != null() /* ??? */ };
+    fieldAlts = { feature2prod(f, fieldNt, lookupClassifier(pkg, f.eType)) | EStructuralFeature f <- c.eStructuralFeatures, !f.derived, f.eType != null() /* ??? */ };
     fieldAlts += { prod(fieldNt, [sort("<sup.name>_Field")], {\tag("inject"())}) | EClass sup <- superclassesOf(c, pkg) };
     defs[fieldNt] = choice(fieldNt, fieldAlts);
   } 
   
   return defs;
 }
+
+bool isEcoreRef(ref(id(loc l))) = "<l.authority><l.path>" == "www.eclipse.org/emf/2002/Ecore";
+
+default bool isEcoreRef(Ref[EClassifier] _) = false;
+
+str ecoreRefClassifierName(ref(id(loc l))) = l.fragment[2..]; 
+
+// fake lookups to Ecore externals;
+// we assume meta models only ever refer to data types not classes 
+EClassifier lookupClassifier(EPackage pkg, Ref[EClassifier] r)
+  = EClassifier(EDataType(name=ecoreRefClassifierName(r), uid=r.uid))
+  when isEcoreRef(r);
+  
+default EClassifier lookupClassifier(EPackage pkg, Ref[EClassifier] r)
+  = lookup(pkg, #EClassifier, r);
 
 Production feature2prod(f:EStructuralFeature(EReference r), Symbol nt, EClassifier eType) 
   = prod(label(r.name, nt), [lit(r.name), myLayout, lit(":"), myLayout, *ref2sym(r, eType, isMany(f))], {});

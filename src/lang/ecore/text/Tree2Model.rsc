@@ -136,6 +136,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   }
 
   // build the object with the explicitly constructed Id  
+  // note that `args` is a map, not a list
   obj = r.new(tt, make(tt, p.def.name, [ args[i] | int i <- [0..size(args)] ], kws), id = myId);
   
   // and schedule fixes for all cross references.
