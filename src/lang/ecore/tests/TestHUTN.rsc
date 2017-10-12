@@ -2,9 +2,9 @@ module lang::ecore::tests::TestHUTN
 
 
 import lang::ecore::Grammar2Ecore;
-import lang::ecore::Ecore2HUTN;
-import lang::ecore::Model2HUTN;
-import lang::ecore::HUTN2Model;
+import lang::ecore::hutn::Ecore2HUTN;
+import lang::ecore::hutn::Model2HUTN;
+import lang::ecore::hutn::HUTN2Model;
 import lang::ecore::Tree2Model;
 import lang::ecore::Ecore;
 import lang::ecore::Diff;

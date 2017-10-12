@@ -1,6 +1,6 @@
 module lang::ecore::tests::StmHUTN
 
-extend lang::ecore::Base;
+extend lang::ecore::hutn::Base;
 import util::IDE;
 import ParseTree;
 

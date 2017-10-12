@@ -1,4 +1,4 @@
-package lang.ecore;
+package lang.ecore.bridge;
 
 import java.io.PrintWriter;
 import java.net.URISyntaxException;

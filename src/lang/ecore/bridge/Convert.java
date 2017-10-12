@@ -1,4 +1,4 @@
-package lang.ecore;
+package lang.ecore.bridge;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;

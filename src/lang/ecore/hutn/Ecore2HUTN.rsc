@@ -20,7 +20,7 @@ void writeHUTNModule(str moduleName, loc path, EPackage pkg, str root, str name 
   src = ecore2rascal(pkg, root);
   m = "module <moduleName>
       '
-      'extend lang::ecore::Base;
+      'extend lang::ecore::hutn::Base;
       'import util::IDE;
       'import ParseTree;
       '

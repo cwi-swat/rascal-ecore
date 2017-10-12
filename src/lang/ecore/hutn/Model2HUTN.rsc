@@ -1,4 +1,4 @@
-module lang::ecore::Model2HUTN
+module lang::ecore::hutn::Model2HUTN
 
 import lang::ecore::Refs;
 
