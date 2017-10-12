@@ -145,7 +145,7 @@ str prod2rsc(cons(label(str c, _), [label(str x, adt(str sub, []))],
     args := [
       "<sub> <x>",
       *[ default4sub(s, x) | s <- subs ],
-      "Id uid = <x>.uid",
+      "lang::ecore::Refs::Id uid = <x>.uid",
       "bool _inject = true"
     ];
 

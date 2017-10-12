@@ -137,7 +137,7 @@ bool hasConcreteProds(str nt, set[Production] prods) {
 }
 
 
-rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str path] classAndPath] prods2fieldMap(map[str, EClassifier] classMap, set[Production] prods) {
+lrel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str path] classAndPath] prods2fieldMap(map[str, EClassifier] classMap, set[Production] prods) {
 
   bool idFor(str cls, str fld) 
     = Production p <- prods &&  p.def.name == cls && fld in prodIds(p);
@@ -149,11 +149,11 @@ rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str
     return <"", "">;
   } 
   
-  result = {};
+  result = [];
   
   for (str cls <- classMap) {
-    flds = { <fld, sym> | Production p <- prods, p.def.name == cls, label(str fld, Symbol sym) <- p.symbols };
-    result += {<cls, fld, isRequired(cls, fld, prods), idFor(cls, fld), sym, pathFor(cls, fld)> | <str fld, Symbol sym> <- flds };
+    flds = [ <fld, sym> | Production p <- prods, p.def.name == cls, label(str fld, Symbol sym) <- p.symbols ];
+    result += [<cls, fld, isRequired(cls, fld, prods), idFor(cls, fld), sym, pathFor(cls, fld)> | <str fld, Symbol sym> <- flds ];
   }
 
   return result;
