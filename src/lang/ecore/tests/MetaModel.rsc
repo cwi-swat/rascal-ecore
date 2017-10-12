@@ -10,12 +10,26 @@ data Machine(loc pkgURI = |http://www.example.org/myfsm|)
   
 data State
   = State(str name, list[Trans] transitions, bool final = false, Id uid = noId())
-  | Group(str name, list[State] states) // todo: should be injections
+  | Group(Group group
+     , str name = group.name
+     , list[Trans] transitions = group.transitions
+     , bool final = group.final
+     , list[State] states = group.states
+     , Id uid = group.uid
+     , bool _inject = true) 
+  ;
+
+data Group
+  = Group(str name, list[Trans] transitions, bool final = false, list[State] states = [], Id uid = noId())
   ;
 
 data Trans
   = Trans(list[str] events, Ref[State] target, Id uid = noId())
-  | Guarded(Guarded guarded, list[str] events = guarded.events, Ref[State] target = guarded.target, Id uid = guarded.uid)
+  | Guarded(Guarded guarded
+     , list[str] events = guarded.events
+     , Ref[State] target = guarded.target
+     , Id uid = guarded.uid
+     , bool _inject = true)
   ;
   
 data Guarded
