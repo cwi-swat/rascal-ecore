@@ -1,6 +1,6 @@
-module lang::ecore::PTDiff
+module lang::ecore::text::PTDiff
 
-import lang::ecore::LCS;
+import lang::ecore::diff::LCS;
 
 import ParseTree;
 import String;

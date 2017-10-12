@@ -1,7 +1,9 @@
-module lang::ecore::Diff
+module lang::ecore::diff::Diff
+
+import lang::ecore::diff::LCS;
 
 import lang::ecore::Refs;
-import lang::ecore::LCS;
+
 import Node;
 import List;
 import IO;

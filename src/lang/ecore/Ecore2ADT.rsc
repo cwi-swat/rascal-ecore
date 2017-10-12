@@ -4,6 +4,7 @@ import lang::ecore::Ecore;
 import lang::ecore::EcoreUtil;
 import lang::ecore::Refs;
 import lang::ecore::IO;
+
 import IO;
 import ValueIO;
 import Type;
@@ -17,10 +18,10 @@ import DateTime;
 // - defaultValues from the metametamodel
 
 
-void writeEcoreEcore() {
-  ec = load(#EPackage, |file:///Users/tvdstorm/CWI/rascal-ecore/src/lang/ecore/Ecore.ecore|);
-  writeEcoreADTModule("lang::ecore::Ecore", |project://rascal-ecore/src/lang/ecore/Ecore.rsc|, ec);
-}
+//void writeEcoreEcore() {
+//  ec = load(#EPackage, |file:///Users/tvdstorm/CWI/rascal-ecore/src/lang/ecore/Ecore.ecore|);
+//  writeEcoreADTModule("lang::ecore::Ecore", |project://rascal-ecore/src/lang/ecore/Ecore.rsc|, ec);
+//}
 
 void writeEcoreADTModule(str moduleName, loc l, EPackage pkg) 
   = writeFile(l, "module <moduleName>

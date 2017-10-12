@@ -1,4 +1,4 @@
-module lang::ecore::Grammar2Ecore
+module lang::ecore::text::Grammar2Ecore
 
 import lang::ecore::Ecore;
 import lang::ecore::EcoreUtil;

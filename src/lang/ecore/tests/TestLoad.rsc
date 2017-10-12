@@ -1,8 +1,9 @@
 module lang::ecore::tests::TestLoad
 
 import lang::ecore::Ecore;
-import lang::ecore::Diff;
 import lang::ecore::IO;
+
+import lang::ecore::diff::Diff;
 
 import Node;
 import IO;

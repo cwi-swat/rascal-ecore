@@ -1,9 +1,11 @@
-module lang::ecore::PatchTree
+module lang::ecore::text::PatchTree
 
-import lang::ecore::Diff;
+import lang::ecore::text::Tree2Model;
+import lang::ecore::text::Grammar2Ecore;
+
+import lang::ecore::diff::Diff;
 import lang::ecore::Refs;
-import lang::ecore::Tree2Model;
-import lang::ecore::Grammar2Ecore;
+
 import ParseTree;
 
 import Type;

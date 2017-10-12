@@ -1,4 +1,4 @@
-module lang::ecore::LCS
+module lang::ecore::diff::LCS
 
 import List;
 import util::Math;

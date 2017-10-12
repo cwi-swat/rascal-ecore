@@ -1,17 +1,20 @@
 module lang::ecore::tests::TestHUTN
 
 
-import lang::ecore::Grammar2Ecore;
 import lang::ecore::hutn::Ecore2HUTN;
 import lang::ecore::hutn::Model2HUTN;
 import lang::ecore::hutn::HUTN2Model;
-import lang::ecore::Tree2Model;
-import lang::ecore::Ecore;
-import lang::ecore::Diff;
+
+import lang::ecore::text::Grammar2Ecore;
+import lang::ecore::text::Tree2Model;
+
+import lang::ecore::diff::Diff;
 
 import lang::ecore::tests::StmHUTN;
 import lang::ecore::tests::Syntax;
 import lang::ecore::tests::MetaModel;
+
+import lang::ecore::Ecore;
 
 import IO;
 import ParseTree;

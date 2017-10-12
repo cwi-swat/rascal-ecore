@@ -1,10 +1,11 @@
-module lang::ecore::Tree2Model
+module lang::ecore::text::Tree2Model
+
+import lang::ecore::text::Grammar2Ecore;
+import lang::ecore::Refs;
 
 import ParseTree;
 import Type;
 import List;
-import lang::ecore::Refs;
-import lang::ecore::Grammar2Ecore;
 import IO;
 import String;
 import Node;

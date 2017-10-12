@@ -4,10 +4,10 @@ extend lang::ecore::tests::Syntax; // bug in reifier.
 import lang::ecore::tests::MetaModel;
 import lang::ecore::tests::Trafos;
 
-import lang::ecore::Tree2Model;
-import lang::ecore::PatchTree;
-import lang::ecore::Diff;
-import lang::ecore::PTDiff;
+import lang::ecore::text::Tree2Model;
+import lang::ecore::text::PatchTree;
+import lang::ecore::text::PTDiff;
+import lang::ecore::diff::Diff;
 import lang::ecore::Refs;
 
 import ParseTree;
