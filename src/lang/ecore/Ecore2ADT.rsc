@@ -18,23 +18,20 @@ import DateTime;
 // - defaultValues from the metametamodel
 
 
-//void writeEcoreEcore() {
-//  ec = load(#EPackage, |file:///Users/tvdstorm/CWI/rascal-ecore/src/lang/ecore/Ecore.ecore|);
-//  writeEcoreADTModule("lang::ecore::Ecore", |project://rascal-ecore/src/lang/ecore/Ecore.rsc|, ec);
-//}
-
+@doc{Generate an Rascal module containing a meta model ADT for `pkg`}
 void writeEcoreADTModule(str moduleName, loc l, EPackage pkg) 
   = writeFile(l, "module <moduleName>
                  '
                  '// Generated code; do not edit.
                  '// Date: <now()>
                  '
-                 'import util::Maybe;
                  'import lang::ecore::Refs;
+                 'import util::Maybe;
                  'import DateTime;
                  '
                  '<ecore2rsc(flattenInheritance(newRealm(), pkg))>");
 
+@doc{Convert an Ecore EPackage to source code of an equivalent meta model ADT} 
 // assumes flattening of inheritance
 str ecore2rsc(EPackage pkg) 
   = intercalate("\n\n", [ choice2rsc(defs[s]) | Symbol s <- orderADTs(defs) ])
@@ -42,6 +39,7 @@ str ecore2rsc(EPackage pkg)
     defs := package2definitions(pkg);
 
 
+@doc{Convert an Ecore EPackage to a definitions map as used internally by Rascal} 
 // assumes flattening of inheritance
 map[Symbol, Production] package2definitions(EPackage pkg) 
   = ( p.def: p | EClassifier c <- pkg.eClassifiers, EClassifier(EDataType _) !:= c, p := classifier2choice(c, pkg) );
@@ -53,6 +51,7 @@ Production classifier2choice(EClassifier(EDataType(EEnum enum)), EPackage pkg) {
 }
 
 
+@doc{Order the definitions in `def` by topological sort wrt dependency}
 list[Symbol] orderADTs(map[Symbol, Production] defs) {
   deps = { <s1, s2> | s1 <- defs, /s2:adt(str x, _) := defs[s1], x != "Ref", x != "Id", x != "Maybe" };
   return reverse(order(deps));
@@ -121,7 +120,7 @@ str default4sym(\real()) = "0.0";
 
 str default4sym(\str()) = "\"\"";
 
-str default4sym(\datetime()) = "DateTime::now()"; // ???
+str default4sym(\datetime()) = "DateTime::now()"; 
 
 str default4sym(\list(Symbol s)) = "[]";
 

@@ -12,8 +12,7 @@ import util::Maybe;
 
 
 @doc{Load a model resource `uri` and "parse" it according to `meta`.
-The parameter `refBase` will be used as the base of identities.
-} 
+The parameter `refBase` will be used as the base of identities.} 
 @javaClass{lang.ecore.bridge.IO}
 java &T<:node load(type[&T<:node] meta, loc uri, loc refBase);
 
@@ -22,22 +21,17 @@ java &T<:node load(type[&T<:node] meta, loc uri, loc refBase);
 @javaClass{lang.ecore.bridge.IO}
 java EPackage load(loc pkgURI, type[EPackage] ecore = #EPackage);
 
-// bug in Java brdige (model.pkgURI is not correctly evaled; throws).
-//@doc{Save a model to resource `uri`}
-//void save(&T<:node model, loc uri) = save(model, uri, model.pkgURI);
-
-@doc{Save a model to resource `uri`. 
-pkgURI is needed to obtain a factory from the meta model registry.}
+@doc{Save a model to resource `uri`. pkgURI is used to obtain the meta model from the registry.}
 @javaClass{lang.ecore.bridge.IO}
 java void save(type[&T<:node] meta, &T<:node model, loc uri, loc pkgURI);
 
 @javaClass{lang.ecore.bridge.IO}
-@reflect{Eval}
+@reflect{Needs the evaluator to call closures}
 java void(lrel[loc,str]) termEditor(loc src);
 
 
 @javaClass{lang.ecore.bridge.IO}
-@reflect{Sync}
+@reflect{Needs the evaluator to call closures}
 java void observeEditor(type[&T<:node] meta, loc uri, void(&T<:node) callback);
 
 
@@ -53,9 +47,10 @@ ed(Patch(MetaModel m1) {
 ```
 }
 @javaClass{lang.ecore.bridge.IO}
-@reflect
+@reflect{Needs the evaluator to call closures}
 java void(Patch(&T<:node)) editor(type[&T<:node] meta, loc uri, type[Patch] pt = #Patch);
 
+@doc{Obtain a function to directly patch an editor.}
 void(Patch) patcher(type[&T<:node] meta, loc uri) {
   ed = editor(meta, uri); 
   return void(Patch p) {
