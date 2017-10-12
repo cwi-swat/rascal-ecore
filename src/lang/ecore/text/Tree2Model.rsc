@@ -138,7 +138,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   // build the object with the explicitly constructed Id  
   obj = r.new(tt, make(tt, p.def.name, [ args[i] | int i <- [0..size(args)] ], kws), id = myId);
   
-  // and fix all cross references.
+  // and schedule fixes for all cross references.
   fix(obj, fixes);
   
   return obj;
@@ -158,7 +158,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
       kids = getChildren(obj);
       target = deref(meta, model, path);
       
-      // if the cross is an ordinary parameter...
+      // if the cross ref is an ordinary parameter...
       if (cons(label(c, _), ps:[*_, p:label(fld, rt:adt("Ref", _)), *_], _, _) <- alts) {
         int i = indexOf(ps, p);
         obj = make(t, c, kids[0..i] + [target is null ? target : referTo(type(rt, meta.definitions), target)] + kids[i+1..], kws);
@@ -254,3 +254,4 @@ str substBindings(str path, lrel[str, value] env)
 
 
 bool isAST(Tree t) = t has prod && !(t.prod.def is lit || t.prod.def is cilit);
+

@@ -32,6 +32,7 @@ data Edit
   | destroy() 
   ;
   
+@doc{Compute map from identity to object node. NB: injections will not be in the map because of isObj.}  
 map[Id, node] objectMap(node x) = ( getId(n): n | /node n := x, isObj(n) ); 
 
 @doc{Construct a patch to (re)create the model `new`}
@@ -47,6 +48,7 @@ Patch create(type[&T<:node] meta, &T<:node new) {
 @doc{Compute the difference between `old` and `new` in the form of a patch}
 Patch diff(type[&T<:node] meta, &T old, &T new) {
   // TODO: we can save some traversals through fusion.
+  // TODO: assert that there are no injection in the object maps
   m1 = objectMap(old);
   m2 = objectMap(new);
   
@@ -76,7 +78,7 @@ Edits init(type[&T<:node] meta, Id id, node new) {
   return edits;
 }
 
-@doc{Lists are initialized using a sequence of inserts.}
+@doc{Lists are initialized using a sequence of `ins` operations.}
 Edits initKid(Id id, list[value] v, str field) 
   = [ <id, ins(field, i, primOrId(v[i]))> | int i <- [0..size(v)] ];
 

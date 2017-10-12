@@ -57,7 +57,7 @@ import IO;
  *
  * NOTES REGARDING TREE2MODEL
  *
- * Assumptions
+ * Assumptions (TO FULFILL)
  * - all every tree node (that is not a lexical/@lifted, or literal etc.) corresponds to an object
  *   (i.e. has an identity)
  * - everything that is optional as per the above, should be optional (= keyword param) in model ADT
@@ -67,18 +67,33 @@ import IO;
  *   (this implies that every Class needs to be an ADT...; FIXME: this is problematic)
  */
  
-bool hasConcreteProds(str nt, set[Production] prods) {
-  // syntax S = syms;
-  if (size(prods) == 1, Production p <- prods, !(p.def is label)) {
-    return true;
-  }
-  // syntax S = ... | S: ... | ...
-  if (Production p <- prods, p.def is label, p.def.name == nt) {
-    return true;
-  }
-  return false;
-}
 
+EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pkgName, str nsPrefix = "", Realm realm = newRealm()) {
+  pkg = realm.new(#EPackage, EPackage(name = pkgName, nsURI = nsURI, nsPrefix = nsPrefix));
+  
+  map[str, EClassifier] classMap = grammar2classMap(g, realm); 
+  
+      
+  allProds = ( {} | it + g.definitions[s].alternatives | Symbol s <- g.definitions );
+  fieldMap = prods2fieldMap(classMap, allProds);
+  
+  inh = { <sub.name, sup.name> | str class <- classMap, EClassifier(EClass sub) := classMap[class],
+     Ref[EClass] refSup <- sub.eSuperTypes, EClassifier(EClass sup) <- classMap<1>, sup.uid == refSup.uid };
+
+  for (str class <- reverse(order(inh)) + [ c | str c <- classMap, EClassifier(EClass e) := classMap[c], e.eSuperTypes == [] ]) {
+    for (<class, str field, bool req, bool id, Symbol symbol, <str target, str path>> <- fieldMap) {
+      if (!anySuperClassHasFeature(classMap, class, field)) {
+        // NB: we don't check that the feature has the same type etc, we assume: same name ==> same feature.
+        classMap[class].eClass.eStructuralFeatures += [ symbol2feature(classMap, realm, field, symbol, req, id, target, path) ];
+      }
+    }
+  }
+    
+  pkg.eClassifiers = [ classMap[k] | k <- classMap ];
+  
+  return pkg;
+}
+ 
 //NB: prods *must be labeled*;
 map[str, EClassifier] grammar2classMap(type[&T<:Tree] g, Realm realm) {
   map[str, EClassifier] classMap = ();
@@ -105,8 +120,22 @@ map[str, EClassifier] grammar2classMap(type[&T<:Tree] g, Realm realm) {
   return classMap;
 }
 
+bool hasConcreteProds(str nt, set[Production] prods) {
+  // syntax S = syms;
+  if (size(prods) == 1, Production p <- prods, !(p.def is label)) {
+    return true;
+  }
+  // syntax S = ... | S: ... | ...
+  if (Production p <- prods, p.def is label, p.def.name == nt) {
+    return true;
+  }
+  return false;
+}
+
+
 rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str path] classAndPath] prods2fieldMap(map[str, EClassifier] classMap, set[Production] prods) {
 
+  @doc{A field is required on class `cls` if all productions labeled `cls` have it} 
   bool isRequired(str cls, str fld) {
     for (Production p <- prods, p.def.name == cls) {
       if (label(fld, Symbol _) <- p.symbols) {
@@ -137,37 +166,6 @@ rel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, str
   return result;
 }
 
-EPackage grammar2ecore(type[&T<:Tree] g, str pkgName, str nsURI = "http://" + pkgName, str nsPrefix = "", Realm realm = newRealm()) {
-  fact = realm.new(#EFactory, EFactory(null()));
-  
-  pkg = realm.new(#EPackage, EPackage(referTo(#EFactory, fact), name = pkgName, nsURI = nsURI, nsPrefix = nsPrefix));
-  fact.ePackage = referTo(#EPackage, pkg);
-  
-  strType = EClassifier(realm.new(#EDataType, EDataType(name = "EString")));
-  boolType = EClassifier(realm.new(#EDataType, EDataType(name = "EBoolean")));
-  
-  map[str, EClassifier] classMap = grammar2classMap(g, realm) + ("EString": strType, "EBoolean": boolType);
-  
-      
-  allProds = ( {} | it + g.definitions[s].alternatives | Symbol s <- g.definitions );
-  fieldMap = prods2fieldMap(classMap, allProds);
-  
-  inh = { <sub.name, sup.name> | str class <- classMap, EClassifier(EClass sub) := classMap[class],
-     Ref[EClass] refSup <- sub.eSuperTypes, EClassifier(EClass sup) <- classMap<1>, sup.uid == refSup.uid };
-
-  for (str class <- reverse(order(inh)) + [ c | str c <- classMap, EClassifier(EClass e) := classMap[c], e.eSuperTypes == [] ]) {
-    for (<class, str field, bool req, bool id, Symbol symbol, <str target, str path>> <- fieldMap) {
-      if (!anySuperClassHasFeature(classMap, class, field)) {
-        // NB: we don't check that the feature has the same type etc, we assume: same name ==> same feature.
-        classMap[class].eClass.eStructuralFeatures += [ symbol2feature(classMap, realm, field, symbol, req, id, target, path) ];
-      }
-    }
-  }
-    
-  pkg.eClassifiers = [ classMap[k] | k <- classMap ];
-  
-  return pkg;
-}
 
 
 EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool id, str target, str path) {
@@ -190,7 +188,7 @@ EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, s
     return toField(classMap, realm, fld, s, req, id, target, path);
  }  
  
- EStructuralFeature toField(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool id, str target, str path) {
+ EStructuralFeature toField(map[str, EClassifier] classMap, Realm realm, str fld, Symbol s, bool req, bool isId, str target, str path) {
     //println("fld = <fld>, sym = <s>, req = <req>, id= <id>, path = <path>");
     
     // cross references
@@ -213,7 +211,7 @@ EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, s
       f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
-        eType = referTo(#EClassifier, classMap["EBoolean"]))
+        eType = ref(id(|http://www.eclipse.org/emf/2002/Ecore#//EBoolean|))) 
       ));
       
       if (req) {
@@ -228,10 +226,10 @@ EStructuralFeature symbol2feature(map[str, EClassifier] classMap, Realm realm, s
       f = EStructuralFeature(realm.new(#EAttribute, EAttribute(
         name = fld, 
         upperBound = 1,
-        eType = referTo(#EClassifier, classMap["EString"]))
+        eType = ref(id(|http://www.eclipse.org/emf/2002/Ecore#//EString|))) 
       ));
         
-      if (id) {
+      if (isId) {
         f.eAttribute.iD = true;
       }
       
