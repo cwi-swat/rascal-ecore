@@ -1,7 +1,9 @@
 package lang.ecore.bridge;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,7 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.rascalmpl.interpreter.utils.RuntimeExceptionFactory;
+import org.rascalmpl.uri.URIResolverRegistry;
 import org.rascalmpl.uri.URIUtil;
 
 import io.usethesource.vallang.IBool;
@@ -51,6 +54,21 @@ class Convert {
 
 	private static TypeFactory tf = TypeFactory.getInstance();
 	
+	public static Resource loadResource(ISourceLocation uri) throws IOException {
+		ResourceSet rs = new ResourceSetImpl();
+		java.net.URI x = uri.getURI();
+		Resource res = rs.getResource(URI.createURI(normalizeURI(x.toString())), true);
+		URIResolverRegistry reg = URIResolverRegistry.getInstance();
+		res.load(reg.getInputStream(uri), Collections.emptyMap());
+		return res;
+	}
+	
+	public static String normalizeURI(String uri) {
+		uri = uri.replaceAll("project://", "platform:/resource/");
+		boolean hasFrag = uri.indexOf("#") > -1;
+		return hasFrag ? uri.substring(0, uri.indexOf("#")) : uri;
+	}
+	
 	interface IFix {
 		void apply(Map<IConstructor, EObject> uids);
 	}
@@ -59,8 +77,10 @@ class Convert {
 		private EObject owner;
 		private EStructuralFeature field;
 		private IConstructor id;
+		private IValueFactory vf;
 
-		FixField(EObject owner, EStructuralFeature field, IConstructor id) {
+		FixField(IValueFactory vf, EObject owner, EStructuralFeature field, IConstructor id) {
+			this.vf = vf;
 			this.owner = owner;
 			this.field = field;
 			this.id = id;
@@ -74,16 +94,13 @@ class Convert {
 			}
 			else {
 				ISourceLocation loc = (ISourceLocation)id.get("uri");
-				// FIXME: just use loadModel here, and it should also work for other cross model refs
-				if (loc.getScheme().equals("project")) {
-					// dangling ref, for now do nothing
-					return;
+				Resource res;
+				try {
+					res = loadResource(loc);
+				} catch (IOException e) {
+					throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
 				}
-				ResourceSet rs = new ResourceSetImpl();
-				java.net.URI x = loc.getURI();
-				String noFrag = x.toString().substring(0, x.toString().indexOf("#")); 
-				Resource res = rs.getResource(URI.createURI(noFrag), true);
-				owner.eSet(field, res.getEObject(x.getFragment()));
+				owner.eSet(field, res.getEObject(loc.getFragment()));
 			}
 		}
 	}
@@ -105,8 +122,8 @@ class Convert {
 		}
 	}
 	
-	public static EObject value2obj(EPackage pkg, IConstructor model, TypeStore ts) {
-		ModelBuilder builder = new ModelBuilder(pkg, ts);
+	public static EObject value2obj(EPackage pkg, IConstructor model, IValueFactory vf, TypeStore ts) {
+		ModelBuilder builder = new ModelBuilder(pkg, vf, ts);
 		EObject obj = (EObject) model.accept(builder);
 		for (IFix fix: builder.fixes) {
 			fix.apply(builder.uids);
@@ -138,10 +155,12 @@ class Convert {
 		private Map<IConstructor, EObject> uids = new HashMap<>();
 		private List<IFix> fixes = new ArrayList<>();
 		private TypeStore ts;
+		private IValueFactory vf;
 		
 		
-		private ModelBuilder(EPackage pkg, TypeStore ts) {
+		private ModelBuilder(EPackage pkg, IValueFactory vf, TypeStore ts) {
 			this.pkg  = pkg;
+			this.vf = vf;
 			this.ts = ts;
 		}
 
@@ -185,7 +204,7 @@ class Convert {
 				String fieldName = o.getChildrenTypes().getFieldName(i);
 				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
 				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
-					fixes.add(new FixField(newObj, toSet, getUID((IConstructor)v)));
+					fixes.add(new FixField(vf, newObj, toSet, getUID((IConstructor)v)));
 				}
 				else {
 					Object newVal = v.accept(this);
@@ -207,7 +226,7 @@ class Convert {
 				IValue v = e.getValue();
 				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
 				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
-					fixes.add(new FixField(newObj, toSet, getUID((IConstructor)v)));
+					fixes.add(new FixField(vf, newObj, toSet, getUID((IConstructor)v)));
 				}
 				else {
 					Object newVal = v.accept(this);

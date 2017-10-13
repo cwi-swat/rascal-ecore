@@ -327,18 +327,6 @@ public class IO {
 		return Convert.obj2value(pkg, rt, vf, ts, vf.sourceLocation(uri));
 	}
 	
-	public IValue load__(IValue reifiedType, ISourceLocation uri) {
-		TypeStore ts = new TypeStore(); // start afresh
-
-		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
-		Convert.declareRefType(ts);
-		try {
-			EObject root = loadModel(uri);
-			return Convert.obj2value(root, rt, vf, ts, uri);
-		} catch (IOException e) {
-			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
-		}
-	}
 	
 	public IValue load(IValue reifiedType, ISourceLocation uri, ISourceLocation refBase) {
 		TypeStore ts = new TypeStore(); // start afresh
@@ -347,7 +335,7 @@ public class IO {
 		Convert.declareRefType(ts);
 		Convert.declareMaybeType(ts);
 		try {
-			EObject root = loadModel(uri);
+			EObject root = Convert.loadResource(uri).getContents().get(0);
 			return Convert.obj2value(root, rt, vf, ts, refBase);
 		} catch (IOException e) {
 			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
@@ -364,7 +352,7 @@ public class IO {
 		Convert.declareMaybeType(ts);
 		
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
-		EObject root = Convert.value2obj(pkg, (IConstructor) model, ts);
+		EObject root = Convert.value2obj(pkg, (IConstructor) model, vf, ts);
 		try {
 			saveModel(root, uri);
 		} catch (IOException e) {
@@ -374,7 +362,7 @@ public class IO {
 	
 	private static void saveModel(EObject model, ISourceLocation uri) throws IOException {
 		ResourceSet rs = new ResourceSetImpl();
-		Resource res = rs.createResource(URI.createURI(project2platform(uri.getURI().toString())));
+		Resource res = rs.createResource(URI.createURI(Convert.normalizeURI(uri.getURI().toString())));
 		URIResolverRegistry reg = URIResolverRegistry.getInstance();
 		res.getContents().add(model);
 		res.save(reg.getOutputStream(uri, false), Collections.emptyMap());
@@ -382,19 +370,6 @@ public class IO {
 	
 
 	
-	private static EObject loadModel(ISourceLocation uri) throws IOException {
-		ResourceSet rs = new ResourceSetImpl();
-		java.net.URI x = uri.getURI();
-		Resource res = rs.getResource(URI.createURI(project2platform(x.toString())), true);
-		URIResolverRegistry reg = URIResolverRegistry.getInstance();
-		res.load(reg.getInputStream(uri), Collections.emptyMap());
-		return res.getContents().get(0);
-	}
-	
-	private static String project2platform(String uri) {
-		return uri.replaceAll("project://", "platform:/resource/");
-	}
-
 
 	private static class EditorClosure extends AbstractFunction {
 
