@@ -132,7 +132,9 @@ test bool testCreateMachineWithProtoLayout()
   '
   '  state closed
   '    on open =\> opened
-  '  end state opened
+  '  end
+  ' 
+  '  state opened
   '    on close =\> closed
   '  end
   'end";

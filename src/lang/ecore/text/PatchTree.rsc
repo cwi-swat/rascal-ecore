@@ -74,7 +74,8 @@ TODOS
 // find templates for classes in t, substituting arguments to placeholders
 // (if no templates are found, create from grammar, with default layout)
 map[Production, Tree] prototypes(Tree t)
-  = ( sub.prod: sub | /Tree sub := t, mapsToObject(sub) );
+  = ( sub.prod: sub | /Tree sub := t, mapsToObject(sub) )
+  + ( reg.prod: reg | /Tree reg := t, reg has prod, reg.prod is regular, size(reg.args) > 1 );
 
 
 @doc{Check if a tree should correspond to an object}
@@ -87,7 +88,7 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
   
   tuple[Tree,list[Tree]] getListAndSeps(Id obj, str field, Tree lst) {
     if (<obj, field> notin sepCache) {
-      sepCache[<obj,field>] = getSeparators(lst);
+      sepCache[<obj,field>] = getSeparators(lst, protos=protos);
     }
     return <lst, sepCache[<obj,field>]>;
   }
@@ -318,16 +319,26 @@ list[Tree] promoteHeadLayout(list[Tree] args, Tree elt) {
 Tree setArgs(Tree t, map[str, Tree] fields) 
   = ( t | setArg(it, getFieldIndex(t.prod, f), fields[f]) | str f <- fields );
   
-list[Tree] getSeparators(Tree lst) {
+list[Tree] getSeparators(Tree lst, map[Production, Tree] protos = ()) {
   assert lst.prod is regular;
+  
   s = lst.prod.def;
   int sepSize = 0;
   if (s is \iter-seps || s is \iter-star-seps) {
     sepSize = size(s.separators);
   }
+  
+  // if lst itself has separators, use them
   if (size(lst.args) > 1) {
-     return sepSize > 0 ? lst.args[1..1+sepSize] : [];
+    return sepSize > 0 ? lst.args[1..1+sepSize] : [];
   }
+  
+  // else look into prototypes
+  if (lst.prod in protos) {
+    return protos[lst.prod].args[1..1+sepSize];  
+  }
+  
+  // else synthesize
   return symbols2args(s.separators); 
 }
   
