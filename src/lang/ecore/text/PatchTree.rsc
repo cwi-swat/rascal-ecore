@@ -17,42 +17,47 @@ import IO;
 TODOS
 
 - use original tree to find class prototypes and separator prototypes if not found in list itself
+  (and use this also in model2tree as an optional kw param)
 - implement "create" by factoring out the flattened tree from patch tree.
 - fix locs during the unflatten phase.
 */
 
 
-&T<:Tree model2tree(type[&T<:Tree] tt, type[&M<:node] meta, &M<:node model, Tree(type[&U<:Tree], str) parse) 
-  = patch2tree(tt, model2patch(meta, model), parse);
+@doc{Convert an (abtract) model into a concrete parse tree (inventing layout).}
+&T<:Tree model2tree(type[&T<:Tree] tt, type[&M<:node] meta, &M<:node model, Tree(type[&U<:Tree], str) parse, map[Production, Tree] protos = ()) 
+  = patch2tree(tt, model2patch(meta, model), parse, protos = protos);
 
 
-&T<:Tree patch2tree(type[&T<:Tree] tt, Patch patch, Tree(type[&U<:Tree], str) parse) {
-  // TODO: assert that all edits are on identities resulting from creates, and there are no destroys
-  trees = ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
-  trees = patchTrees(tt, trees, patch, parse);
+@doc{Convert a complete patch into a concrete parse tree}
+&T<:Tree patch2tree(type[&T<:Tree] tt, Patch patch, Tree(type[&U<:Tree], str) parse, map[Production, Tree] protos = ()) {
+  assert isComplete(patch): "patches need to be complete for creating a tree";
+
+  trees = ( obj: prod2tree(findProd(tt, class), protos) | <Id obj, create(str class)> <- patch.edits );
+  trees = patchTrees(tt, trees, patch, parse, protos = protos);
   trees = unflatten(patch.root, trees);
   root = trees[patch.root];
   return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
 
-bool mapsToObject(Tree t) = t has prod && t.prod.def is label && t@\loc?;
-
-
+@doc{Patch an old tree `pt` according to `patch` and the origin relation between objects and (sub) parse trees}
 &T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
   Tree old = pt;
   if (pt has top) {
     old = pt.top;
   }
 
+  // FIXME: get rid of this, make origins directly of the right form.
   rel[Id, loc] orgs = { <k, origins[k]> | Id k <- origins };
+
+  protos = prototypes(old);
 
   // turn the tree into a flat map indexed by Id. 
   trees = ( obj: flatten(t, old, orgs) | /Tree t := old, mapsToObject(t),  loc l := t@\loc, <Id obj, l> <- orgs )
   // note, we "just" create placeholders here, we don't know the exact prods yet, only after init.
-        + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
+        + ( obj: prod2tree(findProd(tt, class), protos) | <Id obj, create(str class)> <- patch.edits );
   
-  trees = patchTrees(tt, trees, patch, parse);
+  trees = patchTrees(tt, trees, patch, parse, protos=protos);
   
   // connect all containment references to get proper trees again
   trees = unflatten(patch.root, trees);
@@ -66,7 +71,17 @@ bool mapsToObject(Tree t) = t has prod && t.prod.def is label && t@\loc?;
   return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
-map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tree(type[&U<:Tree], str) parse) {
+// find templates for classes in t, substituting arguments to placeholders
+// (if no templates are found, create from grammar, with default layout)
+map[Production, Tree] prototypes(Tree t)
+  = ( sub.prod: sub | /Tree sub := t, mapsToObject(sub) );
+
+
+@doc{Check if a tree should correspond to an object}
+bool mapsToObject(Tree t) = t has prod && t.prod.def is label && t@\loc?;
+
+@doc{Apply the patch to a flattened representation of a parse tree}
+map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tree(type[&U<:Tree], str) parse, map[Production, Tree] protos = ()) {
   
   map[tuple[Id, str], list[Tree]] sepCache = ();
   
@@ -89,7 +104,7 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
                                       
        newProd = findSmallestProdHavingFields(tt, prod.def.name, f<0> + {field});
        
-       newTree = setArgs(prod2tree(newProd), assignedFields);
+       newTree = setArgs(prod2tree(newProd, protos), assignedFields);
        
        trees[obj] = newTree;                                
      }
@@ -134,7 +149,7 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
     newProd = findSmallestProdHavingFields(tt, old.prod.def.name, assignedFields<0>);
     
     if (newProd != old.prod) {
-      template = prod2tree(newProd);
+      template = prod2tree(newProd, protos);
       newTree = setArgs(template, assignedFields);
       trees[x] = newTree;
     }    
@@ -143,6 +158,7 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
   return trees;   
 }
 
+@doc{A placeholder production is a synthesized production for syntax "<" Id ":" NT ">"}
 Production placeholderProd(Symbol s, Symbol id = lex("Id"))
   = prod(s, [lit("\<"), id, lit(":"), lit(symbolName(s)), lit("\>") ], 
        {\tag("placholder"())});
@@ -181,19 +197,22 @@ Tree placeholder(Symbol s, str field) {
 }
   
 str symbolName(sort(str n)) = n;
+
 str symbolName(lex(str n)) = n;
+
 str symbolName(\opt(Symbol s)) = symbolName(s) + "?";
+
 str symbolName(\iter-star(Symbol s)) = symbolName(s) + "*";
+
 str symbolName(\iter-star-seps(Symbol s, _)) = symbolName(s) + "*";
+
 str symbolName(\iter(Symbol s)) = symbolName(s) + "+";
+
 str symbolName(\iter-seps(Symbol s, _)) = symbolName(s) + "+";
+
 str symbolName(label(_, Symbol s)) = symbolName(s);
+
 str symbolName(\start(Symbol s)) = symbolName(s);
-
-
-// find templates for classes in t, substituting arguments to placeholders
-// (if no templates are found, create from grammar, with default layout)
-map[str, Tree] templates(Tree t, set[str] classes) = ();
 
 
 Production findSmallestProdHavingFields(type[&T<:Tree] tt, str class, set[str] required) {
@@ -227,16 +246,37 @@ Production findProd(type[&T<:Tree] tt, str class) {
   throw "No production for <class>";
 }
 
-Tree prod2tree(Production p) 
-  = appl(p, symbols2args(p.symbols));
-  
-list[Tree] symbols2args(list[Symbol] syms) {
-  args = [];
-  for (int i <- [0..size(syms)]) {
-    args += [symbol2tree(syms[i], i, args)];
+@doc{Synthesize a tree for a production given tree prototypes}
+Tree prod2tree(Production p, map[Production, Tree] protos)
+  = appl(p, symbols2args(p.symbols, protos[p].args))
+  when p in protos;
+
+bool bprintProtos(map[Production, Tree] ps) {
+  for (Production p <- ps) {
+    println("<p>: `<ps[p]>`"); 
   }
-  return args;
+  return true;
 }
+  
+default Tree prod2tree(Production p, map[Production, Tree] protos)
+  = prod2tree(p);
+
+list[Tree] symbols2args(list[Symbol] syms, list[Tree] protos) 
+  = [ symbol2tree(syms[i], protos[i]) | int i <- [0..size(syms)] ];
+
+Tree symbol2tree(label(str field, Symbol s), Tree _) 
+  = placeholder(s, field);
+
+default Tree symbol2tree(Symbol _, Tree proto) 
+  = proto;
+  
+
+@doc{Synthesize a tree for a production without prototypes}
+Tree prod2tree(Production p) = appl(p, symbols2args(p.symbols));
+  
+@doc{Synthesize tree arguments for a list of symbols}
+list[Tree] symbols2args(list[Symbol] syms) 
+  = ( [] | it + [symbol2tree(syms[i], i, it)] | int i <- [0..size(syms)] );
   
 Tree symbol2tree(label(str field, Symbol s), int pos, list[Tree] prevs) 
   = placeholder(s, field);
@@ -263,16 +303,8 @@ Tree addLoc(Tree t, Tree old) = (old has \loc) ? t[@\loc=old@\loc] : t;
 Tree setArg(t:appl(Production p, list[Tree] args), int i, Tree a)
   = addLoc(appl(p, args[0..i] + [a] + promoteHeadLayout(args[i+1..], a)), t);
   
-//list[Tree] demoteLastLayout(list[Tree] args, Tree elt) {
-//  if (size(args) > 0, args[-1].prod.def is layouts, "<args[-1]>" == "", isEmpty(elt)) {
-//    return [*args[0..-1], appl(args[0].prod, [])];
-//  }
-//  return args;
-//}
-  
+
 list[Tree] promoteHeadLayout(list[Tree] args, Tree elt) {
-  //println("PROMOTING");
-  //println("LAYOUT: `<args[0]>` `<elt.args>`");
   if (size(args) > 0, args[0].prod.def is layouts, "<args[0]>" == "", !isEmpty(elt)) { 
     return [appl(args[0].prod, [ char(i) | int i <- chars(" ") ]), *args[1..]];
   }

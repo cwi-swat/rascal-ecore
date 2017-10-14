@@ -115,6 +115,29 @@ test bool testCreateMachine()
   "machine Doors init closed state closed on open =\> opened end state opened on close =\> closed end end";
 
 
+str createMachineWithProtoLayoutResult() {
+  m = createFromScatch();
+  protos = prototypes(example());
+  pt2 = model2tree(#lang::ecore::tests::Syntax::Machine, #lang::ecore::tests::MetaModel::Machine, m, Tree(type[&U<:Tree] tt, str src) {
+    return parse(tt, src);
+  }, protos = protos);
+  return "<pt2>";
+}
+
+test bool testCreateMachineWithProtoLayout() 
+  = createMachineWithProtoLayoutResult() 
+  == 
+  "machine Doors
+  '  init closed
+  '
+  '  state closed
+  '    on open =\> opened
+  '  end state opened
+  '    on close =\> closed
+  '  end
+  'end";
+
+
 /*
  * Insertion (plus creation)
  */
@@ -189,6 +212,26 @@ test bool testPrependStateToMany()
   'state opened end
   'end";
 
+str prependStateToManyWithProtoLayoutResult() = tester("machine Doors
+											          'init closed
+											          'state closed
+											          'end
+											          'state opened
+											          'end
+											          'end", "prependToMany", prependState);
+									        
+test bool testPrependStateToManyWithProtoLayout()
+  = prependStateToManyWithProtoLayoutResult()
+  ==
+  "machine Doors
+  'init closed
+  'state NewState
+  'end
+  'state closed
+  'end
+  'state opened
+  'end
+  'end";
 
 str prependEventToSingletonResult() = tester("machine Doors
                                             'init closed
@@ -227,11 +270,11 @@ test bool testAppendEventToSingletonResult()
   
   
 str appendEventToManyResult() = tester("machine Doors
-                                            'init closed
-                                            'state closed
-                                            '  on bar, foo =\> closed
-                                            'end
-                                            'end", "appendEventMany", addEvent(2));
+                                       'init closed
+                                       'state closed
+                                       '  on bar, foo =\> closed
+                                       'end
+                                       'end", "appendEventMany", addEvent(2));
   
 test bool testAppendEventToMany()
   = appendEventToManyResult()

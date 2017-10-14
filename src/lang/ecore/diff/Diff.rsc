@@ -41,6 +41,7 @@ Patch model2patch(type[&T<:node] meta, &T<:node new) {
   return <getId(new), edits>;
 }
 
+@doc{A patch is complete if all objects referred to are created and none are deleted} 
 bool isComplete(Patch patch) {
   objs = { x | Id x <- patch.edits<0> } + {patch.root};
   created = { x | <Id x, create(_)> <- patch.edits };
@@ -51,7 +52,7 @@ bool isComplete(Patch patch) {
 @doc{Compute the difference between `old` and `new` in the form of a patch}
 Patch diff(type[&T<:node] meta, &T old, &T new) {
   // TODO: we can save some traversals through fusion.
-  // TODO: assert that there are no injection in the object maps
+  // TODO: assert that there are no injections in the object maps
   m1 = objectMap(old);
   m2 = objectMap(new);
   
