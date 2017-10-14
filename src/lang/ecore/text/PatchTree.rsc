@@ -15,11 +15,8 @@ import IO;
 
 /*
 TODOS
-
-- use original tree to find class prototypes and separator prototypes if not found in list itself
-  (and use this also in model2tree as an optional kw param)
-- implement "create" by factoring out the flattened tree from patch tree.
 - fix locs during the unflatten phase.
+- merge flatten, and layout prototype derivation in one traversal
 */
 
 
@@ -50,7 +47,7 @@ TODOS
   // FIXME: get rid of this, make origins directly of the right form.
   rel[Id, loc] orgs = { <k, origins[k]> | Id k <- origins };
 
-  protos = prototypes(old);
+  protos = layoutPrototypes(old);
 
   // turn the tree into a flat map indexed by Id. 
   trees = ( obj: flatten(t, old, orgs) | /Tree t := old, mapsToObject(t),  loc l := t@\loc, <Id obj, l> <- orgs )
@@ -71,9 +68,8 @@ TODOS
   return typeCast(tt, resolveTree(root, root, trees)); 
 }
 
-// find templates for classes in t, substituting arguments to placeholders
-// (if no templates are found, create from grammar, with default layout)
-map[Production, Tree] prototypes(Tree t)
+@doc{Construct map from "object" and regular productions to trees with layout or separator information}
+map[Production, Tree] layoutPrototypes(Tree t)
   = ( sub.prod: sub | /Tree sub := t, mapsToObject(sub) )
   + ( reg.prod: reg | /Tree reg := t, reg has prod, reg.prod is regular, size(reg.args) > 1 );
 
@@ -216,6 +212,8 @@ str symbolName(label(_, Symbol s)) = symbolName(s);
 str symbolName(\start(Symbol s)) = symbolName(s);
 
 
+Production findProd(type[&T<:Tree] tt, str class) = findSmallestProdHavingFields(tt, class, {});
+
 Production findSmallestProdHavingFields(type[&T<:Tree] tt, str class, set[str] required) {
   int lastSize = 100000;
   list[Production] result = [];
@@ -231,21 +229,6 @@ Production findSmallestProdHavingFields(type[&T<:Tree] tt, str class, set[str] r
   return result[-1]; 
 }
 
-// todo: express in terms of above
-Production findProd(type[&T<:Tree] tt, str class) {
-  srt = sort(class);
-  
-  if (srt in tt.definitions, size(tt.definitions[srt].alternatives) == 1, Production p <- tt.definitions[srt].alternatives) {
-    return p;
-  }
-
-  // for now, we just pick one.  
-  if (Symbol s <- tt.definitions, Production p <- tt.definitions[s].alternatives, p.def is label, p.def.name == class) {
-    return p;
-  }
-  
-  throw "No production for <class>";
-}
 
 @doc{Synthesize a tree for a production given tree prototypes}
 Tree prod2tree(Production p, map[Production, Tree] protos)

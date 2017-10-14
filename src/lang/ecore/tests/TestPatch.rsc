@@ -117,7 +117,7 @@ test bool testCreateMachine()
 
 str createMachineWithProtoLayoutResult() {
   m = createFromScatch();
-  protos = prototypes(example());
+  protos = layoutPrototypes(example());
   pt2 = model2tree(#lang::ecore::tests::Syntax::Machine, #lang::ecore::tests::MetaModel::Machine, m, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   }, protos = protos);
