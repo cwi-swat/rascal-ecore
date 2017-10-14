@@ -103,10 +103,7 @@ void testPTDiffAndPatch() {
  
 str createMachineResult() {
   m = createFromScatch();
-  Patch patch = create(#lang::ecore::tests::MetaModel::Machine, m);
-  pt = (Machine)`machine X init Y end`; // dummy
-  orgs = ();
-  pt2 = patchTree(#lang::ecore::tests::Syntax::Machine, pt, patch, orgs, Tree(type[&U<:Tree] tt, str src) {
+  pt2 = model2tree(#lang::ecore::tests::Syntax::Machine, #lang::ecore::tests::MetaModel::Machine, m, Tree(type[&U<:Tree] tt, str src) {
     return parse(tt, src);
   });
   return "<pt2>";

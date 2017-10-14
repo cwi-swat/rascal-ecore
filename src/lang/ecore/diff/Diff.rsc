@@ -32,13 +32,20 @@ data Edit
 map[Id, node] objectMap(node x) = ( getId(n): n | /node n := x, isObj(n) ); 
 
 @doc{Construct a patch to (re)create the model `new`}
-Patch create(type[&T<:node] meta, &T<:node new) {
+Patch model2patch(type[&T<:node] meta, &T<:node new) {
   m = objectMap(new);
   
   edits = [ <c, create(getClass(m[c]))> | Id c <- m ];
   edits += [ *init(meta, c, m[c]) | Id c <- m ];
   
   return <getId(new), edits>;
+}
+
+bool isComplete(Patch patch) {
+  objs = { x | Id x <- patch.edits<0> } + {patch.root};
+  created = { x | <Id x, create(_)> <- patch.edits };
+  deleted = { x | <Id x, destroy()> <- patch.edits };
+  return objs == created && deleted == {};
 }
 
 @doc{Compute the difference between `old` and `new` in the form of a patch}

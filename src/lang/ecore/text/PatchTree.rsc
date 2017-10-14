@@ -22,22 +22,51 @@ TODOS
 */
 
 
+&T<:Tree model2tree(type[&T<:Tree] tt, type[&M<:node] meta, &M<:node model, Tree(type[&U<:Tree], str) parse) 
+  = patch2tree(tt, model2patch(meta, model), parse);
+
+
+&T<:Tree patch2tree(type[&T<:Tree] tt, Patch patch, Tree(type[&U<:Tree], str) parse) {
+  // TODO: assert that all edits are on identities resulting from creates, and there are no destroys
+  trees = ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
+  trees = patchTrees(tt, trees, patch, parse);
+  trees = unflatten(patch.root, trees);
+  root = trees[patch.root];
+  return typeCast(tt, resolveTree(root, root, trees)); 
+}
+
+
 bool mapsToObject(Tree t) = t has prod && t.prod.def is label && t@\loc?;
+
 
 &T<:Tree patchTree(type[&T<:Tree] tt, &T<:Tree pt, Patch patch, Org origins, Tree(type[&U<:Tree], str) parse) {
   Tree old = pt;
   if (pt has top) {
     old = pt.top;
   }
-  
- 
+
   rel[Id, loc] orgs = { <k, origins[k]> | Id k <- origins };
-  
+
   // turn the tree into a flat map indexed by Id. 
   trees = ( obj: flatten(t, old, orgs) | /Tree t := old, mapsToObject(t),  loc l := t@\loc, <Id obj, l> <- orgs )
   // note, we "just" create placeholders here, we don't know the exact prods yet, only after init.
         + ( obj: prod2tree(findProd(tt, class)) | <Id obj, create(str class)> <- patch.edits );
   
+  trees = patchTrees(tt, trees, patch, parse);
+  
+  // connect all containment references to get proper trees again
+  trees = unflatten(patch.root, trees);
+  root = trees[patch.root];
+  
+  // restore layout around the top
+  if (pt has top) {
+    root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
+  }
+  
+  return typeCast(tt, resolveTree(root, root, trees)); 
+}
+
+map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tree(type[&U<:Tree], str) parse) {
   
   map[tuple[Id, str], list[Tree]] sepCache = ();
   
@@ -110,17 +139,8 @@ bool mapsToObject(Tree t) = t has prod && t.prod.def is label && t@\loc?;
       trees[x] = newTree;
     }    
   } 
-   
-  // connect all containment references to get proper trees again
-  trees = unflatten(patch.root, trees);
-  root = trees[patch.root];
-  
-  // restore layout around the top
-  if (pt has top) {
-    root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
-  }
-  
-  return typeCast(tt, resolveTree(root, root, trees)); 
+
+  return trees;   
 }
 
 Production placeholderProd(Symbol s, Symbol id = lex("Id"))

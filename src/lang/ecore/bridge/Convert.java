@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.eclipse.emf.common.util.BasicEList;
@@ -132,7 +133,6 @@ class Convert {
 	}
 	
 	public static void declareRefType(TypeStore ts) {
-		// Cheat: build Ref  here (assuming Id is in there)
 		Type idType = tf.abstractDataType(ts, "Id");
 		tf.constructor(ts, idType, "id", tf.integerType(), "n");
 		tf.constructor(ts, idType, "id", tf.sourceLocationType(), "uri");
@@ -140,7 +140,6 @@ class Convert {
 		Type refType = tf.abstractDataType(ts, "Ref", tf.parameterType("T"));
 		tf.constructor(ts, refType, "ref", ts.lookupAbstractDataType("Id"), "uid");
 		tf.constructor(ts, refType, "null");
-
 	}
 	
 	public static void declareMaybeType(TypeStore ts) {
@@ -166,12 +165,6 @@ class Convert {
 
 		@Override
 		public Object visitConstructor(IConstructor o) throws RuntimeException {
-			
-//			if (isRef(o)) {
-//				// in later resolve phase
-//				return null;
-//			}
-			
 			if (o.getType().isSubtypeOf(ts.lookupAbstractDataType("Maybe"))) {
 				if (o.getConstructorType().getName().equals("just")) {
 					return o.get(0).accept(this);
@@ -220,9 +213,6 @@ class Convert {
 				if (fieldName.equals("uid")) {
 					continue;
 				}
-				if (fieldName.equals("eType")) {
-					System.out.println();
-				}
 				IValue v = e.getValue();
 				EStructuralFeature toSet = eCls.getEStructuralFeature(fieldName);
 				if (v.getType().isAbstractData() && isRef((IConstructor)v)) {
@@ -253,7 +243,6 @@ class Convert {
 			for (IValue e: o) {
 				if (e.getType().isAbstractData() && isRef((IConstructor)e)) {
 					fixes.add(new FixList(l, i, getUID((IConstructor)e)));
-					//l.add(null);
 				}
 				else {
 					l.add(e.accept(this));
@@ -350,8 +339,6 @@ class Convert {
 			EObject eObj = (EObject) obj;
 			EClass eCls = eObj.eClass();
 
-			// FIXME: Assuming that there's a unique constructor with the EClass' name
-			// INDEED: we now have multiple ones...
 			Type t = null; 
 			boolean maybe = false;
 			if (type.isSubtypeOf(ts.lookupAbstractDataType("Maybe"))) {
@@ -360,14 +347,13 @@ class Convert {
 			}
 			for (Type candidate: ts.lookupAlternatives(ts.lookupAbstractDataType(eCls.getName()))) {
 				if (ts.getKeywordParameters(candidate).containsKey("_inject")) {
-					continue;
+					continue; // skip injection contructors
 				}
 				t = candidate;
 				break;
 			}
 			if (t == null) {
-				throw RuntimeExceptionFactory.io(vf.string("No constructor for " + eCls + " "
-						+ type), null, null);
+				throw RuntimeExceptionFactory.io(vf.string("No constructor for " + eCls + " " + type), null, null);
 			}
 			
 			List<IValue> fields = new ArrayList<>();
@@ -380,7 +366,6 @@ class Convert {
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				Object featureValue = eObj.eGet(feature);
 				
-				//System.out.println("For " + fieldName + ": found " + feature);
 
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
@@ -417,13 +402,12 @@ class Convert {
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				
-				//System.out.println("Looking for " + fieldName + " in " + eCls.getName());
-				Object featureValue = eObj.eGet(feature);
-				
 				if (!eObj.eIsSet(feature)) {
 					continue;
 				}
 
+				Object featureValue = eObj.eGet(feature);
+				
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
 					EReference ref = (EReference) feature;
@@ -460,9 +444,6 @@ class Convert {
 			if (maybe && arg == null) {
 				return vf.constructor(ts.lookupConstructor(ts.lookupAbstractDataType("Maybe"), "nothing", tf.tupleEmpty()));
 			}
-			if (arg == null) {
-				System.out.println("BLA");
-			}
 			return arg;
 		}
 
@@ -479,7 +460,7 @@ class Convert {
 	private static IValue inject(Type type, TypeStore ts, IValueFactory vf, IValue x) {
 		/*
 		 * Example:
-		 * x maybe EClass(...)
+		 * x may be EClass(...)
 		 * but type maybe EClassifier
 		 * so need to create EClassifier(x);
 		 */
@@ -502,6 +483,7 @@ class Convert {
 				}
 			}
 		}
+		
 		return null;
 	}
 
@@ -510,18 +492,7 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
-
-		if (ref.isMany()) {
-			List<Object> refValues = (List<Object>) refValue;
-			List<IValue> values = refValues.stream().map(elem -> makePrimitive(refValue, fieldType, vf)).collect(Collectors.toList());
-			IValue[] arr = new IValue[values.size()];
-			IValue[] valuesArray = values.toArray(arr);
-
-			return vf.list(valuesArray);
-		}
-		
-		return makePrimitive(refValue, fieldType, vf);
-
+		return ref.isMany() ? makeMultiValued((List<Object>)refValue, vf, x -> makePrimitive(x, fieldType, vf)) : makePrimitive(refValue, fieldType, vf);
 	}
 	
 	/**
@@ -529,15 +500,7 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		if (ref.isMany()) {
-			List<Object> refValues = (List<Object>) refValue;
-			Type elemType = fieldType.getElementType();
-			List<IValue> values = refValues.stream().map(elem -> obj2value(elem, elemType, vf, ts, src)).collect(Collectors.toList());
-			IValue[] arr = new IValue[values.size()];
-			IValue[] valuesArray = values.toArray(arr);
-			return vf.list(values.toArray(valuesArray));
-		}
-		return obj2value(refValue, fieldType, vf, ts, src);
+		return ref.isMany() ? makeMultiValued((List<EObject>)refValue, vf, x -> obj2value(x, fieldType.getElementType(), vf, ts, src)) : obj2value(refValue, fieldType, vf, ts, src);
 	}
 	
 	/**
@@ -545,15 +508,16 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitReference(EReference ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		if (ref.isMany()) {
-			List<EObject> refValues = (List<EObject>) refValue;
-			List<IValue> valuesToRef = refValues.stream().map(elem -> makeRefTo(elem, vf, ts, src)).collect(Collectors.toList());
-			IValue[] arr = new IValue[valuesToRef.size()];
-			IValue[] valuesArray = valuesToRef.toArray(arr);
-			return vf.list(valuesArray);
-		}
-		return makeRefTo((EObject) refValue, vf, ts, src);
+		return ref.isMany() ? makeMultiValued((List<EObject>)refValue, vf, x -> makeRefTo(x, vf, ts, src)) : makeRefTo((EObject) refValue, vf, ts, src);
 	}
+	
+	private static <T> IList makeMultiValued(List<T> refValues, IValueFactory vf, Function<T, IValue> maker) {
+		List<IValue> valuesToRef = refValues.stream().map(maker).collect(Collectors.toList());
+		IValue[] arr = new IValue[valuesToRef.size()];
+		IValue[] valuesArray = valuesToRef.toArray(arr);
+		return vf.list(valuesArray);
+	}
+
 	
 	/**
 	 * Retrieve an unique id for an EObject.
