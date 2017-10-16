@@ -276,7 +276,7 @@ map[Id, Tree] unflatten(Id x, map[Id, Tree] objs) {
   return objs;
 }
 
-@doc{Resolve replaces the fake cross-ref nodes with actual identifiers found with unDeref}
+@doc{Resolve replaces the fake cross-ref nodes with actual identifiers found with solvePath}
 Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
   if (appl(_, _) !:= t) {
     return t;
@@ -292,7 +292,7 @@ Tree resolveTree(Tree t, Tree root, map[Id, Tree] objs) {
       str fld = s.name; // assume labeled
       if (Id x := val) {
         try {
-          env += unDeref(root, path, (), objs, x);
+          env += solvePath(root, path, (), objs, x);
           append a; // for now, substituted below.
         }
         catch InvalidArgument(_, _): {
@@ -332,52 +332,11 @@ value deref(Tree t, str path, rel[Id, loc] orgs) {
   catch value _: {
     return null();
   } 
- 
 }
 
 @doc{Underef finds identifiers for cross references, given a path across the containment hierarchy}
-map[str, Tree] unDeref(Tree tree, str path, map[str,Tree] env, map[Id, Tree] objs, Id target) 
-  = unDeref(tree, [ n | Nav n <- parsePath(path).navs ], env, objs, target);
-
-// start with the root.
-map[str, Tree] unDeref(Tree tree, list[Nav] elts, map[str,Tree] env, map[Id, Tree] objs, Id target) {
-  // ASSERT: tree is unflattened (no more CONTAIN nodes).
-
-  if (elts == []) {
-    return env;
-  }
-  
-  cur = elts[0];
-  
-  if ((Nav)`<Id fld>` := cur) {
-    int idx = getFieldIndex(tree.prod, "<fld>");
-    return unDeref(tree.args[idx], elts[1..], env, orgs, target);
-  }
-
-  if ((Nav)`<Id fld>[<Nat idx>]` := cur) {
-    int fldIdx = getFieldIndex(tree.prod, "<fld>");
-    Tree lst = tree.args[fldIdx];
-    realIdx = toInt(idx) * (size(lst.prod.def.separators) + 1);
-    return unDeref(lst.args[realIdx], elts[1..], env, orgs, target);
-  }
-  
-  if ((Nav)`<Id fld>[<Id key>=<Val var>]` := cur) {
-    int idx = getFieldIndex(tree.prod, "<fld>");
-    Tree lst = tree.args[idx];
-    delta = size(getSeparators(lst)) + 1;
-    varTxt = "<var>"[1..]; // strip off $
-    if (int i <- [0,delta..size(lst.args)], /Tree t := lst.args[i], target in objs, t == objs[target]) {
-      int subIdx = getFieldIndex(lst.args[i].prod, "<key>");
-      Tree val = lst.args[i].args[subIdx];
-      env[varTxt] = val;
-      return unDeref(lst.args[i], elts[1..], env, objs, target);
-    }
-    
-    throw InvalidArgument("<cur>", "could not underef");    
-  }
-  
-  throw "Invalid path element <cur>";  
-}
+map[str, Tree] solvePath(Tree tree, str path, map[str,Tree] env, map[Id, Tree] objs, Id target) 
+  = solvePath(tree, parsePath(path), env, objs, target);
 
 
 

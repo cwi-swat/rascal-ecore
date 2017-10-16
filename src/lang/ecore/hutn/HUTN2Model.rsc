@@ -89,10 +89,12 @@ default value value2value(t:appl(prod(\parameterized-sort("Ref", _), _, _), _), 
   = null();
 
 // NB: i skips layout nodes, i / 2 corrects for it wrt the collection index
+// (Note that no collections in HUTN have literal separators, so step = 2)
 value value2value(t:appl(regular(\iter-star-seps(_, _)), list[Tree] args), str path, type[node] meta, loc base, Realm realm)
   = [ value2value(args[i], "<path>.<i / 2>", meta, base, realm) | int i <- [0, 2..size(args)] ];
   
   
+// FIXME: this default also captures refs...
 default value value2value(Tree t, str path, type[node] meta, loc base, Realm realm)
   = hutn2obj(t, path, meta, base, realm);
   

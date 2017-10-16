@@ -94,11 +94,11 @@ Tree deref1(n:(Nav)`<Id fld>[<Id key>=<Val val>]`, Tree t) {
     }
     throw NoSuchElement("<n>");
   }
-  throw InvalidArgument(t.args[fldIdx]);
+  throw InvalidArgument("<t.args[fldIdx]>", "is not a list");
 } 
 
 default Tree deref1(Nav n, Tree t) {
-  throw InvalidArgument(t, "could not deref <n>");
+  throw InvalidArgument("<t>", "could not deref <n>");
 }
 
 int getFieldIndex(Production p, str fld)  = i
@@ -108,4 +108,35 @@ int getFieldIndex(Production p, str fld)  = i
   
 default int getFieldIndex(Production p, str fld) = -1;
 
+map[str, Tree] solvePath(Tree t, Path p, map[str, Tree] env, map[&T, Tree] objs, &T target) 
+  = ( <t, ()> | solve1(n, it, objs, target) | Nav n <- p.navs )[1];
 
+tuple[Tree, map[str, Tree]] solve1((Nav)`<Id fld>`,  <Tree t, map[str, Tree] env>, map[&T, Tree] objs, &T target)
+  = <t.args[idx], env>
+  when
+    int idx := getFieldIndex(t.prod, "<fld>");
+    
+tuple[Tree, map[str, Tree]] solve1((Nav)`<Id fld>[<Nat idx>]`, <Tree t, map[str, Tree] env>, map[&T, Tree] objs, &T target)
+  = <lst.args[realIdx], env>
+  when
+    int fldIdx := getFieldIndex(tree.prod, "<fld>"),
+    Tree lst := tree.args[fldIdx],
+    int realIdx := toInt(idx) * (sepSize(lst) + 1);
+    
+tuple[Tree, map[str, Tree]] solve1((Nav)`<Id fld>[<Id key>=<Val var>]`, <Tree t, map[str, Tree] env>, map[&T, Tree] objs, &T target) 
+  = <lst.args[i], env + (varTxt: val)>
+  when
+    int idx := getFieldIndex(t.prod, "<fld>"),
+    Tree lst := t.args[idx],
+    delta := sepSize(lst) + 1,
+    str varTxt := "<var>"[1..], // chop off $
+    int i <- [0,delta..size(lst.args)], 
+    /Tree sub := lst.args[i], 
+    target in objs, 
+    sub == objs[target],
+    int subIdx := getFieldIndex(lst.args[i].prod, "<key>"),
+    Tree val := lst.args[i].args[subIdx];
+
+default tuple[Tree, map[str, Tree]] solve1(Nav n, <Tree t, map[str, Tree] env>, map[&T, Tree] objs, &T target) {
+  throw InvalidArgument("<n>", "could not underef");
+}
