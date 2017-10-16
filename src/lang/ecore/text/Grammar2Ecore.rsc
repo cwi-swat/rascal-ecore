@@ -58,13 +58,13 @@ import IO;
  * NOTES REGARDING TREE2MODEL
  *
  * Assumptions (TO FULFILL)
- * - all every tree node (that is not a lexical/@lifted, or literal etc.) corresponds to an object
+ * - every tree node (that is not a lexical/@lifted, or literal etc.) corresponds to an object
  *   (i.e. has an identity)
  * - everything that is optional as per the above, should be optional (= keyword param) in model ADT
  * - all collections are represented as lists (even if @ordered{fieldName:false})
  * - primitives (via @lift) are converted via to<prim>("<tree>"); for int/bool/real
  * - @ref things are created as Ref[Class] values via the refs referTo(#Class, ...) function
- *   (this implies that every Class needs to be an ADT...; FIXME: this is problematic)
+ *   (this implies that every Class needs to be an ADT)
  */
  
 
@@ -107,7 +107,7 @@ map[str, EClassifier] grammar2classMap(type[&T<:Tree] g, Realm realm) {
 
     prods = g.definitions[s].alternatives;
 
-    // if there are no production with the same name as the nonterminal
+    // if there are no productions with the same name as the nonterminal
     // the class corresponding to the nonterminal will be an abstract base class.
     if (!hasConcreteProds(nt, prods)) {
       classMap[nt].eClass.abstract = true;

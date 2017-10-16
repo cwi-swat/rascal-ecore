@@ -1,6 +1,7 @@
 module lang::ecore::text::Tree2Model
 
 import lang::ecore::text::Grammar2Ecore;
+import lang::ecore::text::Paths;
 import lang::ecore::Refs;
 
 import ParseTree;
@@ -182,68 +183,16 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
   });
 }
 
-value getField(type[&M<:node] meta, node obj, str fld) 
-  = getChildren(obj)[getFieldIndex(meta, typeOf(obj), getName(obj), fld)];
-
-int getFieldIndex(type[&M<:node] meta, Symbol t, str c, str fld) {
-  if (cons(label(c, _), ps:[*_, p:label(fld, _), *_], _, _) <- meta.definitions[t].alternatives) {
-    return indexOf(ps, p);
-  }
-  return -1;
-}
-
-/*
- * Path syntax (to be fixed)
- * - <empty>
- * - Path / Id
- * - Path / Id [ <int> ]
- * - Path / Id [ Id = <str> ]
- */  
-
-list[str] splitPath(str path) = split("/", path)[1..];
 
 @doc{Dereference the path `path`, starting at `root`}
-node deref(type[&M<:node] meta, &M root, str path) 
-  = deref(meta, root, splitPath(path)); 
-
-node deref(type[&M<:node] meta, node obj, list[str] elts) {
-  if (elts == []) {
-    return obj; // found it
+node deref(type[&M<:node] meta, &M root, str path) {
+  try {
+    return deref(meta, root, parsePath(path));
   }
-  
-  cur = elts[0];
-  
-  // a field dereference (e.g. /states)
-  if (/^<fld:[a-zA-Z0-9_]+>$/ := cur) {
-    return deref(meta, typeCast(#node, getField(meta, obj, fld)), elts[1..]);
+  catch InvalidArgument(_, _): {
+    return null();
   }
-
-  // a collection index (e.g. /states[n])
-  if (/^<fld:[a-zA-Z0-9_]+>\[<idx:[0-9_]+>$/ := cur) {
-    if (list[node] l := getField(meta, obj, fld)) {
-      int i = toInt(idx);
-      if (i < size(l)) {
-        return deref(meta, l[toInt(idx)], elts[1..]);
-      }
-      throw "Indexing <i> is out of bounds for list <l>";
-    }
-    throw "Cannot index on non-list property: <getField(meta, obj, fld)>";
-  }
-  
-  // a collection query (e.g. /states[name=...])
-  if (/^<fld:[a-zA-Z0-9_]+>\[<key:[a-zA-Z0-9_]+>=<val:[^\]]*>\]$/ := cur) {
-    if (list[node] l := getField(meta, obj, fld)) {
-      if (node v <- l, getField(meta, v, key) == val) {
-        return deref(meta, v, elts[1..]);
-      }
-      return null();
-      //throw "Could not find element with <key> = <val>";
-    }
-    throw "Cannot filter on non-list property: <getField(meta, obj, fld)>";
-  }
-  
-  throw "Invalid path element <cur>";
-}
+} 
 
 
 lrel[str, Tree] labeledAstArgs(Tree t, Production p) 
