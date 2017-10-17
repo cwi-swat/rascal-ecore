@@ -105,6 +105,7 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
      int idx = getFieldIndex(t.prod, edit.field);
      
      // if field is not found, we  promote trees[obj] to new production that has the field.
+     // todo: what if we don't find any?
      if (idx == -1) {
        assert t.prod is prod;
        
@@ -117,6 +118,7 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
        trees[obj] = newTree;                                
      }
      
+     // todo: unset?
      switch (edit) {
        case put(str field, value v): {
          Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);

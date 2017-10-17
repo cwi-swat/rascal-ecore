@@ -45,7 +45,7 @@ list[Symbol] orderADTs(map[Symbol, Production] defs) {
 }
 
 /*
- * Mapping Ecore EPackage meta models to symbols definitions
+ * Mapping Ecore EPackage meta models to symbol definitions
  */
 
 @doc{Convert an Ecore EPackage to a definitions map as used internally by Rascal} 

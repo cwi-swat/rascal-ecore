@@ -371,7 +371,7 @@ class Convert {
 					// Then featureValue is an EObject
 					EReference ref = (EReference) feature;
 					if (ref.isContainment()) {
-						fields.add(inject(t.getFieldType(i), ts, vf, visitContainmentRef(ref, featureValue, fieldType, vf, ts, src)));
+						fields.add(visitContainmentRef(ref, featureValue, fieldType, vf, ts, src));
 					}
 					else {
 						fields.add(visitReference(ref, featureValue, fieldType, vf, ts, src));
@@ -500,7 +500,8 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitContainmentRef(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		return ref.isMany() ? makeMultiValued((List<EObject>)refValue, vf, x -> obj2value(x, fieldType.getElementType(), vf, ts, src)) : obj2value(refValue, fieldType, vf, ts, src);
+		return ref.isMany() ? makeMultiValued((List<EObject>)refValue, vf, x -> obj2value(x, fieldType.getElementType(), vf, ts, src)) 
+				: inject(fieldType, ts, vf, obj2value(refValue, fieldType, vf, ts, src));
 	}
 	
 	/**

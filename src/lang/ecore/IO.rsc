@@ -27,6 +27,10 @@ java void save(type[&T<:node] meta, &T<:node model, loc uri, loc pkgURI);
 
 @javaClass{lang.ecore.bridge.IO}
 @reflect{Needs the evaluator to call closures}
+java void(Patch) modelEditor(loc uri, type[Patch] pt = #Patch);
+
+@javaClass{lang.ecore.bridge.IO}
+@reflect{Needs the evaluator to call closures}
 java void(lrel[loc,str]) termEditor(loc src);
 
 
@@ -35,20 +39,6 @@ java void(lrel[loc,str]) termEditor(loc src);
 java void observeEditor(type[&T<:node] meta, loc uri, void(&T<:node) callback);
 
 
-@doc{Obtain and "editor" function to dynamically patch model editor contents of type `meta`.
-Basic operation:
-
-```
-ed = editor(#MetaModel, |project://<someResourceBeingEdited>|);
-ed(Patch(MetaModel m1) {
-  m2 = trafo(m1);
-  return diff(m1, m2);
-});
-```
-}
-@javaClass{lang.ecore.bridge.IO}
-@reflect{Needs the evaluator to call closures}
-java void(Patch(&T<:node)) editor(type[&T<:node] meta, loc uri, type[Patch] pt = #Patch);
 
 @doc{Obtain a function to directly patch an editor.}
 void(Patch) patcher(type[&T<:node] meta, loc uri) {
