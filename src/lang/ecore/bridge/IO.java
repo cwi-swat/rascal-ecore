@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.eclipse.core.filesystem.EFS;
 import org.eclipse.core.filesystem.IFileStore;
@@ -17,15 +15,12 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.emf.common.notify.Adapter;
-import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
-import org.eclipse.emf.ecore.util.EContentAdapter;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.eclipse.emf.edit.command.ChangeCommand;
 import org.eclipse.emf.edit.domain.EditingDomain;
@@ -85,9 +80,6 @@ public class IO {
 	private final TypeReifier tr;
 	
 	
-	private static final ConcurrentHashMap<ISourceLocation, Adapter> adapters = new ConcurrentHashMap<>();
-	
-	
 	/*
 	 * Public Rascal interface
 	 */
@@ -98,6 +90,111 @@ public class IO {
 		
 		Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap().put("*", new XMIResourceFactoryImpl());
 	}
+	
+	
+	
+	/* start of public API */
+	
+	// java void(lrel[loc, str]) termEditor(loc src);
+	public ICallableValue termEditor(ISourceLocation loc, IEvaluatorContext ctx) {
+		return new TermEditorClosure(loc, ctx.getEvaluator());
+	}
+	
+	
+	//java void(Patch) modelEditor(loc uri, type[Patch] pt = #Patch);
+	public ICallableValue modelEditor(ISourceLocation loc, IValue reifiedPatchType, IEvaluatorContext ctx) {
+		TypeStore ts = new TypeStore();
+		Type patchType = tr.valueToType((IConstructor) reifiedPatchType, ts); 
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		try {
+			IEditorPart editor = getEditorFor(loc);
+			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
+			EditingDomain domain = prov.getEditingDomain();
+			return new ModelEditorClosure(domain, patchType, ctx.getEvaluator());
+		} catch (PartInitException | IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
+		}
+	}
+	
+	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
+		java.net.URI uri = pkgUri.getURI();
+		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(uri.toString());
+		TypeStore ts = new TypeStore(); // start afresh
+
+		Type rt = tr.valueToType((IConstructor) ecoreType, ts);
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		return Convert.obj2value(pkg, rt, vf, ts, vf.sourceLocation(uri));
+	}
+	
+	
+	public IValue load(IValue reifiedType, ISourceLocation uri, ISourceLocation refBase) {
+		TypeStore ts = new TypeStore(); // start afresh
+
+		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		try {
+			EObject root = Convert.loadResource(uri).getContents().get(0);
+			return Convert.obj2value(root, rt, vf, ts, refBase);
+		} catch (IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
+		}
+	}
+
+	
+	
+	public void save(IValue reifiedType, INode model, ISourceLocation uri, ISourceLocation pkgUri) {
+		TypeStore ts = new TypeStore(); // start afresh
+
+		tr.valueToType((IConstructor) reifiedType, ts);
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		
+		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
+		EObject root = Convert.value2obj(pkg, (IConstructor) model, vf, ts);
+		try {
+			saveModel(root, uri);
+		} catch (IOException e) {
+			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
+		}
+	}
+
+	// register a call back (closure) to listen to changes to model editor contents 
+	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure, IEvaluatorContext ctx) {
+		TypeStore ts = new TypeStore();
+		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
+		Convert.declareRefType(ts);
+		Convert.declareMaybeType(ts);
+		
+		
+		try {
+			IEditorPart editor = getEditorFor(loc);
+			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
+			EditingDomain domain = (EditingDomain) prov.getEditingDomain();
+			Resource res = domain.getResourceSet().getResources().get(0);
+			editor.addPropertyListener(new IPropertyListener() {
+				
+				@Override
+				public void propertyChanged(Object source, int propId) {
+					if (propId == IEditorPart.PROP_DIRTY) {
+						EObject obj = res.getContents().get(0);
+						IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
+						synchronized (ctx.getEvaluator()) {
+							((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
+						}
+					}
+				}
+			});
+			
+		} catch (PartInitException | IOException e) {
+			System.err.println(e.getMessage());
+		}
+	}
+	
+	/* end of public API */
+	
 	
 	public IEditorPart getEditorFor(ISourceLocation loc) throws PartInitException, IOException {
 		IEditorDescriptor desc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(loc.getPath());
@@ -160,102 +257,7 @@ public class IO {
 		return new URIEditorInput(storage);
 	}
 	
-	public void observeEditor(IValue reifiedType, ISourceLocation loc, IValue closure, IEvaluatorContext ctx) {
-		TypeStore ts = new TypeStore();
-		Type modelType = tr.valueToType((IConstructor) reifiedType, ts);
-		Convert.declareRefType(ts);
-		Convert.declareMaybeType(ts);
-		
-		
-		try {
-			IEditorPart editor = getEditorFor(loc);
-			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
-			EditingDomain domain = (EditingDomain) prov.getEditingDomain();
-			Resource res = domain.getResourceSet().getResources().get(0);
-			editor.addPropertyListener(new IPropertyListener() {
-				
-				@Override
-				public void propertyChanged(Object source, int propId) {
-					if (propId == IEditorPart.PROP_DIRTY) {
-						EObject obj = res.getContents().get(0);
-						IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
-						synchronized (ctx.getEvaluator()) {
-							((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
-						}
-					}
-				}
-			});
-			
-		} catch (PartInitException | IOException e) {
-			System.err.println(e.getMessage());
-		}
-	}
 	
-	// java void(lrel[loc, str]) termEditor(loc src);
-	public ICallableValue termEditor(ISourceLocation loc, IEvaluatorContext ctx) {
-		return new TermEditorClosure(loc, ctx.getEvaluator());
-	}
-	
-	
-	//java void(Patch) modelEditor(loc uri, type[Patch] pt = #Patch);
-	public ICallableValue modelEditor(ISourceLocation loc, IValue reifiedPatchType, IEvaluatorContext ctx) {
-		TypeStore ts = new TypeStore();
-		Type patchType = tr.valueToType((IConstructor) reifiedPatchType, ts); 
-		Convert.declareRefType(ts);
-		Convert.declareMaybeType(ts);
-		try {
-			IEditorPart editor = getEditorFor(loc);
-			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
-			EditingDomain domain = prov.getEditingDomain();
-			return new ModelEditorClosure(loc, domain, patchType, ctx.getEvaluator());
-		} catch (PartInitException | IOException e) {
-			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
-		}
-	}
-	
-	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
-		java.net.URI uri = pkgUri.getURI();
-		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(uri.toString());
-		TypeStore ts = new TypeStore(); // start afresh
-
-		Type rt = tr.valueToType((IConstructor) ecoreType, ts);
-		Convert.declareRefType(ts);
-		Convert.declareMaybeType(ts);
-		return Convert.obj2value(pkg, rt, vf, ts, vf.sourceLocation(uri));
-	}
-	
-	
-	public IValue load(IValue reifiedType, ISourceLocation uri, ISourceLocation refBase) {
-		TypeStore ts = new TypeStore(); // start afresh
-
-		Type rt = tr.valueToType((IConstructor) reifiedType, ts);
-		Convert.declareRefType(ts);
-		Convert.declareMaybeType(ts);
-		try {
-			EObject root = Convert.loadResource(uri).getContents().get(0);
-			return Convert.obj2value(root, rt, vf, ts, refBase);
-		} catch (IOException e) {
-			throw RuntimeExceptionFactory.io(vf.string("could not load model at " + uri), null, null);
-		}
-	}
-
-	
-	
-	public void save(IValue reifiedType, INode model, ISourceLocation uri, ISourceLocation pkgUri) {
-		TypeStore ts = new TypeStore(); // start afresh
-
-		tr.valueToType((IConstructor) reifiedType, ts);
-		Convert.declareRefType(ts);
-		Convert.declareMaybeType(ts);
-		
-		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(pkgUri.getURI().toString());
-		EObject root = Convert.value2obj(pkg, (IConstructor) model, vf, ts);
-		try {
-			saveModel(root, uri);
-		} catch (IOException e) {
-			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
-		}
-	}
 	
 	private static void saveModel(EObject model, ISourceLocation uri) throws IOException {
 		ResourceSet rs = new ResourceSetImpl();
@@ -267,11 +269,13 @@ public class IO {
 	
 	
 
+	/*
+	 * A closure to push patches into a model "editor" (actually an editing domain)
+	 */
 	private static class ModelEditorClosure extends AbstractFunction {
 
 		private EditingDomain domain;
 
-		private ISourceLocation loc;
 		
 		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 		private static final TypeFactory tf = TypeFactory.getInstance();
@@ -282,10 +286,9 @@ public class IO {
 			return myType;
 		}
 		
-		public ModelEditorClosure(ISourceLocation loc, EditingDomain domain, Type patchType, IEvaluator<Result<IValue>> eval) {
+		public ModelEditorClosure(EditingDomain domain, Type patchType, IEvaluator<Result<IValue>> eval) {
 			super(null, eval, myType(patchType), Collections.emptyList(), false, eval.getCurrentEnvt());
 			this.domain = domain;
-			this.loc = loc;
 		}
 
 		@Override
@@ -348,6 +351,9 @@ public class IO {
 	
 	
 	
+	/*
+	 * A closure to patch a textual term editor.
+	 */
 	private static class TermEditorClosure extends AbstractFunction {
 
 		private ISourceLocation src;
