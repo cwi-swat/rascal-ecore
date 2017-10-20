@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.eclipse.core.filesystem.EFS;
@@ -16,6 +17,7 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.emf.common.notify.Adapter;
 import org.eclipse.emf.common.notify.Notification;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
@@ -37,6 +39,7 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorDescriptor;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IPropertyListener;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
@@ -82,7 +85,7 @@ public class IO {
 	private final TypeReifier tr;
 	
 	
-	ConcurrentLinkedQueue<IValue> patchesToModel = new ConcurrentLinkedQueue<>();
+	private static final ConcurrentHashMap<ISourceLocation, Adapter> adapters = new ConcurrentHashMap<>();
 	
 	
 	/*
@@ -167,26 +170,22 @@ public class IO {
 		try {
 			IEditorPart editor = getEditorFor(loc);
 			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
-			EditingDomain domain = prov.getEditingDomain();
+			EditingDomain domain = (EditingDomain) prov.getEditingDomain();
 			Resource res = domain.getResourceSet().getResources().get(0);
-			EObject obj = res.getContents().get(0);
-			EContentAdapter adapter = new EContentAdapter() {
+			editor.addPropertyListener(new IPropertyListener() {
 				
 				@Override
-				public void notifyChanged(Notification notification) {
-					if (notification.getEventType() == Notification.ADD) {
-						((EObject)notification.getNewValue()).eAdapters().add(this);
+				public void propertyChanged(Object source, int propId) {
+					if (propId == IEditorPart.PROP_DIRTY) {
+						EObject obj = res.getContents().get(0);
+						IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
+						synchronized (ctx.getEvaluator()) {
+							((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
+						}
 					}
-		            	IValue val = Convert.obj2value(obj, modelType, vf, ts, loc);
-		            	synchronized (ctx.getEvaluator()) {
-		            		((ICallableValue)closure).call(new Type[] {modelType}, new IValue[] {val}, Collections.emptyMap());
-		            	}
-	            }
-				
-				
-			};
+				}
+			});
 			
-			res.eAdapters().add(adapter);
 		} catch (PartInitException | IOException e) {
 			System.err.println(e.getMessage());
 		}
@@ -208,7 +207,7 @@ public class IO {
 			IEditorPart editor = getEditorFor(loc);
 			IEditingDomainProvider prov = (IEditingDomainProvider) editor;
 			EditingDomain domain = prov.getEditingDomain();
-			return new ModelEditorClosure(domain, patchType, ctx.getEvaluator());
+			return new ModelEditorClosure(loc, domain, patchType, ctx.getEvaluator());
 		} catch (PartInitException | IOException e) {
 			throw RuntimeExceptionFactory.io(vf.string(e.getMessage()), null, null);
 		}
@@ -271,6 +270,8 @@ public class IO {
 	private static class ModelEditorClosure extends AbstractFunction {
 
 		private EditingDomain domain;
+
+		private ISourceLocation loc;
 		
 		private static final RascalTypeFactory rtf = RascalTypeFactory.getInstance();
 		private static final TypeFactory tf = TypeFactory.getInstance();
@@ -281,9 +282,10 @@ public class IO {
 			return myType;
 		}
 		
-		public ModelEditorClosure(EditingDomain domain, Type patchType, IEvaluator<Result<IValue>> eval) {
+		public ModelEditorClosure(ISourceLocation loc, EditingDomain domain, Type patchType, IEvaluator<Result<IValue>> eval) {
 			super(null, eval, myType(patchType), Collections.emptyList(), false, eval.getCurrentEnvt());
 			this.domain = domain;
+			this.loc = loc;
 		}
 
 		@Override
@@ -343,6 +345,8 @@ public class IO {
 		}
 		
 	}
+	
+	
 	
 	private static class TermEditorClosure extends AbstractFunction {
 

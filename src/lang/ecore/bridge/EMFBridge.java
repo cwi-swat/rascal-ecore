@@ -98,6 +98,7 @@ public class EMFBridge {
 
 			@Override
 			protected void doExecute() {
+				//root.eSetDeliver(false);
 				
 				for (IValue v: (IList)patch.get(1)) {
 					ITuple idEdit = (ITuple)v;
@@ -146,6 +147,7 @@ public class EMFBridge {
 					
 				}
 				
+				//root.eSetDeliver(true);
 			}
 			
 		};
