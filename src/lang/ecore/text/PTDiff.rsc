@@ -58,7 +58,7 @@ lrel[loc, str] ptDiff(Tree old, Tree new) {
     return parent@\loc[offset=parent@\loc.offset+size(src)];
   }
 
-  if (old.prod is regular) {
+  if (old.prod is regular, !(old.prod.def is alt)) {
     mx = lcsMatrix(old.args, new.args, ptEq);
     ds = getDiff(mx, old.args, new.args, size(old.args), size(new.args), ptEq);
     int offset = 0;
