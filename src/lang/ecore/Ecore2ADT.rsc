@@ -74,8 +74,8 @@ Production classifier2choice(EClassifier(EDataType(EEnum enum)), EPackage pkg) {
 
 @doc{Map an EClass to a constructor production}
 Production class2prod(EClass class, EPackage pkg) {
-  ps =  [ feature2arg(f, class, pkg, true) | f <- class.eStructuralFeatures, isRequired(f), !f.derived, !f.transient ];
-  kws = [ feature2arg(f, class, pkg, false) | f <- class.eStructuralFeatures, !isRequired(f), !f.derived, !f.transient ]
+  ps =  [ feature2arg(f, class, pkg, true) | f <- class.eStructuralFeatures, isRequired(f) || isMany(f), !f.derived, !f.transient ];
+  kws = [ feature2arg(f, class, pkg, false) | f <- class.eStructuralFeatures, !isRequired(f) && !isMany(f), !f.derived, !f.transient ]
     + [ label("uid", adt("Id", [])) ];
   return cons(label(class.name, adt(class.name, [])), ps, kws, {});
 }
