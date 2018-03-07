@@ -73,7 +73,7 @@ TODOS
   
   // restore layout around the top
   if (pt has top) {
-    root = addLoc(appl(pt.prod, [pt.args[0], tree[patch.root], pt.args[2]]), pt);
+    root = addLoc(appl(pt.prod, [pt.args[0], trees[patch.root], pt.args[2]]), pt);
   }
   
   return typeCast(tt, resolveTree(root, root, trees)); 
@@ -118,8 +118,11 @@ map[Id, Tree] patchTrees(type[&T<:Tree] tt, map[Id, Tree] trees, Patch patch, Tr
        trees[obj] = newTree;                                
      }
      
-     // todo: unset?
      switch (edit) {
+       //case unset(str field): {
+       //  trees[obj] = setArg(t, idx, null());
+       //}
+     
        case put(str field, value v): {
          Tree newVal = valToTree(v, tt, t.prod, field, t.prod.symbols[idx], parse);
          trees[obj] = setArg(t, idx, newVal);
