@@ -73,7 +73,7 @@ value tree2model(type[&M<:node] meta, Realm r, Tree t, Fix fix, loc uri, str xmi
       return t.args != [];
     }
     
-    // other wise they end up as lists in the model
+    // otherwise they end up as lists in the model
     return [ tree2model(meta, r, largs[i][1], fix, uri, xmi + ".<i>", track) | int i <- [0..size(largs)] ];
   }
 
@@ -197,6 +197,7 @@ node deref(type[&M<:node] meta, &M root, str path) {
 
 lrel[str, Tree] labeledAstArgs(Tree t, Production p) 
   =  [ <(p has symbols && p.symbols[i] is label) ? p.symbols[i].name : "", t.args[i]> 
+  // NB: we skip layout immediately.
        | int i <- [0,2..size(t.args)], isAST(t.args[i]) ];
 
 str substBindings(str path, lrel[str, value] env) 

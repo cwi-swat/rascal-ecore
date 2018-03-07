@@ -7,6 +7,7 @@ import List;
 import String;
 import ParseTree;
 import Exception;
+import IO;
 
 syntax Path
   = "/" {Nav "/"}* navs 
@@ -138,8 +139,11 @@ default tuple[Tree, map[str, Tree]] solve1(Nav n, <Tree t, map[str, Tree] env>, 
   
 Path parsePath(str src) = parse(#Path, src);
 
-value getField(type[&M<:node] meta, node obj, str fld) 
-  = getChildren(obj)[getFieldIndex(meta, typeOf(obj), getName(obj), fld)];
+value getField(type[&M<:node] meta, node obj, str fld) {
+  c = getName(obj); 
+  s = typeOf(obj);
+  return getChildren(obj)[getFieldIndex(meta, s, c, fld)];
+}
 
 int getFieldIndex(type[&M<:node] meta, Symbol t, str c, str fld) {
   if (cons(label(c, _), ps:[*_, p:label(fld, _), *_], _, _) <- meta.definitions[t].alternatives) {
