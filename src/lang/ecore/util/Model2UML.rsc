@@ -83,7 +83,7 @@ str model2plantUML(type[&T<:node] meta, &T<:node model) {
   s += "\n";
   
   for (/node x := model, !isInjection(x), Id myId := x.uid) {
-    for (<str name, value val> <- zip(getChildren(x), getParams(meta, typeOf(x), getName(x)))) {
+    for (<str name, value val> <- zip(getParams(meta, typeOf(x), getName(x)), getChildren(x))) {
       field2decl(ids[myId], name, val);    
     }
      
