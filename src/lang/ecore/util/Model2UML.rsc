@@ -31,25 +31,35 @@ void(&T<:node) viewer(type[&T<:node] meta) {
 }
 
 str model2plantUML(type[&T<:node] meta, &T<:node model) {
-  str s = "@startuml";
+  str s = "@startuml\n";
   map[Id, int] ids = ();
   int id = 0;
   
   str makeName(int n) = "o<n>";
-  
-  // Define the objects
-  for (/node x := model, !isInjection(x), Id myId := x.uid) {
-    if (myId notin ids) {
-      ids[myId] = id;
-      s += "object \"<makeName(id)>: <getClass(x)>\" as <makeName(id)>\n";
-      id += 1;
+
+  void declareObj(str class, Id myId) {
+    if (myId in ids) {
+      return;
     }
+    ids[myId] = id;
+    s += "object \"<makeName(id)>: <class>\" as <makeName(id)>\n";
+    id += 1;
+  }
+  
+  for (/node x := model, !isInjection(x), Id myId := x.uid) {
+    declareObj(getClass(x), myId);
+  }
+  
+  // special case for external Ecore things
+  for (/Ref[EClassifier] r := model, isEcoreRef(r)) {
+    declareObj(ecoreRefClassifierName(r), r.uid);    
   }
   
   void field2decl(int myId, str name, value val) {
     switch (val) {
-      case ref(Id trg): 
-        s += "<makeName(myId)> \<-- \"<name>\" <makeName(ids[trg])>\n";
+      case ref(Id trg):  {
+        s += "<makeName(ids[trg])> \<-- \"<name>\" <makeName(myId)>\n";
+      }
       case node n: {
         if (isObj(n), node x := uninject(n), Id trg := x.uid) {
           s += "<makeName(myId)> *-- \"<name>\" <makeName(ids[trg])>\n";
@@ -69,6 +79,8 @@ str model2plantUML(type[&T<:node] meta, &T<:node model) {
         s += "<makeName(myId)> : <name> = <v>\n";
     }
   }
+  
+  s += "\n";
   
   for (/node x := model, !isInjection(x), Id myId := x.uid) {
     for (<str name, value val> <- zip(getChildren(x), getParams(meta, typeOf(x), getName(x)))) {
