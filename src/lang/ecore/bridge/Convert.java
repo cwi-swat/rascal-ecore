@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Stack;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -464,22 +465,20 @@ class Convert {
 		 * but type maybe EClassifier
 		 * so need to create EClassifier(x);
 		 */
-		
+
 		for (Type cons: ts.lookupAlternatives(type)) {
 			if (cons == ((IConstructor)x).getConstructorType()) {
 				return x;
 			}
+
 			if (cons.getArity() == 0) {
 				continue;
 			}
-			if (ts.getKeywordParameters(cons).containsKey("_inject") && cons.getFieldType(0) == x.getType()) {
-				// found it;
-				return vf.constructor(cons, x);
-			}
-			else {
+			
+			if (ts.getKeywordParameters(cons).containsKey("_inject")) {
 				IValue injected = inject(cons.getFieldType(0), ts, vf, x);
 				if (injected != null) {
-					return injected;
+					return vf.constructor(cons, injected);
 				}
 			}
 		}
