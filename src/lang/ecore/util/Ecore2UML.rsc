@@ -25,6 +25,8 @@ private void view(EPackage m) {
   });
 }
 
+
+
 private str ecore2plantUML(EPackage m) {
   str s = "@startuml\n";
 
@@ -66,3 +68,4 @@ private str ecore2plantUML(EPackage m) {
   s += "@enduml\n";
   return s;
 }
+
