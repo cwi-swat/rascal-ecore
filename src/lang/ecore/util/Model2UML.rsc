@@ -46,8 +46,11 @@ str model2plantUML(type[&T<:node] meta, &T<:node model) {
     id += 1;
   }
   
-  for (/node x := model, !isInjection(x), Id myId := x.uid) {
-    declareObj(getClass(x), myId);
+  top-down visit (model) {
+    case node x: 
+      if(!isInjection(x), Id myId := x.uid) {
+        declareObj(getClass(x), myId);
+      }
   }
   
   // special case for external Ecore things
