@@ -50,7 +50,8 @@ list[Symbol] orderADTs(map[Symbol, Production] defs) {
 
 @doc{Convert an Ecore EPackage to a definitions map as used internally by Rascal} 
 map[Symbol, Production] package2definitions(EPackage pkg) 
-  = ( p.def: p | EClassifier c <- pkg.eClassifiers, EClassifier(EDataType _) !:= c, p := classifier2choice(c, pkg) );
+  = ( p.def: p | EClassifier c <- pkg.eClassifiers,
+       EClassifier(EClass _) := c || EClassifier(EDataType(EEnum _)) := c, p := classifier2choice(c, pkg) );
 
 @doc{Map EClass classifier to ADT, including injections for (direct) subclasses}
 Production classifier2choice(EClassifier(EClass class), EPackage pkg) {
@@ -101,7 +102,7 @@ Symbol classifier2symbol(EClassifier(EDataType(name = str name)), bool xref, boo
 Symbol classifier2symbol(EClassifier(EClass(name = str name)), bool xref, bool req, bool many) 
   = xref ? adt("Ref", [adt(name, [])]) : ((req || many) ? adt(name, []) : adt("Maybe", [adt(name, [])]));
 
-Symbol classifier2symbol(EClassifier(EEnum(name = str name)), bool xref, bool req, bool many) = adt(name, []);
+Symbol classifier2symbol(EClassifier(EDataType(EEnum(name = str name))), bool xref, bool req, bool many) = adt(name, []);
 
 Symbol prim2symbol("EBigDecimal") = \real();
 
@@ -120,6 +121,8 @@ Symbol prim2symbol("EInt") = \int();
 Symbol prim2symbol("ELong") = \int();
 
 Symbol prim2symbol("EBoolean") = \bool();
+
+Symbol prim2symbol("EBooleanObject") = \bool();
 
 Symbol prim2symbol("EString") = \str();
 
@@ -214,7 +217,7 @@ str default4sym(adt("Id", list[Symbol] ps))
 str default4sym(adt("Maybe", list[Symbol] ps)) 
   = "nothing()";
 
-default str default4sym(adt(str x, list[Symbol] ps))  { throw "No default for ADT <x> we don\'t know"; }
+default str default4sym(adt(str x, list[Symbol] ps)) { throw "No default for ADT <x> we don\'t know"; }
 
 
 str fieldName(str x) = "\\<uncapitalize(x)>";
