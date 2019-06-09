@@ -8,12 +8,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Stack;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.common.util.Enumerator;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
@@ -178,7 +178,7 @@ class Convert {
 			EClass eCls = (EClass) pkg.getEClassifier(clsName);
 			
 			if (eCls == null) {
-				throw RuntimeExceptionFactory.illegalArgument(null, null);
+				throw RuntimeExceptionFactory.illegalArgument(vf.string("EClassifier is null"), null, null);
 			}
 			
 			
@@ -334,7 +334,6 @@ class Convert {
 	 * Build ADT while visiting EObject content
 	 */
 	public static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-		//ctx.getStdErr().println("Visiting object " + obj + " (" + type + ")");
 
 		if (obj instanceof EObject) {
 			EObject eObj = (EObject) obj;
@@ -447,6 +446,11 @@ class Convert {
 			}
 			return arg;
 		}
+		
+		if (obj.getClass().isEnum()) {
+			Type t = ts.lookupAbstractDataType(((Enum<?>)obj).getDeclaringClass().getSimpleName());
+			return vf.constructor(ts.lookupConstructor(t, ((Enumerator)obj).getLiteral()).iterator().next());
+		}
 
 		return makePrimitive(obj, type, vf);
 	}
@@ -491,7 +495,13 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
-		return ref.isMany() ? makeMultiValued((List<Object>)refValue, vf, x -> makePrimitive(x, fieldType, vf)) : makePrimitive(refValue, fieldType, vf);
+		if (ref.isMany()) {
+			return makeMultiValued((List<Object>)refValue, vf, x -> makePrimitive(x, fieldType, vf));
+		}
+		if (refValue.getClass().isEnum()) {
+			return obj2value(refValue, fieldType, vf, ts, null);
+		}
+		return makePrimitive(refValue, fieldType, vf);
 	}
 	
 	/**
@@ -620,7 +630,6 @@ class Convert {
 		else if (obj instanceof String) {
 			return vf.string((String) obj);
 		}
-		// FIXME: Enums?
 		// FIXME: Datatypes?
 		
 		throw RuntimeExceptionFactory.illegalArgument(vf.string("Unsupported prim: " + obj.toString()), null, null);

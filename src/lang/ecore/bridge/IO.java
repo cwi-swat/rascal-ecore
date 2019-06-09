@@ -25,11 +25,11 @@ import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
 import org.eclipse.emf.edit.command.ChangeCommand;
 import org.eclipse.emf.edit.domain.EditingDomain;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
-import org.eclipse.jface.text.BadLocationException;
-import org.eclipse.jface.text.DocumentRewriteSession;
-import org.eclipse.jface.text.DocumentRewriteSessionType;
-import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.IDocumentExtension4;
+//import org.eclipse.jface.text.BadLocationException;
+//import org.eclipse.jface.text.DocumentRewriteSession;
+//import org.eclipse.jface.text.DocumentRewriteSessionType;
+//import org.eclipse.jface.text.IDocument;
+//import org.eclipse.jface.text.IDocumentExtension4;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorDescriptor;
 import org.eclipse.ui.IEditorInput;
@@ -120,6 +120,11 @@ public class IO {
 	public IValue load(ISourceLocation pkgUri, IValue ecoreType) {
 		java.net.URI uri = pkgUri.getURI();
 		EPackage pkg = EPackage.Registry.INSTANCE.getEPackage(uri.toString());
+		
+		if (pkg == null) {
+			throw RuntimeExceptionFactory.io(vf.string("Unregistered model " + pkgUri), null, null);
+		}
+		
 		TypeStore ts = new TypeStore(); // start afresh
 
 		Type rt = tr.valueToType((IConstructor) ecoreType, ts);
@@ -394,8 +399,8 @@ public class IO {
 		
 		@Override
 		public Result<IValue> call(Type[] arg0, IValue[] args, Map<String, IValue> kws) {
-			PatchTermJob job = new PatchTermJob((IList) args[0], src, eval.getValueFactory());
-			job.schedule();
+			//PatchTermJob job = new PatchTermJob((IList) args[0], src, eval.getValueFactory());
+			//job.schedule();
 			return null;
 		}
 		
@@ -405,91 +410,91 @@ public class IO {
 			return vf.constructor(RascalValueFactory.Function_Function, vf.sourceLocation("file:///unknown"));
 		}
 		
-		static class PatchTermJob extends UIJob {
-			private IList patch;
-			private ISourceLocation src;
-			private IValueFactory vf;
-
-			public PatchTermJob(IList patch, ISourceLocation src, IValueFactory vf) {
-				super("updating editor");
-				this.patch = patch;
-				this.src = src;
-				this.vf = vf;
-			}
-			
-			@Override
-			public IStatus runInUIThread(IProgressMonitor monitor) {
-				IEditorDescriptor editorDesc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(src.getPath());
-				IWorkbenchWindow activeWindow = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-				if (activeWindow != null) {
-					IWorkbenchPage activePage = activeWindow.getActivePage();
-					
-					if (activePage != null) {
-						
-						URIResolverRegistry reg = URIResolverRegistry.getInstance();
-						ISourceLocation theLoc;
-						try {
-							theLoc = reg.logicalToPhysical(src);
-						} catch (IOException e2) {
-							return Status.CANCEL_STATUS;
-						}
-						
-						IWorkbench wb = PlatformUI.getWorkbench();
-						IWorkbenchWindow win = wb.getActiveWorkbenchWindow();
-						
-						if (win == null && wb.getWorkbenchWindowCount() != 0) {
-							win = wb.getWorkbenchWindows()[0];
-						}
-						
-						
-						IEditorPart editor;
-						try {
-							editor = activePage.openEditor(getEditorInput(theLoc.getURI(), vf), editorDesc.getId());
-						} catch (PartInitException e1) {
-							return Status.CANCEL_STATUS;
-						}
-								
-								
-						if (editor != null && editor instanceof UniversalEditor) {
-							IDocument doc = ((UniversalEditor)editor).getParseController().getDocument();
-							if (patch.isEmpty()) {
-								return Status.OK_STATUS;
-							}
-									
-					        DocumentRewriteSession session = ((IDocumentExtension4)doc).startRewriteSession(DocumentRewriteSessionType.UNRESTRICTED_SMALL);
-					        try {
-					        	int offset = 0;
-						        for (IValue v: patch) {
-							        	ITuple subst = (ITuple)v;
-							        	ISourceLocation loc = (ISourceLocation) subst.get(0);
-							        	IString txt = (IString) subst.get(1);
-							        	if (loc.getLength() == 0) { // insert
-							        		doc.replace(loc.getOffset(), loc.getLength(), txt.getValue());
-							        	}
-							        	else {
-							        		doc.replace(loc.getOffset() + offset, loc.getLength(), txt.getValue());
-							        	}
-							        	offset += txt.length() - loc.getLength(); 
-						        }
-					        } catch (UnsupportedOperationException e) {
-								e.printStackTrace();
-								return Status.CANCEL_STATUS;
-							} catch (BadLocationException e) {
-								e.printStackTrace();
-								return Status.CANCEL_STATUS;
-							}
-					        finally {
-					        	((IDocumentExtension4)doc).stopRewriteSession(session);
-					        }				        
-						}
-						return Status.OK_STATUS;
-					}
-					return Status.CANCEL_STATUS;
-				}
-				return Status.CANCEL_STATUS;
-			}
-		}
-		
+//		static class PatchTermJob extends UIJob {
+//			private IList patch;
+//			private ISourceLocation src;
+//			private IValueFactory vf;
+//
+//			public PatchTermJob(IList patch, ISourceLocation src, IValueFactory vf) {
+//				super("updating editor");
+//				this.patch = patch;
+//				this.src = src;
+//				this.vf = vf;
+//			}
+//			
+//			@Override
+//			public IStatus runInUIThread(IProgressMonitor monitor) {
+//				IEditorDescriptor editorDesc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(src.getPath());
+//				IWorkbenchWindow activeWindow = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+//				if (activeWindow != null) {
+//					IWorkbenchPage activePage = activeWindow.getActivePage();
+//					
+//					if (activePage != null) {
+//						
+//						URIResolverRegistry reg = URIResolverRegistry.getInstance();
+//						ISourceLocation theLoc;
+//						try {
+//							theLoc = reg.logicalToPhysical(src);
+//						} catch (IOException e2) {
+//							return Status.CANCEL_STATUS;
+//						}
+//						
+//						IWorkbench wb = PlatformUI.getWorkbench();
+//						IWorkbenchWindow win = wb.getActiveWorkbenchWindow();
+//						
+//						if (win == null && wb.getWorkbenchWindowCount() != 0) {
+//							win = wb.getWorkbenchWindows()[0];
+//						}
+//						
+//						
+//						IEditorPart editor;
+//						try {
+//							editor = activePage.openEditor(getEditorInput(theLoc.getURI(), vf), editorDesc.getId());
+//						} catch (PartInitException e1) {
+//							return Status.CANCEL_STATUS;
+//						}
+//								
+//								
+//						if (editor != null && editor instanceof UniversalEditor) {
+//							IDocument doc = ((UniversalEditor)editor).getParseController().getDocument();
+//							if (patch.isEmpty()) {
+//								return Status.OK_STATUS;
+//							}
+//									
+//					        DocumentRewriteSession session = ((IDocumentExtension4)doc).startRewriteSession(DocumentRewriteSessionType.UNRESTRICTED_SMALL);
+//					        try {
+//					        	int offset = 0;
+//						        for (IValue v: patch) {
+//							        	ITuple subst = (ITuple)v;
+//							        	ISourceLocation loc = (ISourceLocation) subst.get(0);
+//							        	IString txt = (IString) subst.get(1);
+//							        	if (loc.getLength() == 0) { // insert
+//							        		doc.replace(loc.getOffset(), loc.getLength(), txt.getValue());
+//							        	}
+//							        	else {
+//							        		doc.replace(loc.getOffset() + offset, loc.getLength(), txt.getValue());
+//							        	}
+//							        	offset += txt.length() - loc.getLength(); 
+//						        }
+//					        } catch (UnsupportedOperationException e) {
+//								e.printStackTrace();
+//								return Status.CANCEL_STATUS;
+//							} catch (BadLocationException e) {
+//								e.printStackTrace();
+//								return Status.CANCEL_STATUS;
+//							}
+//					        finally {
+//					        	((IDocumentExtension4)doc).stopRewriteSession(session);
+//					        }				        
+//						}
+//						return Status.OK_STATUS;
+//					}
+//					return Status.CANCEL_STATUS;
+//				}
+//				return Status.CANCEL_STATUS;
+//			}
+//		}
+//		
 	}
 	
 }
