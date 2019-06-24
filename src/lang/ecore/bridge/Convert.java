@@ -17,12 +17,15 @@ import org.eclipse.emf.common.util.Enumerator;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
+import org.eclipse.emf.ecore.EEnum;
+import org.eclipse.emf.ecore.EEnumLiteral;
 import org.eclipse.emf.ecore.EFactory;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.resource.Resource.Diagnostic;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
@@ -59,7 +62,8 @@ class Convert {
 	public static Resource loadResource(ISourceLocation uri) throws IOException {
 		ResourceSet rs = new ResourceSetImpl();
 		java.net.URI x = uri.getURI();
-		Resource res = rs.getResource(URI.createURI(normalizeURI(x.toString())), true);
+		URI bla = URI.createURI(normalizeURI(x.toString()));
+		Resource res = rs.getResource(bla, true);
 		URIResolverRegistry reg = URIResolverRegistry.getInstance();
 		res.load(reg.getInputStream(uri), Collections.emptyMap());
 		return res;
@@ -334,7 +338,14 @@ class Convert {
 	 * Build ADT while visiting EObject content
 	 */
 	public static IValue obj2value(Object obj, Type type, IValueFactory vf, TypeStore ts, ISourceLocation src) {
-
+		if (obj instanceof EEnumLiteral) {
+			// TODO: enum support does not yet work for the other direction (rascal -> EMF)
+			EEnumLiteral enumLit = (EEnumLiteral)obj;
+			
+			Type t = ts.lookupAbstractDataType(((EEnum)enumLit.eContainer()).getName());
+			return vf.constructor(ts.lookupConstructor(t, enumLit.getName()).iterator().next());
+		}
+		
 		if (obj instanceof EObject) {
 			EObject eObj = (EObject) obj;
 			EClass eCls = eObj.eClass();
@@ -361,6 +372,10 @@ class Convert {
 				// Rascal side
 				String fieldName = t.getFieldName(i);
 				Type fieldType = t.getFieldType(i);
+				
+				if (fieldName.equals("type")) {
+					System.out.println("BLA");
+				}
 				
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
@@ -394,19 +409,23 @@ class Convert {
 				String fieldName = e.getKey();
 				Type fieldType = e.getValue();
 
-				
 				if (fieldName.equals("uid") || fieldName.equals("pkgURI")) {
 					continue;
+				}
+				
+				if (fieldName.equals("entity")) {
+					System.out.println("BLA");
 				}
 				
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				
-				if (!eObj.eIsSet(feature)) {
-					continue;
+				
+				Object featureValue = eObj.eGet(feature, true);
+				
+				if (featureValue == null) {
+					continue; // it will be a keyword param anyway.
 				}
-
-				Object featureValue = eObj.eGet(feature);
 				
 				if (feature instanceof EReference) {
 					// Then featureValue is an EObject
@@ -447,10 +466,7 @@ class Convert {
 			return arg;
 		}
 		
-		if (obj.getClass().isEnum()) {
-			Type t = ts.lookupAbstractDataType(((Enum<?>)obj).getDeclaringClass().getSimpleName());
-			return vf.constructor(ts.lookupConstructor(t, ((Enumerator)obj).getLiteral()).iterator().next());
-		}
+		
 
 		return makePrimitive(obj, type, vf);
 	}
@@ -495,10 +511,11 @@ class Convert {
 	 */
 	@SuppressWarnings("unchecked")
 	private static IValue visitAttribute(EStructuralFeature ref, Object refValue, Type fieldType, IValueFactory vf, TypeStore ts) {
+		
 		if (ref.isMany()) {
 			return makeMultiValued((List<Object>)refValue, vf, x -> makePrimitive(x, fieldType, vf));
 		}
-		if (refValue.getClass().isEnum()) {
+		if (refValue != null && (refValue.getClass().isEnum() || refValue instanceof EEnumLiteral)) {
 			return obj2value(refValue, fieldType, vf, ts, null);
 		}
 		return makePrimitive(refValue, fieldType, vf);
