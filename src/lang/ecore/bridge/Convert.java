@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 
 import org.eclipse.emf.common.util.BasicEList;
 import org.eclipse.emf.common.util.EList;
-import org.eclipse.emf.common.util.Enumerator;
 import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EAttribute;
 import org.eclipse.emf.ecore.EClass;
@@ -25,7 +24,6 @@ import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
-import org.eclipse.emf.ecore.resource.Resource.Diagnostic;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
@@ -55,7 +53,7 @@ import io.usethesource.vallang.type.TypeFactory;
 import io.usethesource.vallang.type.TypeStore;
 import io.usethesource.vallang.visitors.IValueVisitor;
 
-class Convert {
+public class Convert {
 
 	private static TypeFactory tf = TypeFactory.getInstance();
 	
@@ -373,10 +371,6 @@ class Convert {
 				String fieldName = t.getFieldName(i);
 				Type fieldType = t.getFieldType(i);
 				
-				if (fieldName.equals("type")) {
-					System.out.println("BLA");
-				}
-				
 				// EMF side
 				EStructuralFeature feature = eCls.getEStructuralFeature(fieldName);
 				Object featureValue = eObj.eGet(feature);
@@ -411,10 +405,6 @@ class Convert {
 
 				if (fieldName.equals("uid") || fieldName.equals("pkgURI")) {
 					continue;
-				}
-				
-				if (fieldName.equals("entity")) {
-					System.out.println("BLA");
 				}
 				
 				// EMF side

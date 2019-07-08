@@ -5,6 +5,7 @@ import lang::ecore::Refs;
 
 EPackage flattenInheritance(Realm realm, EPackage mm) {
    EClass flattenClass(EClass t) {
+     // TODO: instantiate the generic super types.
      supers = [ flattenClass(lookup(mm, #EClass, sup)) | sup <- t.eSuperTypes ]; 
      t.eStructuralFeatures  
        = [ EStructuralFeature(realm.new(#EAttribute, f)) | s <- supers, EStructuralFeature(EAttribute f) <- s.eStructuralFeatures ]

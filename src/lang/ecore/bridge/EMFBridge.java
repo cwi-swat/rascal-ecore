@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.eclipse.core.runtime.Platform;
 import org.eclipse.emf.common.notify.Notifier;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
@@ -19,9 +18,8 @@ import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.eclipse.emf.edit.command.ChangeCommand;
 import org.rascalmpl.debug.IRascalMonitor;
-import org.rascalmpl.eclipse.nature.ProjectEvaluatorFactory;
+//import org.rascalmpl.eclipse.nature.ProjectEvaluatorFactory;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.IEvaluator;
 import org.rascalmpl.interpreter.NullRascalMonitor;
@@ -61,98 +59,98 @@ public class EMFBridge {
 	// The signature of the `function` should be
 	// Patch (Loader[&T] load);
 
-	public static ChangeCommand runRascal(String bundleId, EObject obj, String module, String function) {
-		if (!(bundleEvals.containsKey(bundleId))) {
-			GlobalEnvironment heap = new GlobalEnvironment();
-		    Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), 
-		    		new ModuleEnvironment("$emfbridge$", heap), heap);
-		    ProjectEvaluatorFactory.getInstance().initializeBundleEvaluator(Platform.getBundle(bundleId), eval);
-			bundleEvals.put(bundleId, eval);
-		}
-		Evaluator eval = bundleEvals.get(bundleId);
-		IRascalMonitor mon = new NullRascalMonitor();
-		eval.doImport(mon, module);
-		URI uri = EcoreUtil.getURI(obj);
-		ISourceLocation src;
-		try {
-			src = eval.getValueFactory().sourceLocation(uri.scheme(), uri.authority(), uri.path(), uri.query(), uri.fragment());
-		} catch (URISyntaxException e) {
-			throw RuntimeExceptionFactory.malformedURI(uri.toString(), null, null);
-		}
-		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, src, eval) });
-		
-		return patch(obj, patch);
-	}
+//	public static ChangeCommand runRascal(String bundleId, EObject obj, String module, String function) {
+//		if (!(bundleEvals.containsKey(bundleId))) {
+//			GlobalEnvironment heap = new GlobalEnvironment();
+//		    Evaluator eval = new Evaluator(ValueFactoryFactory.getValueFactory(), new PrintWriter(System.err), new PrintWriter(System.out), 
+//		    		new ModuleEnvironment("$emfbridge$", heap), heap);
+//		    ProjectEvaluatorFactory.getInstance().initializeBundleEvaluator(Platform.getBundle(bundleId), eval);
+//			bundleEvals.put(bundleId, eval);
+//		}
+//		Evaluator eval = bundleEvals.get(bundleId);
+//		IRascalMonitor mon = new NullRascalMonitor();
+//		eval.doImport(mon, module);
+//		URI uri = EcoreUtil.getURI(obj);
+//		ISourceLocation src;
+//		try {
+//			src = eval.getValueFactory().sourceLocation(uri.scheme(), uri.authority(), uri.path(), uri.query(), uri.fragment());
+//		} catch (URISyntaxException e) {
+//			throw RuntimeExceptionFactory.malformedURI(uri.toString(), null, null);
+//		}
+//		ITuple patch = (ITuple) eval.call(function, new IValue[] { new ObtainModelClosure(obj, src, eval) });
+//		
+//		return patch(obj, patch);
+//	}
 	
-	@SuppressWarnings("unchecked")
-	public static ChangeCommand patch(EObject root, ITuple patch) {
-		EPackage pkg = root.eClass().getEPackage();
-		EFactory fact = pkg.getEFactoryInstance();
-		Map<IConstructor, EObject> cache = new HashMap<>();
-		
-		List<Notifier> roots = new ArrayList<>();
-		roots.add(root);
-		
-		
-		ChangeCommand result = new ChangeCommand(roots) {
-
-			@Override
-			protected void doExecute() {
-				//root.eSetDeliver(false);
-				
-				for (IValue v: (IList)patch.get(1)) {
-					ITuple idEdit = (ITuple)v;
-					IConstructor id = (IConstructor) idEdit.get(0);
-					IConstructor edit = (IConstructor) idEdit.get(1);
-					
-					if (edit.getName().equals("create")) {
-						String clsName = ((IString)edit.get("class")).getValue();
-						EClass eCls = (EClass) pkg.getEClassifier(clsName);
-						EObject obj = fact.create(eCls);
-						cache.put(id, obj);
-					}
-					else {
-						EObject obj = lookup(root, id, cache);
-
-						if (edit.getName().equals("destroy")) {
-							;
-							//cmds.add(DeleteCommand.create(domain, obj));
-						}
-						else {
-							String fieldName = ((IString)edit.get("field")).getValue();
-							
-							EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
-							if (edit.getName().equals("put")) {
-								Object val = value2obj(edit.get("val"), root, cache);
-								obj.eSet(field, val);
-							 }
-							else if (edit.getName().equals("unset")) {
-								obj.eUnset(field);
-							}
-							else {
-								EList<Object> lst = (EList<Object>)obj.eGet(field);
-								int pos = ((IInteger)edit.get("pos")).intValue();
-								if (edit.getName().equals("ins")) {
-									lst.add(pos, value2obj(edit.get("val"), root, cache));
-								}
-								else if (edit.getName().equals("del")) {
-									lst.remove(pos);
-								}
-								else {
-									throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
-								}
-							}
-						}
-					}
-					
-				}
-				
-				//root.eSetDeliver(true);
-			}
-			
-		};
-		return result;
-	}
+//	@SuppressWarnings("unchecked")
+//	public static ChangeCommand patch(EObject root, ITuple patch) {
+//		EPackage pkg = root.eClass().getEPackage();
+//		EFactory fact = pkg.getEFactoryInstance();
+//		Map<IConstructor, EObject> cache = new HashMap<>();
+//		
+//		List<Notifier> roots = new ArrayList<>();
+//		roots.add(root);
+//		
+//		
+//		ChangeCommand result = new ChangeCommand(roots) {
+//
+//			@Override
+//			protected void doExecute() {
+//				//root.eSetDeliver(false);
+//				
+//				for (IValue v: (IList)patch.get(1)) {
+//					ITuple idEdit = (ITuple)v;
+//					IConstructor id = (IConstructor) idEdit.get(0);
+//					IConstructor edit = (IConstructor) idEdit.get(1);
+//					
+//					if (edit.getName().equals("create")) {
+//						String clsName = ((IString)edit.get("class")).getValue();
+//						EClass eCls = (EClass) pkg.getEClassifier(clsName);
+//						EObject obj = fact.create(eCls);
+//						cache.put(id, obj);
+//					}
+//					else {
+//						EObject obj = lookup(root, id, cache);
+//
+//						if (edit.getName().equals("destroy")) {
+//							;
+//							//cmds.add(DeleteCommand.create(domain, obj));
+//						}
+//						else {
+//							String fieldName = ((IString)edit.get("field")).getValue();
+//							
+//							EStructuralFeature field = obj.eClass().getEStructuralFeature(fieldName);
+//							if (edit.getName().equals("put")) {
+//								Object val = value2obj(edit.get("val"), root, cache);
+//								obj.eSet(field, val);
+//							 }
+//							else if (edit.getName().equals("unset")) {
+//								obj.eUnset(field);
+//							}
+//							else {
+//								EList<Object> lst = (EList<Object>)obj.eGet(field);
+//								int pos = ((IInteger)edit.get("pos")).intValue();
+//								if (edit.getName().equals("ins")) {
+//									lst.add(pos, value2obj(edit.get("val"), root, cache));
+//								}
+//								else if (edit.getName().equals("del")) {
+//									lst.remove(pos);
+//								}
+//								else {
+//									throw RuntimeExceptionFactory.illegalArgument(edit, null, null);
+//								}
+//							}
+//						}
+//					}
+//					
+//				}
+//				
+//				//root.eSetDeliver(true);
+//			}
+//			
+//		};
+//		return result;
+//	}
 	
 	/*
 	 *  patch object root according to `patch`.

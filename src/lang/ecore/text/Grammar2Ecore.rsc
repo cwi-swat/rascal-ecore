@@ -152,7 +152,7 @@ lrel[str class, str field, bool req, bool id, Symbol symbol, tuple[str class, st
   result = [];
   
   for (str cls <- classMap) {
-    flds = [ <fld, sym> | Production p <- prods, p.def.name == cls, label(str fld, Symbol sym) <- p.symbols ];
+    flds = [ <fld, sym> | Production p <- prods, bprintln(p), p.def.name == cls, label(str fld, Symbol sym) <- p.symbols ];
     result += [<cls, fld, isRequired(cls, fld, prods), idFor(cls, fld), sym, pathFor(cls, fld)> | <str fld, Symbol sym> <- flds ];
   }
 

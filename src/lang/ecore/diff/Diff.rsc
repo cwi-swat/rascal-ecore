@@ -166,6 +166,7 @@ value primOrId(value v) {
 
 bool isInjectionProd(Production p) = label("_inject", _) <- p.kwTypes;
   
+// TODO: move to utils
 list[str] getParams(type[&T<:node] meta, Symbol s, str c)
   = [ fld | p:cons(label(c, s), list[Symbol] ps, _, _) <- meta.definitions[s].alternatives, label(str fld, _) <- ps, !isInjectionProd(p) ];
 
