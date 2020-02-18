@@ -5,8 +5,8 @@
 
 	<parent>
 		<groupId>io.usethesource</groupId>
-		<artifactId>pom-parent</artifactId>
-		<version>0.2.0</version>
+		<artifactId>pom_parent</artifactId>
+		<version>0.3.5</version>
 	</parent>
 
 	<artifactId>rascal_ecore</artifactId>
@@ -17,14 +17,6 @@
 		<developerConnection>scm:git:https://github.com/cwi-swat/rascal-ecore.git</developerConnection>
 	</scm>
 	<packaging>jar</packaging>
-
-
-	<repositories>
-		<repository>
-			<id>usethesource</id>
-			<url>http://nexus.usethesource.io/content/repositories/public/</url>
-		</repository>
-	</repositories>
 
 	<build>
 
